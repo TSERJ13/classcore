@@ -114,20 +114,55 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
                     setUser(u);
                     const meta = u.user_metadata || {};
-                    setProfile({
-                        ...meta,
-                        studio_name: meta.studio_name,
-                        studio_slug: currentSlug,
-                        role: isSuperAdmin ? 'owner' : (meta.role || 'admin'),
-                        photo_url: meta.photo_url || meta.avatar_url,
-                        is_activated: meta.is_activated !== false,
-                        ...(isSuperAdmin ? {
-                            canViewAttendance: true, canViewSubscriptions: true, canViewStudents: true,
-                            canViewCalendar: true, canEditCalendar: true, canViewGroups: true,
-                            canViewTeachers: true, canViewHalls: true, canViewShop: true,
-                            canViewAnalytics: true, canViewSMS: true
-                        } : {})
-                    });
+                    const resolvedRole = isSuperAdmin ? 'owner' : (meta.role || 'admin');
+
+                    if (resolvedRole === 'owner' || resolvedRole === 'admin') {
+                        // Main Administrator (or the never-issued legacy
+                        // 'admin') — bypasses PermissionGuard entirely
+                        // (access.ts's isOwnerOrAdmin), so no permission
+                        // computation needed here.
+                        setProfile({
+                            ...meta,
+                            studio_name: meta.studio_name,
+                            studio_slug: currentSlug,
+                            role: resolvedRole,
+                            photo_url: meta.photo_url || meta.avatar_url,
+                            is_activated: meta.is_activated !== false,
+                            ...(isSuperAdmin ? {
+                                canViewAttendance: true, canViewSubscriptions: true, canViewStudents: true,
+                                canViewCalendar: true, canEditCalendar: true, canViewGroups: true,
+                                canViewTeachers: true, canViewHalls: true, canViewShop: true,
+                                canViewAnalytics: true, canViewSMS: true
+                            } : {})
+                        });
+                    } else {
+                        // A real Supabase Auth session whose role is NOT
+                        // owner-tier — today this only happens after a Main
+                        // Administrator status transfer
+                        // (docs/authorization-module.md §7): the former
+                        // Main Administrator keeps their existing Supabase
+                        // Auth login, but `role` becomes 'administrator',
+                        // so they no longer bypass PermissionGuard and need
+                        // real effective permissions computed, same as a
+                        // staff-token Administrator session below.
+                        const roleTier = resolveRoleTier(resolvedRole, false);
+                        let locks: import('@/lib/permissions/resolve').PermissionLock[] = [];
+                        try {
+                            locks = await getPermissionLocksAction();
+                        } catch (err) {
+                            console.warn('⚠️ [UserProvider] Failed to fetch permission locks, proceeding without them:', err);
+                        }
+                        const effectivePermissions = computeEffectivePermissions(roleTier, meta.permissions, locks, u.id);
+                        setProfile({
+                            ...meta,
+                            ...effectivePermissions,
+                            studio_name: meta.studio_name,
+                            studio_slug: currentSlug,
+                            role: resolvedRole,
+                            photo_url: meta.photo_url || meta.avatar_url,
+                            is_activated: meta.is_activated !== false,
+                        });
+                    }
                 } else if (staffSess) {
                     const { staff, slug, studioName } = staffSess as any;
                     const settings = loadSettings(slug);
