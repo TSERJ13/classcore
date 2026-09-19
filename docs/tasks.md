@@ -789,3 +789,31 @@ Landed:
 Not done (deliberately out of scope, no PRD basis to build against): self-service invite-by-email
 for students (mirroring Teacher's flow), multi-role linking (a person who is both Teacher and
 Student), role-switching UI.
+
+### API contract convention: `{data, error}` shape for a future mobile API
+
+Status: completed
+
+Triggered by a review of an "API response format" standard doc (`{data, error}` envelope,
+`/api/{entity}` REST routes, pagination, camelCase-in-JSON/snake_case-in-DB) against this codebase.
+Finding: the doc assumes a REST layer that doesn't exist here — every entity (students, groups,
+staff, branches, subscriptions, ...) already went through the Arch migration onto Server Actions
+(direct function calls, no HTTP boundary), so adopting the doc literally would mean tearing that
+migration back out. User confirmed a mobile app *is* planned (manager + staff + client), but only
+after the web app is done — so no reason to build `/api/v1/{entity}` routes yet, but good reason to
+start shaping Server Actions so that layer is a thin addition later instead of a rewrite.
+
+Landed:
+- `src/lib/action-result.ts` — `ActionResult<T>` (`{data,error}` union), `ok`/`fail`/`okList`
+  helpers, `clampPagination`.
+- `docs/agents/api-contract.md` — the convention: new/touched Server Actions return
+  `ActionResult<T>`; list actions return `{items, page, pageSize, totalCount}`; logic worth sharing
+  moves to a plain `src/lib/logic/<entity>.ts` function the Server Action wraps, so a future mobile
+  API route can call the same function instead of a second implementation. Referenced from
+  `AGENTS.md`.
+
+Not done (deliberately deferred until mobile work is actually scoped): any `/api/v1/{entity}` HTTP
+route; mobile auth design (bearer token vs. cookie — existing staff-token accounts have no
+bearer-token equivalent yet); bulk conversion of the ~15 existing Server Action files in
+`src/app/actions/` to the new shape (they keep their current `void`/throw pattern until touched for
+another reason).
