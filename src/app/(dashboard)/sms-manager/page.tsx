@@ -5,7 +5,7 @@ import { useUser } from '@/hooks/useUser';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { THEMES } from '@/lib/settings-store';
-import { MessageSquare, Settings2, BarChart3, AlertCircle, RefreshCw, Send, PartyPopper, User, Shield, Moon, Power } from 'lucide-react';
+import { MessageSquare, Settings2, BarChart3, AlertCircle, RefreshCw, Send, PartyPopper, User, Shield, Moon, Power, Wallet } from 'lucide-react';
 import { addNotification } from '@/lib/notification-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { SearchSelect, SearchSelectOption } from '@/components/ui/SearchSelect';
@@ -16,6 +16,7 @@ import { isSmsKillSwitchActive } from '@/lib/settings-store';
 import { CategoryTemplatesTab } from '@/components/sms/CategoryTemplatesTab';
 import { LogsTab } from '@/components/sms/LogsTab';
 import { BroadcastTab } from '@/components/sms/BroadcastTab';
+import { getSmsBalanceAction } from '@/app/actions/sms-balance';
 
 export default function SmsManagerPage() {
     const { t, lang } = useT();
@@ -33,6 +34,19 @@ export default function SmsManagerPage() {
 
     // Students State (for picker)
     const [students, setStudents] = useState<any[]>([]);
+
+    // Persistent balance indicator (SMS PRD §2/§11) — visible across every
+    // tab, since it's one page. `null` = not yet loaded/not configured;
+    // never shown as a fabricated number.
+    const [smsBalance, setSmsBalance] = useState<number | null>(null);
+    const [balanceError, setBalanceError] = useState<string | null>(null);
+
+    useEffect(() => {
+        getSmsBalanceAction().then(result => {
+            if (result.error) setBalanceError(result.error.message);
+            else setSmsBalance(result.data.balance);
+        });
+    }, []);
 
     // Personal SMS State
     const [selectedStudent, setSelectedStudent] = useState<string>('');
@@ -125,6 +139,17 @@ export default function SmsManagerPage() {
                         {t.smsManagerDesc}
                     </p>
                 </div>
+                {smsBalance !== null ? (
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border-subtle rounded-xl shrink-0">
+                        <Wallet className="w-4 h-4 text-emerald-500" />
+                        <span className="text-sm font-black text-primary">{smsBalance.toLocaleString()}</span>
+                        <span className="text-[10px] font-bold text-muted/50 uppercase tracking-wider">SMS</span>
+                    </div>
+                ) : balanceError ? (
+                    <p className="text-[11px] text-muted/40 max-w-[220px] text-right shrink-0" title={balanceError}>
+                        {l('ბალანსი მიუწვდომელია', 'Баланс недоступен', 'Balance unavailable')}
+                    </p>
+                ) : null}
             </div>
 
             {/* Tabs */}

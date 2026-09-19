@@ -1107,3 +1107,45 @@ Notes:
 
 **Not done (still open)**: balance/billing UI; Personal tab remains untemplated by design (see
 above); the git-history PII exposure is still unremediated (see Phase 5/6's notes).
+
+### Phase 8: Real SMS balance indicator (PRD §2/§11, read-only half)
+
+Status: completed
+
+Re-examined PRD §11 and found the balance/purchase UI splits into two genuinely different pieces:
+"show the real current balance" (a live read against GOSMS) and "process a purchase" (real money —
+explicitly, per the PRD's own text, handled in a separate Billing module that doesn't exist yet).
+Only the first is buildable now. No "Buy SMS" button was added — a button with nowhere to send the
+user would be a dead end, worse than not having one.
+
+Researched (not guessed) the actual endpoint: GOSMS's actively-maintained Node SDK
+(`github.com/gosms-ge/gosmsge-node`, fetched from GitHub — `api.gosms.ge` itself is not reachable
+from this environment's network egress policy) calls `POST https://api.gosms.ge/api/sms-balance`
+with a JSON body `{api_key}`, returning `{success, balance}` — the same base URL and JSON-body style
+this app's existing `/api/sms/send` already uses against `.../api/sendsms`, which corroborates it.
+**No live call was made against this endpoint during development** — `GOSMS_API_KEY` isn't set in
+this environment, and the user explicitly asked that nothing send/hit GOSMS live while this was
+being built (a balance check doesn't send an SMS either way, but the key's absence made the point
+moot regardless).
+
+**Built**:
+- `src/app/actions/sms-balance.ts` — `getSmsBalanceAction()`: POSTs to the endpoint above, returns
+  `ActionResult<{balance: number}>`. `not_configured` when `GOSMS_API_KEY` is unset (same pattern as
+  every other GOSMS-gated feature in this module); never fabricates a number on any failure path.
+- `sms-manager/page.tsx`: a persistent balance pill in the header (visible across every tab, per PRD
+  §2's "constant top bar"), fetched once on mount. Shows nothing but a quiet "unavailable" note on
+  any error — no placeholder/fake balance ever rendered.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: `sms-balance.ts` fully clean; no new issues on the touched page.
+- **Not verified against a live response** — the endpoint and response shape are corroborated from
+  two independent GOSMS SDK sources (the actively-maintained Node one, and field names cross-checked
+  against the pattern this app's own working `sendsms` integration already uses), but the first real
+  call once `GOSMS_API_KEY` is set in the deployment environment should be sanity-checked before
+  relying on the number shown.
+
+**Not done (still open)**: the purchase/checkout flow itself (needs the separate Billing module the
+PRD describes); auto-continue-on-exhaustion (a real toggle here would be inert without a way to
+detect exhaustion, which needs the same billing integration); low-balance in-app warning threshold
+(buildable now that a real number exists — natural next step if wanted); Personal tab remains
+untemplated by design; the git-history PII exposure is still unremediated.
