@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, Loader2, Save } from 'lucide-react';
+import { X, Loader2, Save, Languages } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import { SearchSelect, SearchSelectOption } from '@/components/ui/SearchSelect';
 import { addNotification } from '@/lib/notification-store';
 import { createSmsTemplateAction, updateSmsTemplateAction, type SmsTemplate } from '@/app/actions/sms-templates';
+import { translateSmsTemplateAction } from '@/app/actions/sms-translate';
 
 interface TemplateModalProps {
     open: boolean;
@@ -45,6 +46,7 @@ export function TemplateModal({ open, onClose, categoryId, template, groups, bra
     const [freqCount, setFreqCount] = useState<string>('');
     const [freqDays, setFreqDays] = useState<string>('');
     const [saving, setSaving] = useState(false);
+    const [translating, setTranslating] = useState(false);
 
     useEffect(() => {
         if (!open) return;
@@ -62,6 +64,25 @@ export function TemplateModal({ open, onClose, categoryId, template, groups, bra
     if (!open) return null;
 
     const targetOptions = recipientScope === 'group' ? groups : recipientScope === 'branch' ? branches : recipientScope === 'person' ? students : [];
+
+    async function handleTranslate() {
+        const sourceText = langTab === 'ka' ? textKa : langTab === 'ru' ? textRu : textEn;
+        if (!sourceText.trim()) return;
+        setTranslating(true);
+        try {
+            const result = await translateSmsTemplateAction({ text: sourceText, sourceLang: langTab });
+            if (result.error) {
+                addNotification(result.error.message, 'bg-rose-500');
+                return;
+            }
+            if (result.data.ka && langTab !== 'ka') setTextKa(result.data.ka);
+            if (result.data.ru && langTab !== 'ru') setTextRu(result.data.ru);
+            if (result.data.en && langTab !== 'en') setTextEn(result.data.en);
+            addNotification(l('ითარგმნა — გადახედეთ და შესწორეთ საჭიროებისამებრ', 'Переведено — проверьте и отредактируйте при необходимости', 'Translated — review and edit as needed'), 'bg-emerald-500');
+        } finally {
+            setTranslating(false);
+        }
+    }
 
     async function handleSave() {
         if (!name.trim()) return;
@@ -120,13 +141,21 @@ export function TemplateModal({ open, onClose, categoryId, template, groups, bra
                         </div>
 
                         <div className="space-y-2">
-                            <div className="flex bg-surface border border-border-subtle rounded-lg p-1 w-fit">
-                                {(['ka', 'ru', 'en'] as const).map(lg => (
-                                    <button key={lg} onClick={() => setLangTab(lg)}
-                                        className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${langTab === lg ? 'bg-indigo-500 text-white shadow-sm' : 'text-muted hover:text-primary'}`}>
-                                        {lg.toUpperCase()}
-                                    </button>
-                                ))}
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex bg-surface border border-border-subtle rounded-lg p-1 w-fit">
+                                    {(['ka', 'ru', 'en'] as const).map(lg => (
+                                        <button key={lg} onClick={() => setLangTab(lg)}
+                                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${langTab === lg ? 'bg-indigo-500 text-white shadow-sm' : 'text-muted hover:text-primary'}`}>
+                                            {lg.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button onClick={handleTranslate} disabled={translating || !(langTab === 'ka' ? textKa : langTab === 'ru' ? textRu : textEn).trim()}
+                                    title={l('AI-ით თარგმნა დანარჩენ ენებზე', 'Перевести с помощью AI на другие языки', 'Translate to the other languages with AI')}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black text-indigo-500 hover:bg-indigo-500/10 transition-colors disabled:opacity-40">
+                                    {translating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Languages className="w-3.5 h-3.5" />}
+                                    {l('თარგმნა', 'Перевести', 'Translate')}
+                                </button>
                             </div>
                             <textarea
                                 value={langTab === 'ka' ? textKa : langTab === 'ru' ? textRu : textEn}

@@ -1020,3 +1020,40 @@ Notes:
 
 **Not done (still open)**: AI translation; balance/billing UI; Personal/Holiday tabs still don't go
 through the new template model; the git-history PII exposure above is flagged, not remediated.
+
+### Phase 6: AI auto-translation (PRD §7)
+
+Status: completed
+
+The one remaining PRD item buildable without a payment-provider decision — AI translation only
+needs an LLM API, and this app already runs inside the Claude/Anthropic ecosystem, so using
+`@anthropic-ai/sdk` isn't picking an arbitrary new vendor the way a payment processor for §11's
+balance/billing UI would be. Balance/billing itself is still deliberately deferred — genuinely no
+default provider exists anywhere in this codebase, and picking one is a business decision, not a
+technical one.
+
+**Built**:
+- `@anthropic-ai/sdk` added as a dependency.
+- `src/app/actions/sms-translate.ts` — `translateSmsTemplateAction({text, sourceLang})`: calls
+  `claude-opus-5` at `effort: 'low'` (a short, mechanical text-transform task — the skill's own
+  guidance is low effort for simple/subagent-shaped work) with a system prompt instructing it to
+  preserve every `{placeholder}` used across this app's templates untouched, and to respond with a
+  single-line JSON object mapping the two other language codes to their translations. Gated entirely
+  behind `ANTHROPIC_API_KEY` — with no key set, returns `fail('not_configured', ...)` instead of
+  throwing, matching `/api/sms/send/route.ts`'s existing GOSMS_API_KEY-missing pattern. No other part
+  of the SMS module depends on this; every earlier phase works identically with or without a key set.
+- `src/components/sms/TemplateModal.tsx` — a "თარგმნა" (Translate) button next to the language tabs:
+  translates the currently-active language's text into the other two, filling their fields (never
+  overwriting the source language itself) — fully editable afterward, same as every other field.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: fully clean on both new/touched files.
+- Not tested against a live Anthropic API key in this environment (none configured here) — the
+  "not configured" path was verified; the actual translation call itself should be sanity-checked
+  once a real `ANTHROPIC_API_KEY` is set in the deployment environment.
+
+**Not done (still open)**: balance/billing UI (§11 — needs a payment-provider decision); Personal/
+Holiday tabs still don't go through the new template model; the git-history PII exposure (flagged
+in Phase 5) is not remediated — Claude Code's own Auto Mode safety classifier blocked the
+`git filter-repo` history-rewrite command outright ("Git Destructive"), so this needs to be run by
+the repo owner directly; the exact commands are in the conversation, not repeated here.
