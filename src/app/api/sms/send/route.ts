@@ -41,6 +41,7 @@ async function saveLog(orgId: string | null, logEntry: any) {
             // settings-blob-based automated sends.
             template_id: logEntry.templateId || null,
             recipient_student_id: logEntry.recipientStudentId || null,
+            provider_message_id: logEntry.providerMessageId || null,
         });
     } catch (e) {
         console.error('Failed to save SMS log', e);
@@ -113,6 +114,14 @@ export async function POST(req: Request) {
 
         const data = await response.json();
         const isSuccess = data.success || (Array.isArray(data) && data[0]?.success);
+        // Best-effort field detection — GOSMS's exact response schema for a
+        // per-message id isn't documented anywhere in this repo, so this
+        // tries the plausible field names rather than assuming one. If
+        // none match, provider_message_id stays null and the delivery-
+        // status webhook (/api/webhooks/gosms) simply has nothing to
+        // match against for this send — never a hard failure either way.
+        const providerMessageId = data?.id || data?.message_id || data?.messageId
+            || (Array.isArray(data) && (data[0]?.id || data[0]?.message_id || data[0]?.messageId)) || null;
 
         if (!response.ok || !isSuccess) {
             console.error('GOSMS Error:', data);
@@ -135,6 +144,7 @@ export async function POST(req: Request) {
             text,
             status: 'success',
             templateId, recipientStudentId,
+            providerMessageId,
         });
 
         return NextResponse.json(data);

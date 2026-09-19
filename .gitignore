@@ -30,6 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Legacy SMS webhook log file (real customer names/phone numbers) — the
+# webhook route that wrote it (src/app/api/webhooks/gosms/route.ts) has
+# been fixed to write into the real, org-scoped `sms_logs` table instead.
+# See docs/tasks.md's SMS Module PRD alignment, Phase 5.
+.sms-logs.json
+
 # env files (can opt-in for committing if needed)
 .env*
 

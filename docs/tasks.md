@@ -983,3 +983,40 @@ Notes:
 
 **Not done (still open)**: AI translation; balance/billing UI; per-template log drill-down + retry
 button; Personal/Holiday tabs still don't go through the new model.
+
+### Phase 5: Per-template log drill-down + retry, and a real delivery-status webhook
+
+Status: completed
+
+**Built**:
+- `src/components/sms/LogsTab.tsx` — replaces the flat "Recent Messages" table. Groups
+  `sms_logs` rows by `template_id` (PRD §9's "დაჯგუფება პერ-შაბლონ"), unlinked sends (Personal/
+  Holiday tabs, or an automated send that fell back to the old blob) land in an "სხვა" bucket rather
+  than being hidden. Each group expands to a drill-down list (recipient, phone, timestamp, error
+  text, delivery status badge) with a **Retry** button on failed sends — resends via the same
+  `sendSms()` path, carrying the original `templateId`/`recipientStudentId` through.
+- **Real delivery-status webhook**: `/api/webhooks/gosms/route.ts` was still writing every payload to
+  a repo-root `.sms-logs.json` file — the exact ephemeral-disk/no-scoping pattern already fixed
+  elsewhere (see `/api/sms/send`'s own comments) but missed on this route. Rewritten to update the
+  matching `sms_logs.delivery_status` by `provider_message_id` instead. `/api/sms/send/route.ts` now
+  captures that id (best-effort field detection — GOSMS's exact response schema isn't documented
+  anywhere in this repo) at send time so the webhook has something to match against.
+- **Found and fixed, not originally in scope**: `.sms-logs.json` — the file that old webhook route
+  was writing to — was itself **committed to the repo**, containing real student names and phone
+  numbers from production sends. Removed from the tree and added to `.gitignore`. **This does not
+  remove it from git history** — it's still present in every commit from `a6cb2ac` onward, reachable
+  by anyone with repo access. Purging it for real needs a history rewrite (e.g. `git filter-repo`)
+  and a force-push, which is destructive to any other clones/forks — flagged to the user rather than
+  done unprompted.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: `LogsTab.tsx` and the rewritten webhook route are fully clean; no new
+  issues on touched pre-existing files (verified against a pre-change baseline).
+- Playwright/dev-server smoke check: `/sms-manager` compiles and returns 200, no console/build
+  errors.
+- The webhook's field-name matching (message id, delivery status) is explicitly best-effort per its
+  own comments — GOSMS's real webhook payload schema should be checked against actual traffic (or
+  their docs, if any) once available, rather than trusted as correct from guesswork alone.
+
+**Not done (still open)**: AI translation; balance/billing UI; Personal/Holiday tabs still don't go
+through the new template model; the git-history PII exposure above is flagged, not remediated.

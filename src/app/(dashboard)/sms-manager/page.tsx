@@ -14,6 +14,7 @@ import { formatSmsTemplate, resolveSmsRecipientName, sendSms } from '@/lib/sms-s
 import { getSubscription } from '@/lib/subscription-store';
 import { isSmsKillSwitchActive } from '@/lib/settings-store';
 import { CategoryTemplatesTab } from '@/components/sms/CategoryTemplatesTab';
+import { LogsTab } from '@/components/sms/LogsTab';
 
 export default function SmsManagerPage() {
     const { t, lang } = useT();
@@ -30,10 +31,6 @@ export default function SmsManagerPage() {
     const [quietStart, setQuietStart] = useState(settings.smsManager?.quietHours?.startHour ?? 23);
     const [quietEnd, setQuietEnd] = useState(settings.smsManager?.quietHours?.endHour ?? 10);
     const killSwitchActive = isSmsKillSwitchActive(settings);
-
-    // Logs State
-    const [logs, setLogs] = useState<any[]>([]);
-    const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
     // Students State (for picker)
     const [students, setStudents] = useState<any[]>([]);
@@ -81,22 +78,6 @@ export default function SmsManagerPage() {
     function handleToggleKillSwitch() {
         updateSettings({ smsManager: { ...settings.smsManager, killSwitchActive: !killSwitchActive } });
     }
-
-    useEffect(() => {
-        if (tab === 'stats') {
-            setIsLoadingLogs(true);
-            fetch('/api/sms/logs')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success && data.logs) {
-                        const sorted = [...data.logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-                        setLogs(sorted);
-                    }
-                })
-                .catch(() => addNotification({ title: t.errorStatus, message: t.logError, type: 'error', time: t.now }))
-                .finally(() => setIsLoadingLogs(false));
-        }
-    }, [tab]);
 
     const handleSendPersonal = () => {
         if (!selectedStudent || !personalMsg) return;
@@ -462,120 +443,8 @@ export default function SmsManagerPage() {
                 )
             }
 
-            {/* Content Tab: Stats */}
-            {
-                tab === 'stats' && (
-                    <div className="space-y-6">
-                        {/* Summary Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="bg-surface rounded-2xl border border-border-subtle p-5 flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0`}>
-                                    <MessageSquare className="w-6 h-6 text-blue-400" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-muted/60">{t.totalSentToday}</p>
-                                    <p className="text-2xl font-bold text-primary mt-1">
-                                        {logs.filter(l => new Date(l.timestamp).toDateString() === new Date().toDateString()).length}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="bg-surface rounded-2xl border border-border-subtle p-5 flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0`}>
-                                    <BarChart3 className="w-6 h-6 text-emerald-400" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-muted/60">{t.totalSentHistory}</p>
-                                    <p className="text-2xl font-bold text-primary mt-1">{logs.length}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Table */}
-                        <div className="bg-surface rounded-2xl border border-border-subtle overflow-hidden">
-                            <div className="p-5 border-b border-border-subtle flex justify-between items-center">
-                                <h2 className="text-base font-semibold text-primary">{t.recentMessages}</h2>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <tbody className="divide-y divide-border-subtle flex flex-col md:table-row-group">
-                                        <tr className="hidden md:table-row bg-surface/30 uppercase text-[10px] font-black tracking-widest text-muted/40 border-b border-border-subtle">
-                                            <th className="px-5 py-3">{t.dateTable}</th>
-                                            <th className="px-5 py-3">{t.userTable}</th>
-                                            <th className="px-5 py-3">{t.numberTable}</th>
-                                            <th className="px-5 py-3">{t.sentStatus}</th>
-                                            <th className="px-5 py-3">{t.msgIdTable}</th>
-                                        </tr>
-
-                                        {isLoadingLogs ? (
-                                            <tr>
-                                                <td colSpan={5} className="px-5 py-8 text-center text-muted/40">
-                                                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 opacity-50" />
-                                                    {t.loading}
-                                                </td>
-                                            </tr>
-                                        ) : logs.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={5} className="px-5 py-8 text-center text-muted/40">
-                                                    {t.logsEmpty}
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            logs.map((log, i) => (
-                                                <tr key={i} className="hover:bg-surface transition-colors flex flex-col md:table-row p-3 md:p-0 border-b md:border-b-0 border-border-subtle/30 last:border-0 relative">
-                                                    <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-indigo-500/30 md:hidden" />
-                                                    
-                                                    <td className="px-4 py-1 md:py-4 text-primary/80 whitespace-nowrap text-[10px]">
-                                                        <span className="md:hidden text-[8px] font-black text-muted/30 uppercase block leading-none mb-0.5">{t.dateTable}</span>
-                                                        {new Date(log.timestamp).toLocaleString('ka-GE', {
-                                                            month: 'short', day: 'numeric',
-                                                            hour: '2-digit', minute: '2-digit'
-                                                        })}
-                                                    </td>
-                                                    <td className="px-4 py-1 md:py-4 text-primary font-bold">
-                                                        <span className="md:hidden text-[8px] font-black text-muted/30 uppercase block leading-none mb-0.5">{t.userTable}</span>
-                                                        <div className="flex items-center gap-1.5">
-                                                            <div className="w-5 h-5 rounded-lg bg-indigo-500/5 flex items-center justify-center md:hidden shrink-0">
-                                                                <User className="w-2.5 h-2.5 text-indigo-500/60" />
-                                                            </div>
-                                                            <span className="truncate">{log.studentName || '-'}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-1 md:py-4 text-primary/60 font-mono text-[10px]">
-                                                        <span className="md:hidden text-[8px] font-black text-muted/30 uppercase block leading-none mb-0.5">{t.numberTable}</span>
-                                                        {log.to}
-                                                    </td>
-                                                    <td className="px-4 py-1 md:py-4">
-                                                        <span className="md:hidden text-[8px] font-black text-muted/30 uppercase block leading-none mb-0.5">{t.sentStatus}</span>
-                                                        <div className="flex items-center gap-2">
-                                                            {log.status === 'success' || log.status === 'DELIVERED' ? (
-                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[9px] font-black tracking-wider uppercase">
-                                                                    {t.sentStatus}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 text-[9px] font-black tracking-wider uppercase">
-                                                                    {t.errorStatus}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-1 md:py-4 text-muted/60 text-[10px] w-full max-w-[250px] relative group/td">
-                                                        <span className="md:hidden text-[8px] font-black text-muted/30 uppercase block leading-none mb-0.5">{t.msgIdTable}</span>
-                                                        <div className="flex flex-col">
-                                                            {log.text && <span className="truncate leading-tight text-primary/40 font-medium">{log.text}</span>}
-                                                            <span className="text-[8px] font-mono opacity-30 mt-0.5">ID: {log.id || log.messageId || '-'}</span>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))
-
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
+            {/* Content Tab: Logs (SMS PRD §9 — grouped per-template, with retry) */}
+            {tab === 'stats' && <LogsTab />}
             </div>
         </PermissionGuard>
     );
