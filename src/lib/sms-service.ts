@@ -28,7 +28,7 @@ type SmsEventStudent = {
     sms_reminders?: boolean;
 };
 
-function templateMatchesStudent(template: SmsTemplate, student: SmsEventStudent): boolean {
+export function templateMatchesStudent(template: SmsTemplate, student: SmsEventStudent): boolean {
     if (template.recipientScope === 'all') return true;
     if (!template.recipientTargetId) return true;
     if (template.recipientScope === 'group') return !!student.enrolled_group_ids?.includes(template.recipientTargetId);

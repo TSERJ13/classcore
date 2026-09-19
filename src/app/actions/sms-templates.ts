@@ -128,21 +128,53 @@ const SEED_TEMPLATES: Array<{ name: string; eventKey: string | null; triggerType
         en: 'Happy Birthday {name}! Best wishes, {studio}.' },
 ];
 
+// Phase 7: starter templates for the manual-broadcast category — the same
+// 4 fixed holidays the old Holiday tab hardcoded, now real, editable,
+// deletable templates instead of code — matching the PRD's "no fixed
+// predefined categories, the studio creates as many as it needs" (§3).
+const HOLIDAY_SEED_TEMPLATES: Array<{ name: string; ka: string; ru: string; en: string }> = [
+    { name: 'საახალწლო მილოცვა',
+        ka: 'გილოცავთ ახალ წელს! გისურვებთ წარმატებულ და ბედნიერ წელს {studio}-სთან ერთად.',
+        ru: 'С Новым Годом! Желаем успешного и счастливого года вместе с {studio}.',
+        en: 'Happy New Year! Wishing you a successful and happy year with {studio}.' },
+    { name: 'აღდგომის მილოცვა',
+        ka: 'გილოცავთ აღდგომის ბრწყინვალე დღესასწაულს! საუკეთესო სურვილებით, {studio}.',
+        ru: 'Поздравляем со светлым праздником Пасхи! С наилучшими пожеланиями, {studio}.',
+        en: 'Happy Easter! Best wishes from {studio}.' },
+    { name: '8 მარტის მილოცვა',
+        ka: 'გილოცავთ 8 მარტს! გისურვებთ სილამაზეს და ბედნიერებას. პატივისცემით, {studio}.',
+        ru: 'Поздравляем с 8 Марта! Желаем красоты и счастья. С уважением, {studio}.',
+        en: 'Happy March 8! Wishing you beauty and happiness. Sincerely, {studio}.' },
+    { name: '1 სექტემბრის მილოცვა',
+        ka: 'გილოცავთ სწავლის დაწყებას! გელით მეცადინეობებზე {studio}-ში.',
+        ru: 'Поздравляем с началом учебного года! Ждем вас на занятиях в {studio}.',
+        en: 'Happy First Day of School! Looking forward to seeing you at {studio}.' },
+];
+
 async function seedDefaultCategoryIfEmpty(ctx: DualAuthContext): Promise<void> {
     const { count } = await ctx.client.from('sms_categories').select('id', { count: 'exact', head: true }).eq('org_id', ctx.orgId);
     if ((count ?? 0) > 0) return;
 
     const categoryId = crypto.randomUUID();
-    const { error: catErr } = await ctx.client.from('sms_categories').insert({
-        id: categoryId, org_id: ctx.orgId, name: 'ზოგადი', color: null, icon: null, module_key: null, enabled: true,
-    });
+    const holidayCategoryId = crypto.randomUUID();
+    const { error: catErr } = await ctx.client.from('sms_categories').insert([
+        { id: categoryId, org_id: ctx.orgId, name: 'ზოგადი', color: null, icon: null, module_key: null, enabled: true },
+        { id: holidayCategoryId, org_id: ctx.orgId, name: 'დღესასწაულები', color: null, icon: null, module_key: null, enabled: true },
+    ]);
     if (catErr) return;
 
-    await ctx.client.from('sms_templates').insert(SEED_TEMPLATES.map(t => ({
-        id: crypto.randomUUID(), org_id: ctx.orgId, category_id: categoryId, name: t.name,
-        text_ka: t.ka, text_ru: t.ru, text_en: t.en, trigger_type: t.triggerType, event_key: t.eventKey,
-        recipient_scope: 'all', recipient_target_id: null, status: 'active', is_auto_generated: true,
-    })));
+    await ctx.client.from('sms_templates').insert([
+        ...SEED_TEMPLATES.map(t => ({
+            id: crypto.randomUUID(), org_id: ctx.orgId, category_id: categoryId, name: t.name,
+            text_ka: t.ka, text_ru: t.ru, text_en: t.en, trigger_type: t.triggerType, event_key: t.eventKey,
+            recipient_scope: 'all', recipient_target_id: null, status: 'active', is_auto_generated: true,
+        })),
+        ...HOLIDAY_SEED_TEMPLATES.map(t => ({
+            id: crypto.randomUUID(), org_id: ctx.orgId, category_id: holidayCategoryId, name: t.name,
+            text_ka: t.ka, text_ru: t.ru, text_en: t.en, trigger_type: 'manual' as const, event_key: null,
+            recipient_scope: 'all', recipient_target_id: null, status: 'active', is_auto_generated: true,
+        })),
+    ]);
 }
 
 export async function listSmsCategoriesAction(): Promise<ActionResult<SmsCategory[]>> {

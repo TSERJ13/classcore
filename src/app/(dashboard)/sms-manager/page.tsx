@@ -15,6 +15,7 @@ import { getSubscription } from '@/lib/subscription-store';
 import { isSmsKillSwitchActive } from '@/lib/settings-store';
 import { CategoryTemplatesTab } from '@/components/sms/CategoryTemplatesTab';
 import { LogsTab } from '@/components/sms/LogsTab';
+import { BroadcastTab } from '@/components/sms/BroadcastTab';
 
 export default function SmsManagerPage() {
     const { t, lang } = useT();
@@ -22,8 +23,6 @@ export default function SmsManagerPage() {
     const theme = THEMES[settings.themeKey];
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
 
-    // SMS Templates State (still read by the Holiday tab below — Text tab now uses CategoryTemplatesTab)
-    const [templates, setTemplates] = useState(settings.sms_templates);
     const [tab, setTab] = useState<'text' | 'personal' | 'holiday' | 'stats' | 'settings'>('text');
 
     // Global SMS settings (PRD §10): quiet hours draft + Master Kill-Switch (instant-apply, like the
@@ -40,16 +39,6 @@ export default function SmsManagerPage() {
     const [personalMsg, setPersonalMsg] = useState('');
     const [isSendingPersonal, setIsSendingPersonal] = useState(false);
 
-    // Holiday State
-    const [selectedHoliday, setSelectedHoliday] = useState<string | null>(null);
-
-    const HOLIDAYS = [
-        { id: 'new_year', icon: '🎄', ka: 'ახალი წელი', ru: 'Новый Год', en: 'New Year' },
-        { id: 'easter', icon: '🐣', ka: 'აღდგომა', ru: 'Пасха', en: 'Easter' },
-        { id: 'march_8', icon: '💐', ka: '8 მარტი', ru: '8 Марта', en: 'March 8' },
-        { id: 'sept_1', icon: '🔔', ka: '1 სექტემბერი', ru: '1 Сентября', en: 'Sept 1' },
-    ];
-
     // Load students on mount
     useEffect(() => {
         const raw = localStorage.getItem(`cc_student_data_${settings.studioSlug}`) || localStorage.getItem('cc_student_data');
@@ -64,11 +53,10 @@ export default function SmsManagerPage() {
     // Sync state when settings load
     useEffect(() => {
         if (isLoaded) {
-            setTemplates(settings.sms_templates);
             setQuietStart(settings.smsManager?.quietHours?.startHour ?? 23);
             setQuietEnd(settings.smsManager?.quietHours?.endHour ?? 10);
         }
-    }, [isLoaded, settings.sms_templates, settings.smsManager]);
+    }, [isLoaded, settings.smsManager]);
 
     function handleSaveQuietHours() {
         updateSettings({ smsManager: { ...settings.smsManager, quietHours: { startHour: quietStart, endHour: quietEnd } } });
@@ -112,54 +100,6 @@ export default function SmsManagerPage() {
             }
         }).catch(() => addNotification({ title: t.errorStatus, message: t.smsError, type: 'error', time: t.now }))
           .finally(() => setIsSendingPersonal(false));
-    };
-
-    const handleSendHoliday = async () => {
-        if (!selectedHoliday) return;
-        // Just a pre-flight check that SOME template exists for the currently
-        // selected holiday, in at least the admin's own language or the ka
-        // fallback — the actual per-student template is picked inside the loop
-        // below (see the fix note there).
-        const hasAnyTemplate = (templates[lang] as any)?.[selectedHoliday] || (templates.ka as any)?.[selectedHoliday];
-        if (!hasAnyTemplate) return;
-
-        const eligible = students.filter(s => s.phone);
-        const count = eligible.length;
-        if (!confirm(`${l('ნამდვილად გსურთ გაგზავნოთ მილოცვა ', 'Вы действительно хотите отправить поздравление ', 'Are you sure you want to send the greeting to ')} ${count} ${l('სტუდენტზე?', 'студентам?', 'students?')}`)) {
-            return;
-        }
-
-        addNotification({ title: t.sentStatus, message: `${count} ${l('შეტყობინება იგზავნება...', 'сообщений отправляется...', 'messages sending...')}`, type: 'success', time: t.now });
-        const studioName = settings.studioName || 'Studio';
-
-        for (const student of eligible) {
-            const sub = getSubscription(student.id);
-            const planName = sub?.plan || (sub as any)?.plan_name || '';
-            // 🛠️ FIX: this used to pick `rawTpl` ONCE outside the loop, keyed by
-            // the admin's own currently-active UI language (`lang`) — every
-            // student in the broadcast got the admin's language regardless of
-            // their own preference. sms-service.ts's automated sender already
-            // gets this right (looks up `student.preferred_language` per
-            // student); mirror that here instead.
-            const prefLang = (student.preferred_language || 'ka') as 'ka' | 'ru' | 'en';
-            const rawTpl = (templates[prefLang] as any)?.[selectedHoliday]
-                || (templates[lang] as any)?.[selectedHoliday]
-                || (templates.ka as any)?.[selectedHoliday];
-            if (!rawTpl) continue;
-            const text = formatSmsTemplate(rawTpl, {
-                student,
-                planName,
-                studioName
-            });
-            await sendSms({
-                to: student.phone,
-                text,
-                studentName: student.full_name || student.name
-            });
-        }
-
-        setSelectedHoliday(null);
-        addNotification({ title: t.sentStatus, message: `${count} ${l('შეტყობინება წარმატებით გაიგზავნა', 'сообщений успешно отправлено', 'messages sent successfully')}`, type: 'success', time: t.now });
     };
 
     if (!isLoaded) {
@@ -217,7 +157,7 @@ export default function SmsManagerPage() {
                     )}
                 >
                     <PartyPopper className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="whitespace-nowrap">{l('მილოცვა', 'Поздравление', 'Holiday')}</span>
+                    <span className="whitespace-nowrap">{l('მასობრივი გაგზავნა', 'Массовая отправка', 'Broadcast')}</span>
                 </button>
                 <button
                     onClick={() => setTab('stats')}
@@ -349,58 +289,8 @@ export default function SmsManagerPage() {
             )
             }
 
-            {/* Content Tab: Holiday SMS */}
-            {
-                tab === 'holiday' && (
-                    <div className="space-y-6 animate-fade-up">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            {HOLIDAYS.map(h => (
-                                <button
-                                    key={h.id}
-                                    onClick={() => setSelectedHoliday(h.id)}
-                                    className={cn(
-                                        'p-6 rounded-2xl border transition-all text-center space-y-3',
-                                        selectedHoliday === h.id
-                                            ? 'bg-indigo-500/10 border-indigo-500/40 shadow-sm'
-                                            : 'bg-surface border-border-subtle hover:border-indigo-500/20'
-                                    )}
-                                >
-                                    <span className="text-3xl block">{h.icon}</span>
-                                    <p className="text-sm font-black text-primary">{h[lang]}</p>
-                                </button>
-                            ))}
-                        </div>
-
-                        {selectedHoliday && (
-                            <div className="bg-surface rounded-2xl border border-border-subtle p-6 space-y-6 animate-in slide-in-from-bottom-2 duration-300">
-                                <div className="space-y-3">
-                                    <label className="text-sm font-medium text-primary">
-                                        {l('შეტყობინების ტექსტი', 'Текст сообщения', 'Message Body')}
-                                    </label>
-                                    <div className="p-4 bg-zinc-900/50 rounded-xl border border-border-subtle text-sm text-primary leading-relaxed italic">
-                                        {((templates[lang] as any)[selectedHoliday] || '')?.replace('{studio}', settings.studioName)}
-                                    </div>
-                                    <p className="text-[10px] text-muted/60">
-                                        {l('* შეტყობინება გაეგზავნება ყველა სტუდენტს, ვისაც მითითებული აქვს ტელეფონის ნომერი.', '* Сообщение будет отправлено всем студентам, у которых указан номер телефона.', '* Message will be sent to all students who have a phone number.')}
-                                    </p>
-                                </div>
-
-                                <button
-                                    onClick={handleSendHoliday}
-                                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white transition-all
-                                    hover:shadow-lg relative overflow-hidden group ml-auto`}
-                                >
-                                    <div className={`absolute inset-0 bg-gradient-to-r ${theme.from} ${theme.to} opacity-90 group-hover:opacity-100 transition-opacity`} />
-                                    <span className="relative flex items-center gap-2">
-                                        <PartyPopper className="w-4 h-4" />
-                                        {l('ყველაზე გაგზავნა', 'Отправить всем', 'Send to All')}
-                                    </span>
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )
-            }
+            {/* Content Tab: Broadcast (any active manual template — SMS PRD §3/§6, replaces the old hardcoded Holiday tab) */}
+            {tab === 'holiday' && <BroadcastTab students={students} studioName={settings.studioName || 'Studio'} />}
 
             {/* Content Tab: Categories & Templates (SMS PRD §3/§4) */}
             {

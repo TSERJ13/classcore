@@ -1065,3 +1065,45 @@ Holiday tabs still don't go through the new template model; the git-history PII 
 in Phase 5) is not remediated — Claude Code's own Auto Mode safety classifier blocked the
 `git filter-repo` history-rewrite command outright ("Git Destructive"), so this needs to be run by
 the repo owner directly; the exact commands are in the conversation, not repeated here.
+
+### Phase 7: Generalize the Holiday tab into a real template broadcast
+
+Status: completed
+
+The old Holiday tab hardcoded exactly 4 holidays (`new_year`/`easter`/`march_8`/`sept_1`) as a
+literal array in the page component — directly contradicting the PRD's central §3 principle ("no
+fixed predefined categories — the studio creates as many as it needs"). Personal tab is untouched —
+it's a genuinely different, template-less concept (ad-hoc free text to one person), matching the
+PRD §6 example for "person" scope as-is.
+
+**Built**:
+- `src/app/actions/sms-templates.ts`'s lazy seed now also creates a "დღესასწაულები" category with
+  the same 4 starter templates as before (same text), but as real, editable, deletable
+  `sms_templates` rows (`trigger_type: 'manual'`) instead of code — an admin can now edit their text
+  (with the Phase 6 Translate button), retarget them to a specific group/branch/person, add a
+  frequency limit, or delete the ones they don't want, all from the Categories tab. They can also add
+  a wholly new manual template (e.g. a general announcement) and it shows up here too, automatically.
+- `src/lib/sms-service.ts`: exported `templateMatchesStudent()` (previously private to Phase 3's
+  automated-signal path) for reuse.
+- `src/components/sms/BroadcastTab.tsx` (new) — replaces the Holiday tab's content. Lists every
+  active, manual-trigger template in an enabled category, with a live recipient count (computed via
+  `templateMatchesStudent()` against the already-loaded student list — respects each template's own
+  recipient scope, not just "everyone"). "Send" resolves eligible recipients (phone present,
+  `sms_reminders` opt-out respected, frequency limit checked per-recipient the same way the automated
+  path does), formats each in the recipient's own `preferred_language`, and sends via `sendSms()`
+  with `templateId`/`recipientStudentId` so these broadcasts now show up grouped in the Logs tab too
+  — previously they landed in the same flat, ungrouped list as everything else.
+- `sms-manager/page.tsx`: removed the now-fully-dead `HOLIDAYS` array, `selectedHoliday` state, and
+  `handleSendHoliday()`; the `templates`/`setTemplates` state (only the Holiday tab still read it)
+  and the settings-sync effect that fed it are gone too. Tab relabeled "მასობრივი გაგზავნა"
+  (Broadcast) since it's no longer holiday-specific.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: verified against a pre-change baseline — `BroadcastTab.tsx` and
+  `sms-templates.ts` are fully clean; `sms-manager/page.tsx`'s remaining warnings are the same
+  pre-existing ones as every prior phase (none newly introduced; one dead-state warning removed).
+- Playwright/dev-server smoke check: `/sms-manager` compiles and returns 200, no console/build
+  errors.
+
+**Not done (still open)**: balance/billing UI; Personal tab remains untemplated by design (see
+above); the git-history PII exposure is still unremediated (see Phase 5/6's notes).
