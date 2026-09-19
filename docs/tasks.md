@@ -817,3 +817,56 @@ route; mobile auth design (bearer token vs. cookie — existing staff-token acco
 bearer-token equivalent yet); bulk conversion of the ~15 existing Server Action files in
 `src/app/actions/` to the new shape (they keep their current `void`/throw pattern until touched for
 another reason).
+
+---
+
+## SMS Module PRD (v1.3) alignment
+
+Source: `classcore_sms_module_prd.pdf` (v1.3, დამტკიცებული). Same branch. Gap analysis found this
+module is NOT close to the PRD, unlike Subscriptions/Tariffs — the current `sms-manager/page.tsx` +
+`settings-store.ts`'s `sms_templates` is a fixed 7-key hardcoded blob (payment/expiration/birthday/4
+holidays), not the PRD's user-created category→template architecture. This is a rebuild, not a
+patch, so it's being done in phases like the Subscriptions PRD was, starting with the data model
+before touching the UI.
+
+### Phase 1: Category/template data model + Server Actions
+
+Status: completed
+
+**Built**:
+- `supabase/migrations/20260919_sms_categories_templates.sql` — new `sms_categories` (id, org_id,
+  name, color, icon, module_key, enabled) and `sms_templates` (id, org_id, category_id, name,
+  text_ka/ru/en, trigger_type, event_key, recipient_scope, recipient_target_id, status,
+  frequency_limit_count/days, is_auto_generated) tables, RLS matching this migration series' dual-auth
+  pattern. Also a new `sms_audit_log` table (PRD §9's audit journal). Also backfills `sms_logs` as a
+  tracked migration (`CREATE TABLE IF NOT EXISTS`) — that table exists in production from a
+  manually-run SQL snippet during an earlier security fix (commit `623d88a`'s era) that was never
+  committed as a migration file here; this migration is safe either way and adds the new columns
+  (`template_id`, `recipient_student_id`, `delivery_status`, `provider_message_id`) Phase 1 needs for
+  per-template log grouping later.
+- `src/app/actions/sms-templates.ts` — full CRUD for categories (`listSmsCategoriesAction`,
+  `createSmsCategoryAction`, `toggleSmsCategoryAction`, `deleteSmsCategoryAction`) and templates
+  (`listSmsTemplatesAction`, `createSmsTemplateAction`, `updateSmsTemplateAction`,
+  `deleteSmsTemplateAction`, `duplicateSmsTemplateAction`), gated by the existing `canViewSMS`
+  permission (no separate manage permission exists yet — matches how the current page is gated).
+  Every mutation writes an `sms_audit_log` row (best-effort — never fails the mutation over a logging
+  write). This is the first module written against `docs/agents/api-contract.md`'s `ActionResult<T>`
+  convention from the start, not retrofitted.
+- Lazy seed: `listSmsCategoriesAction()` seeds one "ზოგადი" category with 3 starter templates
+  (payment reminder, subscription expiring, birthday) the first time an org has zero categories —
+  mirrors the Tariffs module's "reclassify on read" lazy-migration pattern (Phase 2 of the
+  Subscriptions PRD work) rather than a batch data migration.
+
+**Known limitation, not fixed here (flagged, not silently skipped)**: the seed's starter template
+text matches `DEFAULT_SETTINGS.sms_templates` (settings-store.ts) — it does NOT read/carry over a
+studio's own customized text if they already edited their templates in the old settings-based UI.
+Server Actions run server-side and have no access to the client-localStorage-backed settings blob
+that holds those per-org edits, and this pass didn't chase down that blob's actual cloud-sync table to
+read it safely. Before the old `sms-manager` UI is ever removed, a follow-up should locate that table
+and migrate real per-org text into `sms_templates`, not just seed defaults.
+
+**Not done (next phases)**: recipient targeting is stored (`recipient_scope`/`recipient_target_id`)
+but nothing enforces it yet at send time; frequency limits and quiet-hours config are stored/planned
+but not wired into any send path; AI auto-translation; Master Kill-Switch; SMS balance/billing UI;
+per-template log drill-down + retry button; the `sms-manager` page itself still reads the old
+hardcoded blob — none of this phase's new tables are wired into the UI yet.
