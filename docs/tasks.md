@@ -870,3 +870,39 @@ but nothing enforces it yet at send time; frequency limits and quiet-hours confi
 but not wired into any send path; AI auto-translation; Master Kill-Switch; SMS balance/billing UI;
 per-template log drill-down + retry button; the `sms-manager` page itself still reads the old
 hardcoded blob — none of this phase's new tables are wired into the UI yet.
+
+### Phase 2: Categories/templates UI (replaces the fixed "Manage Texts" tab)
+
+Status: completed
+
+**Built**:
+- `src/components/sms/CategoryTemplatesTab.tsx` — the new content of the sms-manager page's first tab
+  ("text"). Lists categories (expand/collapse, enable/disable toggle, delete with confirm, module-key
+  badge for module-linked ones), each showing its templates (status/scope badges, text preview,
+  edit/duplicate/delete). "+ ახალი კატეგორია" inline add row; "+ შაბლონი" per category opens
+  `TemplateModal`.
+- `src/components/sms/TemplateModal.tsx` — create/edit form: name, 3-language text tabs (no AI
+  translation yet — admin still writes each language by hand, unchanged from before), recipient
+  scope (all/group/branch/person) with a `SearchSelect` picker sourced from `getGroupsAction()`
+  (groups), `settings.branches` (branches, passed down from the page), and the page's existing
+  `students` list (person) — frequency limit (count + period days, optional). An event-triggered
+  template (payment_due/subscription_expiring/birthday) shows its signal as a read-only badge; a new
+  template is always `trigger_type: 'manual'` (no UI yet to attach a brand-new template to a system
+  event — see Phase 1's notes on why).
+- `sms-manager/page.tsx`: wired the new tab in; removed the now-dead fixed-template state/handlers
+  (`langTab`, `isSaving`, `handleSave`, `handleTemplateChange`, the `TemplateField` helper, the unused
+  `setSmsTemplates`/`Save` import) that only existed to drive the old 7-field editor. Personal/
+  Holiday/Stats tabs are untouched — they still read `settings.sms_templates` (the old blob) and still
+  work exactly as before.
+
+Notes:
+- `tsc --noEmit`: clean. Lint on touched files: clean (verified against a pre-change baseline —
+  every remaining warning/`any` in this file predates this change).
+- Playwright/dev-server smoke check: `/sms-manager` compiles and returns 200 with no console/build
+  errors (same Supabase-credential limitation as every other phase prevents full end-to-end
+  browser-testing the actual category/template CRUD in this environment).
+
+**Not done (still open, unchanged from Phase 1)**: nothing sends anything through the new model yet —
+recipient targeting, frequency limits, and quiet hours are stored but not enforced by any send path;
+AI translation; Master Kill-Switch; balance/billing UI; per-template log drill-down + retry; the old
+hardcoded blob still powers Personal/Holiday tabs and all automated sends in `sms-service.ts`.

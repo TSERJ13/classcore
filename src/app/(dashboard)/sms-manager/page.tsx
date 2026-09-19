@@ -5,25 +5,24 @@ import { useUser } from '@/hooks/useUser';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { THEMES } from '@/lib/settings-store';
-import { MessageSquare, Save, Settings2, BarChart3, AlertCircle, RefreshCw, Send, PartyPopper, User, Shield } from 'lucide-react';
+import { MessageSquare, Settings2, BarChart3, AlertCircle, RefreshCw, Send, PartyPopper, User, Shield } from 'lucide-react';
 import { addNotification } from '@/lib/notification-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { SearchSelect, SearchSelectOption } from '@/components/ui/SearchSelect';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { formatSmsTemplate, resolveSmsRecipientName, sendSms } from '@/lib/sms-service';
 import { getSubscription } from '@/lib/subscription-store';
+import { CategoryTemplatesTab } from '@/components/sms/CategoryTemplatesTab';
 
 export default function SmsManagerPage() {
     const { t, lang } = useT();
-    const { settings, setSmsTemplates, setNotification, isLoaded } = useStudio();
+    const { settings, setNotification, isLoaded } = useStudio();
     const theme = THEMES[settings.themeKey];
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
 
-    // SMS Templates State
+    // SMS Templates State (still read by the Holiday tab below — Text tab now uses CategoryTemplatesTab)
     const [templates, setTemplates] = useState(settings.sms_templates);
     const [tab, setTab] = useState<'text' | 'personal' | 'holiday' | 'stats'>('text');
-    const [langTab, setLangTab] = useState<'ka' | 'ru' | 'en'>('ka');
-    const [isSaving, setIsSaving] = useState(false);
 
     // Logs State
     const [logs, setLogs] = useState<any[]>([]);
@@ -80,18 +79,6 @@ export default function SmsManagerPage() {
                 .finally(() => setIsLoadingLogs(false));
         }
     }, [tab]);
-
-    const handleSave = () => {
-        setIsSaving(true);
-        try {
-            setSmsTemplates(templates);
-            addNotification({ title: t.sentStatus, message: t.smsSaved, type: 'success', time: t.now });
-        } catch (error) {
-            addNotification({ title: t.errorStatus, message: t.smsError, type: 'error', time: t.now });
-        } finally {
-            setIsSaving(false);
-        }
-    };
 
     const handleSendPersonal = () => {
         if (!selectedStudent || !personalMsg) return;
@@ -174,16 +161,6 @@ export default function SmsManagerPage() {
 
         setSelectedHoliday(null);
         addNotification({ title: t.sentStatus, message: `${count} ${l('შეტყობინება წარმატებით გაიგზავნა', 'сообщений успешно отправлено', 'messages sent successfully')}`, type: 'success', time: t.now });
-    };
-
-    const handleTemplateChange = (key: keyof typeof templates['ka'], value: string) => {
-        setTemplates(prev => ({
-            ...prev,
-            [langTab]: {
-                ...prev[langTab],
-                [key]: value
-            }
-        }));
     };
 
     if (!isLoaded) {
@@ -366,7 +343,7 @@ export default function SmsManagerPage() {
                 )
             }
 
-            {/* Content Tab: SMS Texts */}
+            {/* Content Tab: Categories & Templates (SMS PRD §3/§4) */}
             {
                 tab === 'text' && (
                     <div className="space-y-6">
@@ -399,94 +376,10 @@ export default function SmsManagerPage() {
                             </button>
                         </div>
 
-                        <div className="bg-surface rounded-2xl border border-border-subtle overflow-hidden">
-                            <div className="p-5 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <h2 className="text-base font-semibold text-primary">{t.msgTemplates}</h2>
-
-                                <div className="flex bg-surface border border-border-subtle rounded-lg p-1">
-                                    <button
-                                        onClick={() => setLangTab('ka')}
-                                        className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${langTab === 'ka' ? 'bg-indigo-500 text-white shadow-sm' : 'text-muted hover:text-primary'}`}
-                                    >{t.georgian}</button>
-                                    <button
-                                        onClick={() => setLangTab('ru')}
-                                        className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${langTab === 'ru' ? 'bg-indigo-500 text-white shadow-sm' : 'text-muted hover:text-primary'}`}
-                                    >{t.russian}</button>
-                                    <button
-                                        onClick={() => setLangTab('en')}
-                                        className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${langTab === 'en' ? 'bg-indigo-500 text-white shadow-sm' : 'text-muted hover:text-primary'}`}
-                                    >{t.english}</button>
-                                </div>
-                            </div>
-                            <div className="p-5 space-y-8">
-
-                                <TemplateField
-                                    title={l('გადახდის შეხსენება', 'Напоминание об оплате', 'Payment Reminder')}
-                                    desc={l('იგზავნება გადახდის ან დავალიანების შეხსენებისას.', 'Отправляется для напоминания об оплате абонемента.', 'Sent as a payment or subscription fee reminder.')}
-                                    value={templates[langTab]?.payment || ''}
-                                    onChange={(val) => handleTemplateChange('payment' as any, val)}
-                                />
-
-                                <TemplateField
-                                    title={l('აბონემენტის ვადის ამოწურვა (დღე 0)', 'Истечение срока абонемента (День 0)', 'Subscription Expiration (Day 0)')}
-                                    desc={l('იგზავნება იმავე დღეს, როცა აბონიმენტს ვადა გასდის.', 'Отправляется в день истечения срока абонемента.', 'Sent on the day the subscription expires.')}
-                                    value={templates[langTab]?.expiration_day_0 || ''}
-                                    onChange={(val) => handleTemplateChange('expiration_day_0', val)}
-                                />
-
-                                <TemplateField
-                                    title={l('დაბადების დღის მილოცვა', 'Поздравление с днем рождения', 'Birthday Greeting')}
-                                    desc={l('იგზავნება სტუდენტის დაბადების დღეს დილით.', 'Отправляется утром в день рождения студента.', 'Sent on the morning of the student\'s birthday.')}
-                                    value={templates[langTab]?.birthday || ''}
-                                    onChange={(val) => handleTemplateChange('birthday', val)}
-                                />
-
-                                <TemplateField
-                                    title={l('საახალწლო მილოცვა', 'Новогоднее поздравление', 'New Year Greeting')}
-                                    desc={l('საახალწლო მილოცვის შაბლონი', 'Шаблон новогоднего поздравления', 'New Year greeting template')}
-                                    value={(templates[langTab] as any)?.new_year || ''}
-                                    onChange={(val) => handleTemplateChange('new_year' as any, val)}
-                                />
-
-                                <TemplateField
-                                    title={l('აღდგომის მილოცვა', 'Пасхальное поздравление', 'Easter Greeting')}
-                                    desc={l('სააღდგომო მილოცვის შაბლონი', 'Шаблон пасхального поздравления', 'Easter greeting template')}
-                                    value={(templates[langTab] as any)?.easter || ''}
-                                    onChange={(val) => handleTemplateChange('easter' as any, val)}
-                                />
-
-                                <TemplateField
-                                    title={l('8 მარტის მილოცვა', 'Поздравление с 8 Марта', 'March 8 Greeting')}
-                                    desc={l('8 მარტის მილოცვის შაბლონი', 'Шаблон поздравления с 8 Марта', 'March 8 greeting template')}
-                                    value={(templates[langTab] as any)?.march_8 || ''}
-                                    onChange={(val) => handleTemplateChange('march_8' as any, val)}
-                                />
-
-                                <TemplateField
-                                    title={l('1 სექტემბრის მილოცვა', 'Поздравление с 1 Сентября', 'Sept 1 Greeting')}
-                                    desc={l('სწავლის დაწყების მილოცვის შაბლონი', 'Шаблон поздравления с началом учебы', 'Back to school greeting template')}
-                                    value={(templates[langTab] as any)?.sept_1 || ''}
-                                    onChange={(val) => handleTemplateChange('sept_1' as any, val)}
-                                />
-
-                            </div>
-
-                            {/* Save Button */}
-                            <div className="p-5 border-t border-border-subtle bg-surface flex justify-end">
-                                <button
-                                    onClick={handleSave}
-                                    disabled={isSaving}
-                                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all
-                                    hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 relative overflow-hidden group`}
-                                >
-                                    <div className={`absolute inset-0 bg-gradient-to-r ${theme.from} ${theme.to} opacity-90 group-hover:opacity-100 transition-opacity`} />
-                                    <span className="relative flex items-center gap-2">
-                                        {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                        {t.saveTexts}
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
+                        <CategoryTemplatesTab
+                            branches={(settings.branches || []).map(b => ({ value: b.id, label: b.name }))}
+                            students={students.filter(s => s.phone).map(s => ({ value: s.id, label: s.name || s.full_name || 'No Name', subLabel: s.phone }))}
+                        />
                     </div>
                 )
             }
@@ -607,28 +500,5 @@ export default function SmsManagerPage() {
             }
             </div>
         </PermissionGuard>
-    );
-}
-
-// Helper component for textareas
-function TemplateField({ title, desc, value, onChange }: { title: string, desc: string, value: string, onChange: (v: string) => void }) {
-    const { t } = useT();
-    return (
-        <div className="space-y-3">
-            <div>
-                <label className="text-sm font-medium text-primary block">{title}</label>
-                <p className="text-xs text-muted/60">{desc}</p>
-            </div>
-            <textarea
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="w-full h-24 bg-white border border-border-subtle focus:border-indigo-500/40 rounded-xl px-4 py-3 text-sm text-zinc-900 focus:outline-none resize-none transition-colors shadow-inner"
-                placeholder={t.messagePlaceholder}
-            />
-            <div className="flex items-center justify-between text-xs text-muted/40">
-                <span>{value.length} {t.charCount}</span>
-                <span>{t.charInfo}</span>
-            </div>
-        </div>
     );
 }
