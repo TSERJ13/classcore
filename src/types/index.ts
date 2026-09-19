@@ -153,6 +153,19 @@ export interface StudioSettings {
         // Monthly-only at signup can actually turn this off.
         personalPlans?: boolean;
     };
+    // SMS Module PRD §10's global settings tab — distinct from `vacationMode`
+    // above (that one is date-range-based and subscription-SMS-specific;
+    // this is a manual, unconditional stop for every SMS send, from any
+    // source — automated, event-triggered, or a staff member clicking
+    // "Send" — checked once, centrally, inside sendSms() in
+    // sms-service.ts, so no call site needs its own check). Quiet hours
+    // was previously hardcoded (23:00–10:00) inside sms-service.ts; it's
+    // now configurable here, with that same range as the default via
+    // isWithinSmsQuietHours()'s fallback.
+    smsManager?: {
+        quietHours?: { startHour: number; endHour: number };
+        killSwitchActive?: boolean;
+    };
     // Registration Flow PRD (v1.1) §3-5 — captured once at signup, purely
     // informational (does not auto-create real groups/halls/branches).
     businessCategory?: 'arts' | 'sports' | 'education' | 'other';

@@ -5,7 +5,7 @@
  */
 
 import { getLocalISODate, formatCurrency, formatDate } from './utils';
-import { loadSettings, isStudioOnVacation } from './settings-store';
+import { loadSettings, isStudioOnVacation, isSmsKillSwitchActive, isWithinSmsQuietHours } from './settings-store';
 import { getStudents } from './student-store';
 import { getSubscriptions } from './subscription-store';
 import { getEventTemplatesAction, checkTemplateFrequencyAction, type SmsTemplate } from '@/app/actions/sms-templates';
@@ -160,6 +160,14 @@ export async function sendSms(params: {
     templateId?: string;
     recipientStudentId?: string;
 }): Promise<{ success: boolean; error?: string }> {
+    // Master Kill-Switch (SMS PRD §10) — checked here, once, so every send
+    // path (automated, template-driven, or a staff member's manual
+    // Personal/Holiday click) is stopped uniformly without each call site
+    // needing its own check.
+    if (typeof window !== 'undefined' && isSmsKillSwitchActive(loadSettings())) {
+        return { success: false, error: 'SMS sending is paused (kill switch)' };
+    }
+
     let phone = (params.to || '').replace(/[^0-9]/g, '');
     if (phone.length === 9) phone = '995' + phone;
     if (!phone) return { success: false, error: 'Invalid phone number' };
@@ -282,10 +290,10 @@ export async function runAutomatedSmsCheck(options?: { force?: boolean }): Promi
         const autoSms = settings?.notifications?.autoSms !== false;
         if (!autoSms && !options?.force) return;
 
-        // Quiet hours: 23:00 - 10:00
-        const currentHour = new Date().getHours();
-        const isQuietHours = currentHour >= 23 || currentHour < 10;
-        if (isQuietHours && !options?.force) return;
+        // Quiet hours (SMS PRD §8/§10) — configurable via the sms-manager
+        // Settings tab now, defaulting to the same 23:00-10:00 window this
+        // check used before it was configurable.
+        if (isWithinSmsQuietHours(settings) && !options?.force) return;
 
         const todayStr = getLocalISODate(); // YYYY-MM-DD
         const [todayYear, todayMonth, todayDay] = todayStr.split('-');

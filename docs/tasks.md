@@ -952,3 +952,34 @@ configurable global setting); Master Kill-Switch; AI translation; balance/billin
 log drill-down + retry button; Personal/Holiday tabs still don't go through the new model at all
 (manual sends, not automated signals — a separate follow-up if the studio wants those tracked
 per-template too).
+
+### Phase 4: Configurable quiet hours + Master Kill-Switch
+
+Status: completed
+
+**Built**:
+- `types/index.ts`: `StudioSettings.smsManager?: { quietHours?: {startHour,endHour}, killSwitchActive?
+  }` — distinct from the *other* "kill-switch" this codebase already has (`vacationMode`, the
+  Subscriptions PRD's dated studio-closure mode); this one is a manual, unconditional, undated stop
+  for every SMS send.
+- `settings-store.ts`: `isSmsKillSwitchActive()`, `isWithinSmsQuietHours()` (defaults to the same
+  23:00–10:00 window the old hardcoded check used, when unconfigured).
+- `sms-service.ts`: the Kill-Switch check moved into `sendSms()` itself — the one function every send
+  path already goes through (automated, template-driven Phase 3 sends, and the still-unmigrated
+  Personal/Holiday tabs) — so it stops literally everything without needing a check at each call
+  site. `runAutomatedSmsCheck()`'s hardcoded quiet-hours check now calls `isWithinSmsQuietHours()`.
+- `sms-manager/page.tsx`: new "პარამეტრები" (Settings) tab — quiet hours (start/end hour, draft +
+  Save) and the Kill-Switch (instant-apply toggle, red-highlighted when active, matching an emergency
+  control rather than a draft setting).
+
+Notes:
+- `tsc --noEmit`: clean. Lint: verified against a pre-change baseline on all 4 touched files — no new
+  issues (incidentally fixed one pre-existing unused-import warning in `sms-manager/page.tsx` by
+  actually using `Shield`).
+- Per the PRD's own wording (§10), turning the Kill-Switch off does *not* need to restore anything —
+  it never touches individual category/template `enabled` toggles in the first place, it's purely an
+  independent gate checked in addition to them; "restores to the prior state" in the PRD is simply
+  describing that non-interaction, not a snapshot/restore mechanism, so none was built.
+
+**Not done (still open)**: AI translation; balance/billing UI; per-template log drill-down + retry
+button; Personal/Holiday tabs still don't go through the new model.
