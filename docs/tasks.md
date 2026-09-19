@@ -1149,3 +1149,47 @@ PRD describes); auto-continue-on-exhaustion (a real toggle here would be inert w
 detect exhaustion, which needs the same billing integration); low-balance in-app warning threshold
 (buildable now that a real number exists — natural next step if wanted); Personal tab remains
 untemplated by design; the git-history PII exposure is still unremediated.
+
+### Phase 9: Audit log viewer, low-balance warning, CSV export, sender/connection status
+
+Status: completed
+
+Closes out the remaining PRD §9/§10 items that don't need a payment provider — reviewed every
+"not done" item across Phases 1-8 and built the ones with no unresolved external dependency.
+
+**Built**:
+- `src/app/actions/sms-templates.ts`'s `listSmsAuditLogAction()` — the read side of the audit
+  journal every mutation has written to `sms_audit_log` since Phase 1; there was simply never a UI
+  to view it back until now.
+- `src/components/sms/LogsTab.tsx` — a "შეტყობინებები / აუდიტი" sub-tab switcher; the new
+  `AuditLogPanel` lists recent category/template actions (created/edited/deleted/duplicated/
+  enabled/disabled) with actor name and timestamp.
+- `types/index.ts`'s `smsManager.lowBalanceThreshold` + a new panel in the Settings tab: a number
+  input; `checkBalance()` (the same function Phase 8's balance fetch used, now reusable) fires one
+  in-app notification per session the first time a fetched balance drops below it — never repeats
+  every re-render, and never fires at all if unset.
+- CSV export in the Settings tab's new "მონაცემები" panel — client-side, reuses the existing
+  `/api/sms/logs` route (no new backend). PRD's own §10 layout puts export under Settings, not Logs.
+- Sender name + provider connection status, also new in Settings: displays the *actual* configured
+  sender id (`NEXT_PUBLIC_GOSMS_SENDER_ID`, defaulting to `'ClassCore'`) — **not** the studio's own
+  `studioName`, which is a real, deliberate divergence from a literal PRD reading. Checked
+  `/api/sms/send/route.ts`: every studio on this SaaS sends under the same shared sender id (GOSMS
+  sender ids need pre-approval, so this can't be dynamic per-studio without a real registration
+  step) — showing `studioName` here as "your sender ID" would have been factually wrong. The text
+  says so explicitly rather than implying a per-studio setting that doesn't exist. "Connection
+  status" is a live/stateless read too, reusing `checkBalance()`'s success/failure as the signal
+  (there's no real persistent connection to a REST API to check) — "Reconnect" just re-runs it.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: verified against a pre-change baseline on all touched files —
+  `LogsTab.tsx` fully clean; `sms-manager/page.tsx` back to exactly its pre-existing 6 warnings (two
+  new ones introduced mid-pass — an untyped CSV row array, a `useCallback` missing a dependency —
+  were fixed before committing, not left as new debt).
+- No live GOSMS call was made or tested during this phase (`GOSMS_API_KEY` unset here, consistent
+  with every other GOSMS-gated phase).
+
+**Not done (still open)**: the purchase/checkout flow and auto-continue toggle (still genuinely
+blocked on a real Billing module); log retention *enforcement* (storing the setting would be inert
+without a scheduler to act on it — this app has none, confirmed repeatedly across this whole PRD
+pass — so it wasn't added); Personal tab remains untemplated by design; the git-history PII
+exposure is still unremediated (needs the repo owner to run the commands already given).

@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { ChevronDown, ChevronRight, Loader2, RefreshCw, CheckCircle2, XCircle, Tag } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, RefreshCw, CheckCircle2, XCircle, Tag, History, MessageSquare } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { addNotification } from '@/lib/notification-store';
 import { sendSms } from '@/lib/sms-service';
-import { listSmsTemplatesAction } from '@/app/actions/sms-templates';
+import { listSmsTemplatesAction, listSmsAuditLogAction, type SmsAuditLogEntry } from '@/app/actions/sms-templates';
 
 type SmsLogRow = {
     id: string;
@@ -31,6 +31,7 @@ type SmsLogRow = {
 export function LogsTab() {
     const { lang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+    const [subTab, setSubTab] = useState<'messages' | 'audit'>('messages');
 
     const [logs, setLogs] = useState<SmsLogRow[]>([]);
     const [templateNames, setTemplateNames] = useState<Record<string, string>>({});
@@ -82,13 +83,22 @@ export function LogsTab() {
         }
     }
 
-    if (loading) {
-        return <div className="py-16 flex items-center justify-center text-muted/40"><Loader2 className="w-5 h-5 animate-spin" /></div>;
-    }
-
     return (
         <div className="space-y-4">
-            {groups.length === 0 ? (
+            <div className="flex bg-surface border border-border-subtle rounded-lg p-1 w-fit">
+                <button onClick={() => setSubTab('messages')}
+                    className={cn('flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black rounded-md transition-all', subTab === 'messages' ? 'bg-indigo-500 text-white shadow-sm' : 'text-muted hover:text-primary')}>
+                    <MessageSquare className="w-3.5 h-3.5" /> {l('შეტყობინებები', 'Сообщения', 'Messages')}
+                </button>
+                <button onClick={() => setSubTab('audit')}
+                    className={cn('flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black rounded-md transition-all', subTab === 'audit' ? 'bg-indigo-500 text-white shadow-sm' : 'text-muted hover:text-primary')}>
+                    <History className="w-3.5 h-3.5" /> {l('აუდიტი', 'Аудит', 'Audit')}
+                </button>
+            </div>
+
+            {subTab === 'audit' ? <AuditLogPanel /> : loading ? (
+                <div className="py-16 flex items-center justify-center text-muted/40"><Loader2 className="w-5 h-5 animate-spin" /></div>
+            ) : groups.length === 0 ? (
                 <div className="bg-surface rounded-2xl border border-border-subtle p-8 text-center text-sm text-muted/40">
                     {l('ლოგები არ არსებობს', 'Логов нет', 'No logs yet')}
                 </div>
@@ -144,6 +154,71 @@ export function LogsTab() {
                                 ))}
                             </div>
                         )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+const ACTION_LABELS: Record<string, [string, string, string]> = {
+    category_created: ['კატეგორია შეიქმნა', 'Категория создана', 'Category created'],
+    category_enabled: ['კატეგორია ჩაირთო', 'Категория включена', 'Category enabled'],
+    category_disabled: ['კატეგორია გამოირთო', 'Категория отключена', 'Category disabled'],
+    category_deleted: ['კატეგორია წაიშალა', 'Категория удалена', 'Category deleted'],
+    template_created: ['შაბლონი შეიქმნა', 'Шаблон создан', 'Template created'],
+    template_edited: ['შაბლონი შესწორდა', 'Шаблон изменён', 'Template edited'],
+    template_deleted: ['შაბლონი წაიშალა', 'Шаблон удалён', 'Template deleted'],
+    template_duplicated: ['შაბლონი დუბლირდა', 'Шаблон дублирован', 'Template duplicated'],
+};
+
+/**
+ * Read side of the audit journal (PRD §9) — mutations in
+ * sms-templates.ts have written to sms_audit_log since Phase 1; this is
+ * the first UI to show it back.
+ */
+function AuditLogPanel() {
+    const { lang } = useT();
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+    const [entries, setEntries] = useState<SmsAuditLogEntry[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        listSmsAuditLogAction().then(result => {
+            if (!result.error) setEntries(result.data);
+            setLoading(false);
+        });
+    }, []);
+
+    if (loading) {
+        return <div className="py-16 flex items-center justify-center text-muted/40"><Loader2 className="w-5 h-5 animate-spin" /></div>;
+    }
+
+    if (entries.length === 0) {
+        return (
+            <div className="bg-surface rounded-2xl border border-border-subtle p-8 text-center text-sm text-muted/40">
+                {l('აუდიტის ჩანაწერი არ არსებობს', 'Записей аудита нет', 'No audit entries yet')}
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-surface rounded-2xl border border-border-subtle divide-y divide-border-subtle/60 max-h-[32rem] overflow-y-auto">
+            {entries.map(entry => {
+                const label = ACTION_LABELS[entry.action];
+                const name = (entry.details?.name as string | undefined) || (entry.details?.fromId ? `→ ${entry.details.fromId}` : undefined);
+                return (
+                    <div key={entry.id} className="p-3 flex items-center gap-3">
+                        <History className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-primary">
+                                {label ? l(label[0], label[1], label[2]) : entry.action}
+                                {name && <span className="text-muted/50 font-normal"> — {name}</span>}
+                            </p>
+                            <p className="text-[10px] text-muted/50">
+                                {entry.actorName || l('უცნობი', 'Неизвестно', 'Unknown')} · {new Date(entry.createdAt).toLocaleString('ka-GE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                        </div>
                     </div>
                 );
             })}

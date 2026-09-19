@@ -165,6 +165,11 @@ export interface StudioSettings {
     smsManager?: {
         quietHours?: { startHour: number; endHour: number };
         killSwitchActive?: boolean;
+        // PRD §10's "low balance warning threshold" — an in-app notification
+        // fires once per balance check (sms-manager/page.tsx) when the real
+        // GOSMS balance (Phase 8's getSmsBalanceAction) drops below this.
+        // No extra contact-channel config, per the PRD's own scoping.
+        lowBalanceThreshold?: number;
     };
     // Registration Flow PRD (v1.1) §3-5 — captured once at signup, purely
     // informational (does not auto-create real groups/halls/branches).

@@ -390,3 +390,38 @@ export async function checkTemplateFrequencyAction(rawInput: unknown): Promise<A
     if (error) return fail('query_failed', error.message);
     return ok((count ?? 0) < input.limitCount);
 }
+
+export type SmsAuditLogEntry = {
+    id: string;
+    actorId: string | null;
+    actorName: string | null;
+    action: string;
+    targetType: 'category' | 'template';
+    targetId: string;
+    details: Record<string, unknown> | null;
+    createdAt: string;
+};
+
+type AuditLogRow = {
+    id: string; actor_id: string | null; actor_name: string | null; action: string;
+    target_type: 'category' | 'template'; target_id: string; details: Record<string, unknown> | null; created_at: string;
+};
+
+/**
+ * Read side of the audit journal (PRD §9) — every mutation in this file
+ * has been writing to `sms_audit_log` since Phase 1 (`logAudit()`), but
+ * this is the first Server Action that actually reads it back; there was
+ * no UI for it until now.
+ */
+export async function listSmsAuditLogAction(): Promise<ActionResult<SmsAuditLogEntry[]>> {
+    const ctx = await requireEffectivePermission('canViewSMS');
+
+    const { data, error } = await ctx.client.from('sms_audit_log').select('*')
+        .eq('org_id', ctx.orgId).order('created_at', { ascending: false }).limit(200);
+    if (error) return fail('query_failed', error.message);
+
+    return ok((data as AuditLogRow[]).map(r => ({
+        id: r.id, actorId: r.actor_id, actorName: r.actor_name, action: r.action,
+        targetType: r.target_type, targetId: r.target_id, details: r.details, createdAt: r.created_at,
+    })));
+}

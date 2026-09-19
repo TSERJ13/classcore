@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
@@ -37,16 +37,64 @@ export default function SmsManagerPage() {
 
     // Persistent balance indicator (SMS PRD §2/§11) — visible across every
     // tab, since it's one page. `null` = not yet loaded/not configured;
-    // never shown as a fabricated number.
+    // never shown as a fabricated number. `connectionStatus` doubles as
+    // PRD §10's "provider connection status" — a stateless REST API has no
+    // real persistent connection, so this reads it as "did the last
+    // balance check succeed" and "reconnect" just re-runs that check.
     const [smsBalance, setSmsBalance] = useState<number | null>(null);
     const [balanceError, setBalanceError] = useState<string | null>(null);
+    const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected' | 'not_configured'>('checking');
+    const [lowBalanceThreshold, setLowBalanceThreshold] = useState<string>(settings.smsManager?.lowBalanceThreshold != null ? String(settings.smsManager.lowBalanceThreshold) : '');
+    const warnedLowBalance = useRef(false);
 
-    useEffect(() => {
+    const checkBalance = useCallback(() => {
+        setConnectionStatus('checking');
         getSmsBalanceAction().then(result => {
-            if (result.error) setBalanceError(result.error.message);
-            else setSmsBalance(result.data.balance);
+            if (result.error) {
+                setBalanceError(result.error.message);
+                setSmsBalance(null);
+                setConnectionStatus(result.error.code === 'not_configured' ? 'not_configured' : 'disconnected');
+                return;
+            }
+            setSmsBalance(result.data.balance);
+            setConnectionStatus('connected');
+            const threshold = settings.smsManager?.lowBalanceThreshold;
+            if (threshold != null && result.data.balance < threshold && !warnedLowBalance.current) {
+                warnedLowBalance.current = true;
+                const label = lang === 'ka' ? 'დაბალი SMS ბალანსი' : lang === 'ru' ? 'Низкий баланс SMS' : 'Low SMS balance';
+                addNotification(`${label}: ${result.data.balance}`, 'bg-amber-500');
+            }
         });
-    }, []);
+    }, [settings.smsManager?.lowBalanceThreshold, lang]);
+
+    useEffect(() => { checkBalance(); }, [checkBalance]);
+
+    function handleSaveLowBalanceThreshold() {
+        const parsed = lowBalanceThreshold ? parseInt(lowBalanceThreshold, 10) : undefined;
+        updateSettings({ smsManager: { ...settings.smsManager, lowBalanceThreshold: Number.isFinite(parsed) ? parsed : undefined } });
+        addNotification(l('შენახულია', 'Сохранено', 'Saved'), 'bg-emerald-500');
+    }
+
+    async function handleExportLogsCsv() {
+        try {
+            const res = await fetch('/api/sms/logs');
+            const data = await res.json();
+            const rows: Record<string, unknown>[] = data.success ? data.logs : [];
+            const header = ['timestamp', 'student_name', 'to_number', 'status', 'delivery_status', 'text', 'error'];
+            const csv = [header.join(',')].concat(
+                rows.map(r => header.map(k => `"${String(r[k] ?? '').replace(/"/g, '""')}"`).join(','))
+            ).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sms-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch {
+            addNotification(l('ექსპორტი ვერ მოხერხდა', 'Не удалось экспортировать', 'Export failed'), 'bg-rose-500');
+        }
+    }
 
     // Personal SMS State
     const [selectedStudent, setSelectedStudent] = useState<string>('');
@@ -69,6 +117,7 @@ export default function SmsManagerPage() {
         if (isLoaded) {
             setQuietStart(settings.smsManager?.quietHours?.startHour ?? 23);
             setQuietEnd(settings.smsManager?.quietHours?.endHour ?? 10);
+            setLowBalanceThreshold(settings.smsManager?.lowBalanceThreshold != null ? String(settings.smsManager.lowBalanceThreshold) : '');
         }
     }, [isLoaded, settings.smsManager]);
 
@@ -235,6 +284,28 @@ export default function SmsManagerPage() {
                         </div>
                     </div>
 
+                    <div className="bg-surface rounded-2xl border border-border-subtle p-6 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-amber-500" />
+                            <h2 className="text-base font-semibold text-primary">{l('დაბალი ბალანსის გაფრთხილება', 'Предупреждение о низком балансе', 'Low Balance Warning')}</h2>
+                        </div>
+                        <p className="text-sm text-muted/70">
+                            {l('როცა ბალანსი ამ ზღვარს ჩამოეცლება, გამოჩნდება შიდა აპლიკაციის შეტყობინება.', 'Когда баланс опустится ниже этого значения, появится внутреннее уведомление.', 'An in-app notification appears once the balance drops below this.')}
+                        </p>
+                        <div className="flex items-center gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted tracking-widest ml-1 uppercase">{l('ზღვარი (SMS)', 'Порог (SMS)', 'Threshold (SMS)')}</label>
+                                <input type="number" min={0} value={lowBalanceThreshold} onChange={e => setLowBalanceThreshold(e.target.value)}
+                                    placeholder={l('— გამორთული —', '— отключено —', '— disabled —')}
+                                    className="w-32 bg-white border border-border-subtle rounded-2xl px-4 py-2.5 text-sm font-bold outline-none focus:border-indigo-500/50 text-zinc-900" />
+                            </div>
+                            <button onClick={handleSaveLowBalanceThreshold}
+                                className="ml-auto px-5 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-xl active:scale-95 transition-all uppercase">
+                                {l('შენახვა', 'Сохранить', 'Save')}
+                            </button>
+                        </div>
+                    </div>
+
                     <div className={cn('rounded-2xl border p-6 space-y-4', killSwitchActive ? 'bg-rose-500/10 border-rose-500/30' : 'bg-surface border-border-subtle')}>
                         <div className="flex items-center gap-2">
                             <Power className={cn('w-4 h-4', killSwitchActive ? 'text-rose-500' : 'text-muted')} />
@@ -251,6 +322,51 @@ export default function SmsManagerPage() {
                                 className={`w-14 h-7 rounded-full transition-colors relative focus:outline-none ${killSwitchActive ? 'bg-rose-500' : 'bg-emerald-500'}`}>
                                 <div className={`w-6 h-6 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm ${killSwitchActive ? 'translate-x-7' : 'translate-x-0.5'}`} />
                             </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-surface rounded-2xl border border-border-subtle p-6 space-y-4">
+                        <h2 className="text-base font-semibold text-primary">{l('მონაცემები', 'Данные', 'Data')}</h2>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-bold text-primary">{l('ლოგების ექსპორტი (CSV)', 'Экспорт логов (CSV)', 'Export Logs (CSV)')}</p>
+                                <p className="text-[11px] text-muted/50">{l('ბოლო 1000 გაგზავნა', 'Последние 1000 отправок', 'Last 1000 sends')}</p>
+                            </div>
+                            <button onClick={handleExportLogsCsv}
+                                className="px-5 py-2.5 bg-surface border border-border-subtle text-primary text-xs font-black rounded-xl active:scale-95 transition-all uppercase hover:border-indigo-500/40">
+                                {l('ექსპორტი', 'Экспорт', 'Export')}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-surface rounded-2xl border border-border-subtle p-6 space-y-4">
+                        <h2 className="text-base font-semibold text-primary">{l('გამგზავნი და კავშირი', 'Отправитель и соединение', 'Sender & Connection')}</h2>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-bold text-primary">{l('გამგზავნის სახელი', 'Имя отправителя', 'Sender Name')}</p>
+                                <p className="text-[11px] text-muted/50">
+                                    {l('საერთოა ყველა ClassCore სტუდიისთვის — ინდივიდუალურად შესაცვლელად საჭიროა ტექნიკურ გუნდთან დაკავშირება.', 'Общее для всех студий ClassCore — для индивидуального изменения свяжитесь с технической командой.', 'Shared across every ClassCore studio — contact the technical team to change it individually.')}
+                                </p>
+                            </div>
+                            <span className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-sm font-black text-primary shrink-0">
+                                {process.env.NEXT_PUBLIC_GOSMS_SENDER_ID || 'ClassCore'}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
+                            <div className="flex items-center gap-2">
+                                <span className={cn('w-2 h-2 rounded-full', connectionStatus === 'connected' ? 'bg-emerald-500' : connectionStatus === 'checking' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500')} />
+                                <span className="text-sm font-bold text-primary">
+                                    {connectionStatus === 'connected' && l('დაკავშირებულია', 'Подключено', 'Connected')}
+                                    {connectionStatus === 'checking' && l('მოწმდება...', 'Проверка...', 'Checking...')}
+                                    {connectionStatus === 'disconnected' && l('კავშირი შეწყვეტილია', 'Соединение потеряно', 'Connection lost')}
+                                    {connectionStatus === 'not_configured' && l('არ არის კონფიგურირებული', 'Не настроено', 'Not configured')}
+                                </span>
+                            </div>
+                            {connectionStatus === 'disconnected' && (
+                                <button onClick={checkBalance} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black text-indigo-500 hover:bg-indigo-500/10 transition-colors">
+                                    <RefreshCw className="w-3.5 h-3.5" /> {l('ხელახლა დაკავშირება', 'Переподключить', 'Reconnect')}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
