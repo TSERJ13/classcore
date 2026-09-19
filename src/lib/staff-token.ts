@@ -64,7 +64,10 @@ async function sign(data: string, secret: string): Promise<string> {
     return toBase64Url(new Uint8Array(sigBuf));
 }
 
-export async function createStaffToken(payload: Omit<StaffTokenPayload, 'exp'>, ttlMs = 1000 * 60 * 60 * 24 * 7): Promise<string | null> {
+// docs/authorization-module.md §4 — session rules: 12-hour session, full
+// re-login required after that (or after an explicit logout). This used to
+// default to 7 days.
+export async function createStaffToken(payload: Omit<StaffTokenPayload, 'exp'>, ttlMs = 1000 * 60 * 60 * 12): Promise<string | null> {
     const secret = getSecret();
     if (!secret) {
         console.error('❌ [staff-token] STAFF_SESSION_SECRET is not set — refusing to mint a staff session token.');

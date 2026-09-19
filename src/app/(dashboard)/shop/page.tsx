@@ -12,8 +12,9 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { cn, formatCurrency, getScopedKey, getLocalISODate } from '@/lib/utils';
 import { MobileFAB } from '@/components/ui/MobileFAB';
-import { recordSale, getSales, deleteSale, updateSale, type ShopSale } from '@/lib/sales-store';
-import { getProducts, saveProducts, deleteProduct } from '@/lib/product-store';
+import { type ShopSale } from '@/lib/sales-store';
+import { getSalesAction, recordSaleAction, deleteSaleAction, updateSaleAction } from '@/app/actions/sales';
+import { getProductsAction, saveProductsAction, deleteProductAction } from '@/app/actions/products';
 import { getStudentsAllBranches } from '@/lib/student-store';
 import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
@@ -43,7 +44,7 @@ export default function ShopPage() {
 
     useEffect(() => {
         const load = () => {
-            setProducts(getProducts());
+            getProductsAction().then(rows => setProducts(rows as unknown as Product[])).catch(err => console.error('❌ [Shop] Failed to load products:', err));
         };
 
         load();
@@ -56,8 +57,14 @@ export default function ShopPage() {
         };
     }, [isDemo]);
 
-    const handleSaveProducts = (newProds: Product[]) => {
-        saveProducts(newProds);
+    const handleSaveProducts = async (newProds: Product[]) => {
+        setProducts(newProds);
+        try {
+            await saveProductsAction(newProds);
+        } catch (err) {
+            console.error('❌ [Shop] Save products failed:', err);
+        }
+        window.dispatchEvent(new Event('cc_product_update'));
     };
 
     const handleSaveProduct = () => {
@@ -87,7 +94,7 @@ export default function ShopPage() {
         setForm({ name: '', category: 'categoryAccessories', price: 0, quantity: 1, size: '', weight: '', photo_url: '' });
     };
 
-    const handleSell = () => {
+    const handleSell = async () => {
         if (!selectedProduct) return;
         const qty = Number(sellForm.quantity);
         if (qty > selectedProduct.quantity) {
@@ -98,7 +105,7 @@ export default function ShopPage() {
         const newProds = products.map(p =>
             p.id === selectedProduct.id ? { ...p, quantity: p.quantity - qty } : p
         );
-        handleSaveProducts(newProds);
+        await handleSaveProducts(newProds);
 
         // Record sale
         const allStudents = getStudentsAllBranches();
@@ -106,14 +113,19 @@ export default function ShopPage() {
             ? { full_name: sellForm.customerName || t.otherCustomer }
             : allStudents.find(s => s.id === sellForm.studentId);
 
-        recordSale({
-            studentId: sellForm.studentId,
-            studentName: student?.full_name || t.unknownClient,
-            productId: selectedProduct.id,
-            productName: selectedProduct.name,
-            quantity: qty,
-            price: selectedProduct.price * qty
-        });
+        try {
+            await recordSaleAction({
+                studentId: sellForm.studentId,
+                studentName: student?.full_name || t.unknownClient,
+                productId: selectedProduct.id,
+                productName: selectedProduct.name,
+                quantity: qty,
+                price: selectedProduct.price * qty
+            });
+        } catch (err) {
+            console.error('❌ [Shop] Record sale failed:', err);
+        }
+        window.dispatchEvent(new Event('cc_sale_update'));
 
         setIsSellOpen(false);
         setSellForm({ studentId: '', quantity: 1, customerName: '' });
@@ -137,9 +149,14 @@ export default function ShopPage() {
     const inventoryValue = products.reduce((acc, p) => acc + (p.price * p.quantity), 0);
 
     const [recentSales, setRecentSales] = useState<ShopSale[]>([]);
+    const [allSales, setAllSales] = useState<ShopSale[]>([]);
 
     const refreshSales = () => {
-        setRecentSales(getSales().slice(0, 5));
+        getSalesAction().then(rows => {
+            const sales = rows as unknown as ShopSale[];
+            setAllSales(sales);
+            setRecentSales(sales.slice(0, 5));
+        }).catch(err => console.error('❌ [Shop] Failed to load sales:', err));
     };
 
     useEffect(() => {
@@ -148,11 +165,15 @@ export default function ShopPage() {
 
     const handleDeleteSale = async (id: string) => {
         if (!await confirm(t.deleteConfirm)) return;
-        deleteSale(id);
+        try {
+            await deleteSaleAction({ id });
+        } catch (err) {
+            console.error('❌ [Shop] Delete sale failed:', err);
+        }
         refreshSales();
     };
 
-    const handleEditSale = () => {
+    const handleEditSale = async () => {
         if (!selectedSale) return;
         const diff = Number(sellForm.quantity) - selectedSale.quantity;
         const prod = products.find(p => p.id === selectedSale.productId);
@@ -166,19 +187,24 @@ export default function ShopPage() {
             const newProds = products.map(p =>
                 p.id === prod.id ? { ...p, quantity: p.quantity - diff } : p
             );
-            handleSaveProducts(newProds);
+            await handleSaveProducts(newProds);
         }
 
-        updateSale(selectedSale.id, {
-            quantity: Number(sellForm.quantity),
-            price: (selectedSale.price / selectedSale.quantity) * Number(sellForm.quantity)
-        });
+        try {
+            await updateSaleAction({
+                id: selectedSale.id,
+                quantity: Number(sellForm.quantity),
+                price: (selectedSale.price / selectedSale.quantity) * Number(sellForm.quantity)
+            });
+        } catch (err) {
+            console.error('❌ [Shop] Update sale failed:', err);
+        }
 
         setIsEditSaleOpen(false);
         refreshSales();
     };
 
-    const totalSalesValue = getSales().reduce((acc, s) => acc + s.price, 0);
+    const totalSalesValue = allSales.reduce((acc, s) => acc + s.price, 0);
 
     const openAddProduct = () => {
         setEditingProduct(null);
@@ -394,7 +420,13 @@ export default function ShopPage() {
                                     onClick={async (e) => {
                                         e.stopPropagation();
                                         if (await confirm(t.confirmDelete)) {
-                                            deleteProduct(product.id);
+                                            setProducts(prev => prev.filter(p => p.id !== product.id));
+                                            try {
+                                                await deleteProductAction({ id: product.id });
+                                            } catch (err) {
+                                                console.error('❌ [Shop] Delete product failed:', err);
+                                            }
+                                            window.dispatchEvent(new Event('cc_product_update'));
                                         }
                                     }}
                                     className="w-8 h-8 flex items-center justify-center rounded-xl bg-surface border border-border-subtle text-muted hover:text-red-500 hover:border-red-500/40 hover:bg-red-500/5 transition-all"

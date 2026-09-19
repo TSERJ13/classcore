@@ -8,7 +8,7 @@ import { MobileFAB } from '@/components/ui/MobileFAB';
 import { HallModal } from '@/components/halls/HallModal';
 import { useT } from '@/contexts/LanguageContext';
 import type { Hall } from '@/types';
-import { getHalls, saveHalls, deleteHall } from '@/lib/hall-store';
+import { getHallsAction, saveHallsAction, deleteHallAction } from '@/app/actions/halls';
 import { getGroups } from '@/lib/group-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -26,12 +26,12 @@ export default function HallsPage() {
     const [events, setEvents] = useState<any[]>([]);
 
     useEffect(() => {
-        const refresh = () => setHalls(getHalls() as unknown as Hall[]);
+        const refresh = () => { getHallsAction().then(rows => setHalls(rows as unknown as Hall[])).catch(err => console.error('❌ [Halls] Failed to load:', err)); };
         refresh();
         import('@/lib/event-store').then(mod => {
             setEvents(mod.getEvents());
         });
-        
+
         window.addEventListener('cc_halls_update', refresh);
         return () => window.removeEventListener('cc_halls_update', refresh);
     }, []);
@@ -39,11 +39,11 @@ export default function HallsPage() {
     function openAdd() { setEditing(null); setModalOpen(true); }
     function openEdit(h: Hall) { setEditing(h); setModalOpen(true); }
 
-    function handleSave(data: Partial<Hall>) {
+    async function handleSave(data: Partial<Hall>) {
         const activeSlug = settings?.studioSlug || '';
-        const resolvedOrgId = settings?.orgId || 
-                             (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) : null) || 
-                             (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_${activeSlug}`) : null) || 
+        const resolvedOrgId = settings?.orgId ||
+                             (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_override_${activeSlug}`) : null) ||
+                             (typeof window !== 'undefined' ? localStorage.getItem(`cc_org_id_${activeSlug}`) : null) ||
                              'demo';
 
         let updated: Hall[];
@@ -51,24 +51,35 @@ export default function HallsPage() {
             updated = halls.map(h => h.id === editing.id ? { ...h, ...data } : h);
         } else {
             updated = [...halls, {
-                id: String(Date.now()), 
-                org_id: resolvedOrgId, 
+                id: String(Date.now()),
+                org_id: resolvedOrgId,
                 created_at: new Date().toISOString(),
-                name: '', 
-                color: '#6366f1', 
-                is_active: true, 
+                name: '',
+                color: '#6366f1',
+                is_active: true,
                 capacity: 0,
                 sq_meters: 0,
                 ...data,
             }];
         }
         setHalls(updated);
-        saveHalls(updated as any);
+        try {
+            await saveHallsAction(updated);
+        } catch (err) {
+            console.error('❌ [Halls] Save failed:', err);
+        }
+        window.dispatchEvent(new Event('cc_halls_update'));
     }
 
-    function handleDelete(id: string) {
+    async function handleDelete(id: string) {
         setHalls(prev => prev.filter(h => h.id !== id));
-        deleteHall(id);
+        try {
+            await deleteHallAction({ id });
+        } catch (err) {
+            console.error('❌ [Halls] Delete failed:', err);
+        }
+        import('@/lib/event-store').then(({ clearHallFromEvents }) => clearHallFromEvents(id)).catch(() => {});
+        window.dispatchEvent(new Event('cc_halls_update'));
     }
 
     const hallStats = useMemo(() => {

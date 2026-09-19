@@ -423,7 +423,8 @@ export const DEFAULT_SETTINGS: StudioSettings = {
             new_year: 'გილოცავთ ახალ წელს! გისურვებთ წარმატებულ და ბედნიერ წელს {studio}-სთან ერთად.',
             easter: 'გილოცავთ აღდგომის ბრწყინვალე დღესასწაულს! საუკეთესო სურვილებით, {studio}.',
             march_8: 'გილოცავთ 8 მარტს! გისურვებთ სილამაზეს და ბედნიერებას. პატივისცემით, {studio}.',
-            sept_1: 'გილოცავთ სწავლის დაწყებას! გელით მეცადინეობებზე {studio}-ში.'
+            sept_1: 'გილოცავთ სწავლის დაწყებას! გელით მეცადინეობებზე {studio}-ში.',
+            individual_booking_pending: 'გამარჯობა {teacher}, {student}-მა დაგეჯავშნათ ინდივიდუალური გაკვეთილი {date} {time}-ზე. გთხოვთ დაადასტუროთ {studio}-ის აპლიკაციაში.',
         },
         ru: {
             payment: 'Здравствуйте {name}, напоминаем об оплате абонемента {plan}. Пожалуйста, внесите оплату. С уважением, {studio}.',
@@ -433,7 +434,8 @@ export const DEFAULT_SETTINGS: StudioSettings = {
             new_year: 'С Новым Годом! Желаем успешного и счастливого года вместе с {studio}.',
             easter: 'Поздравляем со светлым праздником Пасхи! С наилучшими пожеланиями, {studio}.',
             march_8: 'Поздравляем с 8 Марта! Желаем красоты и счастья. С уважением, {studio}.',
-            sept_1: 'Поздравляем с началом учебного года! Ждем вас на занятиях в {studio}.'
+            sept_1: 'Поздравляем с началом учебного года! Ждем вас на занятиях в {studio}.',
+            individual_booking_pending: 'Здравствуйте {teacher}, {student} записался(-ась) на индивидуальный урок {date} в {time}. Пожалуйста, подтвердите в приложении {studio}.',
         },
         en: {
             payment: 'Hello {name}, this is a reminder regarding the payment for your {plan} plan. Best regards, {studio}.',
@@ -443,7 +445,8 @@ export const DEFAULT_SETTINGS: StudioSettings = {
             new_year: 'Happy New Year! Wishing you a successful and happy year with {studio}.',
             easter: 'Happy Easter! Best wishes from {studio}.',
             march_8: 'Happy March 8! Wishing you beauty and happiness. Sincerely, {studio}.',
-            sept_1: 'Happy First Day of School! Looking forward to seeing you at {studio}.'
+            sept_1: 'Happy First Day of School! Looking forward to seeing you at {studio}.',
+            individual_booking_pending: 'Hello {teacher}, {student} booked an individual lesson for {date} at {time}. Please confirm it in the {studio} app.',
         }
     },
     branches: [
@@ -455,7 +458,15 @@ export const DEFAULT_SETTINGS: StudioSettings = {
         email: '',
         phone: ''
     },
-    customRoles: ['manager', 'teacher', 'receptionist', 'accountant'],
+    // 'administrator' added for the Permissions module (docs/permissions-
+    // module-prd.md §3) — a formal role tier with its own default
+    // permission set (src/lib/permissions/role-defaults.ts), not just a
+    // free-form custom string like the others in this list. Existing
+    // studios' already-saved customRoles array won't pick this up
+    // automatically (this constant is only the fallback for a brand-new
+    // settings object) — they can add "administrator" by hand via Settings
+    // until the role-picker UI is updated to always offer it.
+    customRoles: ['administrator', 'manager', 'teacher', 'receptionist', 'accountant'],
     activeBranchId: 'main',
     sms_enabled: true,
     primary_lang: 'ka',
@@ -542,26 +553,22 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
                 
                 // 🚀 ATOMIC CLOUD SYNC: If we have an orgId, push the full state to ensure persistence
                 if (finalOrgId && finalOrgId !== 'demo') {
-                    if (s.staff && Array.isArray(s.staff)) {
-                        import('./master-sync').then(({ syncRecordToCloud }) => {
-                            s.staff!.forEach((member: any) => {
-                                syncRecordToCloud('staff', {
-                                    id: member.id,
-                                    org_id: finalOrgId,
-                                    full_name: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim(),
-                                    first_name: member.first_name,
-                                    last_name: member.last_name,
-                                    email: member.email,
-                                    phone: member.phone,
-                                    role: member.role || 'teacher',
-                                    salary_percentage: member.salary_percentage,
-                                    rate_per_hour: member.rate_per_hour,
-                                    rate_per_month: member.rate_per_month,
-                                    data: member
-                                }, finalOrgId).catch(() => {});
-                            });
-                        });
-                    }
+                    // Staff is DELIBERATELY not re-pushed to the cloud from here
+                    // anymore (removed as part of the Permissions module —
+                    // docs/authorization-module.md §6). This used to
+                    // unconditionally upsert every staff member on every
+                    // saveSettings() call, including from StudioContext.tsx's
+                    // hydrate() cycle (which calls saveSettings(next, prev, ...)
+                    // with whatever it just read back from the cloud) — a
+                    // read racing an in-flight edit would get written straight
+                    // back, silently reverting a just-granted permission. It
+                    // also completely bypassed src/app/actions/staff.ts's
+                    // requireEffectivePermission() check, since this path has
+                    // no permission gate of its own. src/app/actions/staff.ts's
+                    // createStaffAction/updateStaffAction/deleteStaffAction
+                    // (called alongside this by StudioContext.tsx's
+                    // addStaff/updateStaff/removeStaff) are now the only write
+                    // path to the real `staff` table.
 
                     import('./master-sync').then(({ pushFullStudioMetadata }) => {
                         pushFullStudioMetadata(finalSlug, next.studioName || 'Studio', next);
@@ -703,6 +710,43 @@ export function patchNotifications(patch: Partial<StudioSettings['notifications'
 export function patchSecurity(patch: Partial<StudioSettings['security']>, current?: StudioSettings, slug?: string): StudioSettings {
     const base = current || loadSettings(slug);
     return saveSettings({ security: { ...base.security, ...patch } }, base, slug);
+}
+
+/**
+ * Studio vacation / kill-switch mode (Subscriptions PRD §13). Whether `asOfDate`
+ * (defaults to today) falls within a currently-active vacation window.
+ */
+export function isStudioOnVacation(settings: StudioSettings, asOfDate?: string): boolean {
+    const v = settings.vacationMode;
+    if (!v || !v.active || !v.startDate || !v.endDate) return false;
+    const dateStr = asOfDate || new Date().toISOString().split('T')[0];
+    return dateStr >= v.startDate && dateStr <= v.endDate;
+}
+
+/**
+ * How many days an active subscription's due date should be pushed out by,
+ * once a vacation window has been configured — the studio's closure shouldn't
+ * cost a student any of their paid-for time. A vacation only counts once its
+ * length is knowable, i.e. any configured window with valid dates, not just
+ * one that's currently active — a subscription due mid-vacation needs the
+ * extension applied before the window ends, not after.
+ */
+export function getVacationExtensionDays(settings: StudioSettings): number {
+    const v = settings.vacationMode;
+    if (!v || !v.active || !v.startDate || !v.endDate) return 0;
+    const start = new Date(v.startDate);
+    const end = new Date(v.endDate);
+    const days = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+    return Math.max(0, days);
+}
+
+/**
+ * Whether an optional tariff/subscription type is offered by this studio
+ * (Subscriptions PRD §3). Missing/undefined defaults to enabled, so existing
+ * studios that never touch this setting see no change in behavior.
+ */
+export function isFeatureEnabled(settings: StudioSettings, feature: keyof NonNullable<StudioSettings['enabledFeatures']>): boolean {
+    return settings.enabledFeatures?.[feature] !== false;
 }
 
 /** Apply accent CSS variable to :root */

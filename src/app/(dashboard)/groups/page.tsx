@@ -6,13 +6,14 @@ import { useT } from '@/contexts/LanguageContext';
 import { GroupModal } from '@/components/groups/GroupModal';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
-import { getGroups, saveGroups, deleteGroup, type Group, slotsToDisplay } from '@/lib/group-store';
+import { type Group } from '@/lib/group-store';
+import { getGroupsAction, createGroupAction, updateGroupAction, deleteGroupAction } from '@/app/actions/groups';
+import { getSubscriptionsAction, type SubscriptionRow } from '@/app/actions/subscriptions';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
 import { deleteGroupEvents } from '@/lib/event-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { getTeachers } from '@/lib/teacher-store';
 import { getHallName } from '@/lib/hall-store';
-import { getSubscriptions, getUniqueSubscriptions } from '@/lib/subscription-store';
 import { cn } from '@/lib/utils';
 import { MobileFAB } from '@/components/ui/MobileFAB';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -30,13 +31,13 @@ export default function GroupsPage() {
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
     const [groups, setGroups] = useState<Group[]>([]);
-    const [subs, setSubs] = useState<Record<string, any[]>>({});
+    const [uniqueSubs, setUniqueSubs] = useState<SubscriptionRow[]>([]);
 
     const { settings, updateStaff } = useStudio();
     useEffect(() => {
-        function load() { 
-            setGroups(getGroups()); 
-            setSubs(getSubscriptions());
+        function load() {
+            getGroupsAction().then(rows => setGroups(rows as unknown as Group[])).catch(err => console.error('❌ [Groups] Failed to load:', err));
+            getSubscriptionsAction().then(setUniqueSubs).catch(err => console.error('❌ [Groups] Failed to load subscriptions:', err));
         }
         load();
         window.addEventListener('cc_groups_update', load);
@@ -48,7 +49,6 @@ export default function GroupsPage() {
     }, [settings.activeBranchId]);
 
     const todayStr = new Date().toISOString().split('T')[0];
-    const uniqueSubs = getUniqueSubscriptions();
     const groupsWithEnrollments = groups.map(g => {
         const enrolledCount = uniqueSubs.filter(s => s.group_id === g.id && s.status === 'active' && s.expires_at >= todayStr).length;
         return { ...g, enrolled: enrolledCount };
@@ -57,15 +57,21 @@ export default function GroupsPage() {
     const [editing, setEditing] = useState<Group | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
 
-    function handleSave(data: Partial<Group>) {
+    async function handleSave(data: Partial<Group>) {
         let updated: Group[];
         const oldTeacherId = editing?.teacherId;
         const newTeacherId = data.teacherId;
+        let newGroup: Group | null = null;
 
         if (editing) {
             updated = groups.map(g => g.id === editing.id ? { ...g, ...data } as Group : g);
+            try {
+                await updateGroupAction({ ...editing, ...data });
+            } catch (err) {
+                console.error('❌ [Groups] Update failed:', err);
+            }
         } else {
-            const newGroup: Group = {
+            newGroup = {
                 id: data.id || `g_${Date.now()}`,
                 name: data.name || '',
                 coach: data.coach || '',
@@ -84,6 +90,13 @@ export default function GroupsPage() {
                 color: data.color || '#6366f1',
             };
             updated = [...groups, newGroup];
+            try {
+                const { id } = await createGroupAction(newGroup);
+                newGroup.id = id;
+                updated = [...groups, newGroup];
+            } catch (err) {
+                console.error('❌ [Groups] Create failed:', err);
+            }
         }
 
         // Sync with StudioContext Teachers
@@ -95,14 +108,14 @@ export default function GroupsPage() {
                 const oldT = settings.staff.find(s => s.id === oldTeacherId);
                 if (oldT) {
                     const nextGroups = (oldT.assigned_group_ids || []).filter(id => id !== gid);
-                    updateStaff(oldTeacherId, { assigned_group_ids: nextGroups });
+                    updateStaff(oldTeacherId, { assigned_group_ids: nextGroups }).catch(() => {});
                 }
             }
             if (newTeacherId) {
                 const newT = settings.staff.find(s => s.id === newTeacherId);
                 if (newT) {
                     const nextGroups = Array.from(new Set([...(newT.assigned_group_ids || []), gid]));
-                    updateStaff(newTeacherId, { assigned_group_ids: nextGroups });
+                    updateStaff(newTeacherId, { assigned_group_ids: nextGroups }).catch(() => {});
                 }
             }
         }
@@ -115,25 +128,31 @@ export default function GroupsPage() {
                 const oldST = settings.staff.find(s => s.id === oldSecondaryId);
                 if (oldST) {
                     const nextGroups = (oldST.assigned_group_ids || []).filter(id => id !== gid);
-                    updateStaff(oldSecondaryId, { assigned_group_ids: nextGroups });
+                    updateStaff(oldSecondaryId, { assigned_group_ids: nextGroups }).catch(() => {});
                 }
             }
             if (newSecondaryId) {
                 const newST = settings.staff.find(s => s.id === newSecondaryId);
                 if (newST) {
                     const nextGroups = Array.from(new Set([...(newST.assigned_group_ids || []), gid]));
-                    updateStaff(newSecondaryId, { assigned_group_ids: nextGroups });
+                    updateStaff(newSecondaryId, { assigned_group_ids: nextGroups }).catch(() => {});
                 }
             }
         }
 
         setGroups(updated);
-        saveGroups(updated);
+        window.dispatchEvent(new Event('cc_groups_update'));
     }
 
-    function handleDelete(id: string) {
-        deleteGroup(id); // Store handles sync and state
+    async function handleDelete(id: string) {
+        setGroups(prev => prev.filter(g => g.id !== id));
+        try {
+            await deleteGroupAction({ id });
+        } catch (err) {
+            console.error('❌ [Groups] Delete failed:', err);
+        }
         deleteGroupEvents(id);
+        window.dispatchEvent(new Event('cc_groups_update'));
     }
 
     const [teachers, setTeachers] = useState(getTeachers());

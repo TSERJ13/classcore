@@ -8,12 +8,22 @@
  * groups from ALL reliable sources and unions them.
  */
 
+/**
+ * `'administrator'` (docs/permissions-module-prd.md §3's "Administrator"
+ * tier, docs/authorization-module.md §2) is excluded here on purpose: an
+ * Administrator has studio-wide Scope like an owner/admin, not the
+ * Teacher's group-restricted one, even though `isOwnerOrAdmin()` (below)
+ * still correctly says false for it — Administrator goes through real
+ * `PermissionGuard` permKey checks, it just isn't restricted to "only
+ * groups I teach" the way an actual Teacher is.
+ */
 export function isTeacherRole(role?: string | null): boolean {
     if (!role) return false;
     const r = role.toLowerCase().trim();
-    return r !== 'owner' && r !== 'admin';
+    return r !== 'owner' && r !== 'admin' && r !== 'administrator';
 }
 
+/** Main Administrator (`owner`) and the legacy, never-actually-issued `admin` role bypass PermissionGuard entirely — `administrator` does not, its permissions come from the Permissions engine (src/lib/permissions/resolve.ts) instead. */
 export function isOwnerOrAdmin(role?: string | null): boolean {
     if (!role) return false;
     const r = role.toLowerCase().trim();

@@ -6,6 +6,9 @@ import { setSubscriptionsMemoryCache } from '@/lib/subscription-store';
 import { useUser } from '@/hooks/useUser';
 import { getActiveSlug, getScopedKey, safeSetItem, getLocallyDeletedIds, getEffectiveOrgId } from '@/lib/utils';
 import type { StudioSettings, Branch, SubscriptionLog } from '@/types';
+import { createStaffAction, updateStaffAction, deleteStaffAction } from '@/app/actions/staff';
+import { createBranchAction, updateBranchAction, deleteBranchAction } from '@/app/actions/branches';
+import { addNotification } from '@/lib/notification-store';
 
 interface StudioContextType {
     settings: StudioSettings;
@@ -28,12 +31,12 @@ interface StudioContextType {
     setCurrency: (cur: 'GEL' | 'USD' | 'EUR') => void;
     setLanguage: (lang: 'ka' | 'ru' | 'en') => void;
     setTimezone: (tz: string) => void;
-    updateStaff: (id: string, data: any) => void;
-    removeStaff: (id: string) => void;
+    updateStaff: (id: string, data: any) => Promise<void>;
+    removeStaff: (id: string) => Promise<void>;
     removeBranch: (id: string) => void;
     updateBranch: (id: string, data: any) => void;
     setCustomRoles: (roles: any) => void;
-    addStaff: (member: any) => void;
+    addStaff: (member: any) => Promise<{ id: string }>;
     setOwnerInfo: (info: any) => void;
     setSmsTemplates: (templates: any) => void;
     setWizardCompleted: (val: boolean) => void;
@@ -937,38 +940,39 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         });
         window.dispatchEvent(new Event('cc_teacher_update'));
     };
-    const updateStaff = (id: string, data: any) => {
+    // updateStaff/addStaff/removeStaff now AWAIT their Server Action and
+    // surface a failure instead of swallowing it (docs/authorization-module.md
+    // §6): this used to fire updateStaffAction() unawaited with
+    // `.catch(() => {})`, which meant (a) a permission rejection from
+    // requireEffectivePermission() was invisible — the local optimistic
+    // update looked like a success while the real write silently failed and
+    // the next hydration cycle would revert it — and (b) an immediate reload
+    // right after Save could race ahead of the still-in-flight write. The
+    // redundant, unguarded settings-store.ts saveSettings() -> staff cloud
+    // sync this used to run alongside (which bypassed the permission check
+    // entirely and could itself win that race) has been removed.
+    const updateStaff = async (id: string, data: any) => {
         const next = settings.staff?.map((s: any) => s.id === id ? { ...s, ...data } : s) || [];
         updateSettings({ staff: next });
         notifyStaffChanged(next);
+        try {
+            await updateStaffAction({ id, ...data });
+        } catch (err: any) {
+            addNotification(err?.message || 'Failed to save staff changes', 'bg-rose-500');
+            throw err;
+        }
     };
-    const removeStaff = (id: string) => {
+    const removeStaff = async (id: string) => {
         const next = settings.staff?.filter((s: any) => s.id !== id) || [];
         updateSettings({ staff: next });
         notifyStaffChanged(next);
 
-        // 🛠️ FIX: updateSettings()→saveSettings()'s staff-sync branch only
-        // ever UPSERTS the remaining staff to Supabase's `staff` table — it
-        // never issues a delete for the one just removed, and
-        // master-sync.ts's studio-metadata push explicitly strips `staff`
-        // out of that payload too. So the row survived in the cloud forever,
-        // and the next hydration's `resolveRicher(state.staff, ...)` merge
-        // pulled it straight back into local settings — a deleted teacher
-        // reappeared in the roster after any reload. teacher-store.ts
-        // already has the correct call for this (deleteTeacher), it just was
-        // never wired up to the UI's actual delete path (this function) —
-        // fire the cloud delete here instead of duplicating its local-state
-        // logic (which already differs: it goes through saveSettings
-        // directly rather than this component's updateSettings()).
+        // deleteStaffAction (below) is now the only cloud delete for staff —
+        // this used to ALSO fire master-sync.ts's deleteRecordFromCloud
+        // ('staff', ...), an unguarded service-role delete with no
+        // permission check, redundant with deleteStaffAction's own
+        // requireEffectivePermission('canViewTeachers') check.
         if (typeof window !== 'undefined') {
-            const activeSlug = getActiveSlug() || 'default';
-            const orgId = getEffectiveOrgId(activeSlug) || settings.orgId;
-            if (orgId && orgId !== 'demo') {
-                import('@/lib/master-sync').then(({ deleteRecordFromCloud }) => {
-                    deleteRecordFromCloud('staff', id, orgId).catch(() => {});
-                }).catch(() => {});
-            }
-
             // 🛠️ FIX: group-store.ts's updateTeacherGroups() exists specifically
             // to clear a group's teacherId/secondaryTeacherId when a teacher is
             // unassigned, but nothing ever called it — so a deleted teacher's id
@@ -979,14 +983,47 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 updateTeacherGroups(id, '', []);
             }).catch(() => {});
         }
+        try {
+            await deleteStaffAction({ id });
+        } catch (err: any) {
+            addNotification(err?.message || 'Failed to delete staff member', 'bg-rose-500');
+            throw err;
+        }
     };
-    const addStaff = (member: any) => {
+    const addStaff = async (member: any) => {
         const next = [...(settings.staff || []), member];
         updateSettings({ staff: next });
         notifyStaffChanged(next);
+        try {
+            const { id: serverId } = await createStaffAction(member);
+            // Unified Auth (docs/tasks.md): a staff member who gets a real
+            // Supabase Auth account is keyed by that account's own id, not
+            // whatever synthetic id the client optimistically generated
+            // before this call — reconcile the local cache immediately
+            // rather than waiting for the next hydration cycle to correct
+            // it, so anything done right after (e.g. teachers/page.tsx's
+            // reconcileGroupAssignments) uses the real id.
+            if (serverId !== member.id) {
+                const reconciled = next.map(s => s.id === member.id ? { ...s, id: serverId } : s);
+                updateSettings({ staff: reconciled });
+                notifyStaffChanged(reconciled);
+            }
+            return { id: serverId };
+        } catch (err: any) {
+            addNotification(err?.message || 'Failed to add staff member', 'bg-rose-500');
+            throw err;
+        }
     };
-    const removeBranch = (id: string) => updateSettings({ branches: settings.branches.filter(b => b.id !== id) });
-    const updateBranch = (id: string, data: any) => updateSettings({ branches: settings.branches.map(b => b.id === id ? { ...b, ...data } : b) });
+    const removeBranch = (id: string) => {
+        updateSettings({ branches: settings.branches.filter(b => b.id !== id) });
+        deleteBranchAction({ id }).catch(() => {});
+    };
+    const updateBranch = (id: string, data: any) => {
+        const next = settings.branches.map(b => b.id === id ? { ...b, ...data } : b);
+        updateSettings({ branches: next });
+        const updated = next.find(b => b.id === id);
+        if (updated) updateBranchAction(updated).catch(() => {});
+    };
     const setCustomRoles = (roles: any) => updateSettings({ customRoles: roles });
     const setOwnerInfo = (info: any) => updateSettings({ owner_info: info });
     const setSmsTemplates = (templates: any) => updateSettings({ sms_templates: templates });
@@ -1016,6 +1053,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             const newBranch: Branch = { id: `br_${Date.now()}`, name, address, is_active: true };
             const next = { ...prev, branches: [...prev.branches, newBranch] };
             saveSettings({ branches: next.branches }, prev, prev.studioSlug);
+            createBranchAction(newBranch).catch(() => {});
             return next;
         });
     }, []);

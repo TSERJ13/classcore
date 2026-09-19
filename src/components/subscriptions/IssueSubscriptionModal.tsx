@@ -10,6 +10,7 @@ import { getStudents, updateStudent } from '@/lib/student-store';
 import { getPlans } from '@/lib/plan-store';
 import { getGroups } from '@/lib/group-store';
 import { getHalls } from '@/lib/hall-store';
+import { isFeatureEnabled } from '@/lib/settings-store';
 import { getLocalISODate, cn, formatDate, formatCurrency } from '@/lib/utils';
 import { generateTimeOptions } from '@/lib/date-utils';
 import { useStudio } from '@/contexts/StudioContext';
@@ -21,7 +22,7 @@ interface IssueSubscriptionModalProps {
     onClose: () => void;
     onIssue: (data: Omit<SubscriptionInfo, 'id'>) => void;
     initialStudentId?: string;
-    defaultType?: 'group' | 'individual' | 'rental';
+    defaultType?: 'group' | 'personal' | 'individual' | 'rental';
     centered?: boolean;
 }
 
@@ -79,7 +80,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
 
     const [studentId, setStudentId] = useState('');
     const [step, setStep] = useState<'type_selection' | 'form'>('type_selection');
-    const [selectedType, setSelectedType] = useState<'group' | 'individual' | 'rental'>('group');
+    const [selectedType, setSelectedType] = useState<'group' | 'personal' | 'individual' | 'rental'>('group');
 
     const availablePlans = useMemo(() => {
         return plans.filter(p => p.type === selectedType && p.is_active !== false);
@@ -306,6 +307,9 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             console.error('❌ [IssueModal] Group plan missing groupId');
             return;
         }
+        // Personal tariffs can optionally bind to a group too (PRD §3), unlike
+        // Monthly/'group' where it's required — hence the separate, non-blocking flag.
+        const bindsToGroup = (plan.type === 'group' || plan.type === 'personal') && !!groupId;
 
         const subType = plan.period === 'unlimited' ? 'monthly' : 'sessions';
         const sessionsTotal = unlimited ? null : (typeof sessions === 'number' ? sessions : 12);
@@ -317,8 +321,8 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             updateStudent(primaryStudentId, { balance: newBalance });
         }
 
-        // Enroll all students in the group if it's a group plan
-        if (isGroupPlan && groupId) {
+        // Enroll all students in the group, whether it's a group plan or a personal plan bound to one
+        if (bindsToGroup) {
             studentIds.forEach(id => {
                 const s = students.find(x => x.id === id);
                 if (s) {
@@ -335,7 +339,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
         if (appliedBalance > 0) commentParts.push(`${l('ბალანსიდან', 'С баланса', 'From Balance')}: ${formatCurrency(appliedBalance, settings.currency)}`);
         if (overpayment > 0) commentParts.push(`${l('ბალანსზე', 'На баланс', 'To Balance')}: +${formatCurrency(overpayment, settings.currency)}`);
 
-        const selectedGroup = isGroupPlan ? groups.find(g => g.id === groupId) : null;
+        const selectedGroup = bindsToGroup ? groups.find(g => g.id === groupId) : null;
 
         const finalPurchaseDate = purchaseDate || getLocalISODate();
 
@@ -343,6 +347,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
             onIssue({
                 student_id: studentId,
                 plan: plan.name,
+                plan_id: plan.id,
                 sessions_used: 0,
                 sessions_total: sessionsTotal,
                 status: 'active',
@@ -352,7 +357,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                 price: typeof price === 'number' ? price : plan.price,
                 type: subType,
                 plan_type: plan.type,
-                group_id: isGroupPlan ? groupId : undefined,
+                group_id: bindsToGroup ? groupId : undefined,
                 category: plan.type === 'individual' ? 'Individual' : (selectedGroup ? selectedGroup.type : undefined),
                 payment_method: payMethod,
                 amount_paid: paidNow,
@@ -456,7 +461,12 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                             <p className="text-xs font-bold text-muted text-center mb-1">{t.selectSubType}</p>
 
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                             <div className={cn('grid grid-cols-1 gap-6', {
+                                 1: 'md:grid-cols-1',
+                                 2: 'md:grid-cols-2',
+                                 3: 'md:grid-cols-3',
+                                 4: 'md:grid-cols-4',
+                             }[1 + (isFeatureEnabled(settings, 'personalPlans') ? 1 : 0) + (isFeatureEnabled(settings, 'individualLessons') ? 1 : 0) + (isFeatureEnabled(settings, 'hallRental') ? 1 : 0)])}>
                                 <div className="flex flex-col border-2 border-emerald-500/20 rounded-3xl overflow-hidden bg-card hover:border-emerald-500/40 transition-all group shadow-sm h-full">
                                     <button
                                         type="button"
@@ -473,41 +483,63 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     </button>
                                 </div>
 
-                                <div className="flex flex-col border-2 border-orange-500/20 rounded-3xl overflow-hidden bg-card hover:border-orange-500/40 transition-all group shadow-sm h-full">
+                                {isFeatureEnabled(settings, 'personalPlans') && (
+                                <div className="flex flex-col border-2 border-sky-500/20 rounded-3xl overflow-hidden bg-card hover:border-sky-500/40 transition-all group shadow-sm h-full">
                                     <button
                                         type="button"
-                                        onClick={() => { 
-                                            console.log('Pick IND');
-                                            setSelectedType('individual'); 
-                                            setStep('form'); 
-                                        }}
-                                        className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-orange-500/5 transition-colors text-primary h-full min-h-[160px]"
+                                        onClick={() => { setSelectedType('personal'); setStep('form'); }}
+                                        className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-sky-500/5 transition-colors text-primary h-full min-h-[160px]"
                                     >
-                                        <div className="w-14 h-14 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                        <div className="w-14 h-14 rounded-full bg-sky-500/10 flex items-center justify-center text-sky-500 group-hover:scale-110 transition-transform">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.91 8.84 8.56 21.18a2 2 0 0 1-2.83 0l-3-3a2 2 0 0 1 0-2.83L15.06 3.09a2.12 2.12 0 0 1 3 3Z" /><path d="M15.09 6.09 18.9 9.91" /></svg>
                                         </div>
                                         <div className="text-center">
-                                            <h3 className="text-sm font-black tracking-tight">{t.individualSubscription}</h3>
-                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('ინდივიდუალური', 'Индивидуальный', 'Individual')}</p>
+                                            <h3 className="text-sm font-black tracking-tight">{t.personalSubscription}</h3>
+                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('პერსონალური', 'Персональный', 'Personal')}</p>
                                         </div>
                                     </button>
                                 </div>
+                                )}
 
-                                <div className="flex flex-col border-2 border-amber-500/20 rounded-3xl overflow-hidden bg-card hover:border-amber-500/40 transition-all group shadow-sm h-full">
-                                    <button
-                                        type="button"
-                                        onClick={() => { console.log('Pick RENTAL'); setSelectedType('rental'); setStep('form'); }}
-                                        className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-amber-500/5 transition-colors text-primary h-full min-h-[160px]"
-                                    >
-                                        <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                                        </div>
-                                        <div className="text-center">
-                                            <h3 className="text-sm font-black tracking-tight">{t.rentalSubscription}</h3>
-                                            <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('დარბაზის იჯარა', 'Аренда зала', 'Hall Rental')}</p>
-                                        </div>
-                                    </button>
-                                </div>
+                                {isFeatureEnabled(settings, 'individualLessons') && (
+                                    <div className="flex flex-col border-2 border-orange-500/20 rounded-3xl overflow-hidden bg-card hover:border-orange-500/40 transition-all group shadow-sm h-full">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                console.log('Pick IND');
+                                                setSelectedType('individual');
+                                                setStep('form');
+                                            }}
+                                            className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-orange-500/5 transition-colors text-primary h-full min-h-[160px]"
+                                        >
+                                            <div className="w-14 h-14 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                            </div>
+                                            <div className="text-center">
+                                                <h3 className="text-sm font-black tracking-tight">{t.individualSubscription}</h3>
+                                                <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('ინდივიდუალური', 'Индивидуальный', 'Individual')}</p>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
+
+                                {isFeatureEnabled(settings, 'hallRental') && (
+                                    <div className="flex flex-col border-2 border-amber-500/20 rounded-3xl overflow-hidden bg-card hover:border-amber-500/40 transition-all group shadow-sm h-full">
+                                        <button
+                                            type="button"
+                                            onClick={() => { console.log('Pick RENTAL'); setSelectedType('rental'); setStep('form'); }}
+                                            className="w-full p-6 flex flex-col items-center justify-center gap-4 bg-surface hover:bg-amber-500/5 transition-colors text-primary h-full min-h-[160px]"
+                                        >
+                                            <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                                            </div>
+                                            <div className="text-center">
+                                                <h3 className="text-sm font-black tracking-tight">{t.rentalSubscription}</h3>
+                                                <p className="text-[10px] text-muted opacity-60 font-bold mt-1 uppercase tracking-widest">{l('დარბაზის იჯარა', 'Аренда зала', 'Hall Rental')}</p>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -586,7 +618,7 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
                                     />
                                 </div>
 
-                                {plans.find(p => p.id === planId)?.type === 'group' && (
+                                {(() => { const pt = plans.find(p => p.id === planId)?.type; return pt === 'group' || pt === 'personal'; })() && (
                                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
                                         <label className="text-[9px] font-black text-muted tracking-wider px-1 uppercase">{t.addToGroup}</label>
                                         <SearchSelect

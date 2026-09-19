@@ -19,6 +19,8 @@ import Link from 'next/link';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { AppLogo } from '@/components/ui/Logo';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { getPermissionLocksAction, setPermissionLockAction, clearPermissionLockAction } from '@/app/actions/permission-locks';
+import type { PermissionLock } from '@/lib/permissions/resolve';
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
@@ -87,10 +89,33 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 export default function SettingsPage() {
     const { t, lang, setLang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+    // Same key set as the "Assign access" toggles below — the module's
+    // canView* granularity is the only thing a Permission Lock (§7) can
+    // target today, per resolve.ts's PermissionLock.permissionId typing.
+    const LOCKABLE_PERMISSIONS = [
+        { value: 'canViewAttendance', label: t.attendance },
+        { value: 'canViewSubscriptions', label: t.subscriptions },
+        { value: 'canViewStudents', label: t.students },
+        { value: 'canViewCalendar', label: t.calendar },
+        { value: 'canEditCalendar', label: t.edit },
+        { value: 'canViewGroups', label: t.groups },
+        { value: 'canViewTeachers', label: t.teachers },
+        { value: 'canViewHalls', label: t.halls },
+        { value: 'canViewShop', label: t.hallRental },
+        { value: 'canViewAnalytics', label: t.analytics },
+        { value: 'canViewSMS', label: 'SMS' },
+    ];
     const { settings, isLoaded, setTheme, setStudioName, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, saveSettings } = useStudio();
     const { profile, user, logout } = useUser();
     const confirm = useConfirm();
-    const isAdmin = profile?.role === 'superadmin' || profile?.role === 'owner' || profile?.role === 'admin';
+    // 'administrator' (Permissions module, docs/authorization-module.md §2)
+    // included here on purpose — it should reach the same studio-management
+    // sections (Studio Settings, Staff Access, Branch Management, Security)
+    // as owner/admin, just not the owner-exclusive Account/Danger-Zone
+    // sections below (those stay gated by isOwner, unchanged) or Billing
+    // (a separate page, never opened to Administrator — see
+    // role-defaults.ts's ADMINISTRATOR_DEFAULTS).
+    const isAdmin = profile?.role === 'superadmin' || profile?.role === 'owner' || profile?.role === 'admin' || profile?.role === 'administrator';
     const isOwner = profile?.role === 'owner' || profile?.role === 'superadmin';
     const isSuperAdmin = profile?.role === 'superadmin';
 
@@ -184,18 +209,78 @@ export default function SettingsPage() {
     const [editingStaffData, setEditingStaffData] = useState<any>(null);
     const [showStaffPwd, setShowStaffPwd] = useState(false);
 
-    // Sync local state when starting/stopping edit
+    // Permission Locks (docs/permissions-module-prd.md §7) — Main
+    // Administrator only, see requireOwner() in permission-locks.ts.
+    const [locks, setLocks] = useState<PermissionLock[]>([]);
+    const [locksLoading, setLocksLoading] = useState(false);
+    const [lockPermId, setLockPermId] = useState<string>('canViewShop');
+    const [lockTargetType, setLockTargetType] = useState<'role' | 'staff'>('role');
+    const [lockTargetRole, setLockTargetRole] = useState<'administrator' | 'teacher'>('teacher');
+    const [lockTargetStaffId, setLockTargetStaffId] = useState('');
+    const [lockValue, setLockValue] = useState(false);
+    const [lockSaving, setLockSaving] = useState(false);
+    const [staffSaving, setStaffSaving] = useState(false);
+    const [transferTargetId, setTransferTargetId] = useState('');
+    const [transferring, setTransferring] = useState(false);
+
+    // Sync local state when starting/stopping edit. Only re-clones from
+    // settings.staff when editingStaffId itself changes (opening a
+    // different record, or closing) — this used to also depend on
+    // settings.staff directly, so ANY unrelated change to it (a background
+    // hydrate() cycle, another admin's edit) while this modal was open
+    // silently discarded whatever the user had already toggled but not
+    // saved yet, resetting the form back to the pre-edit values.
+    const prevEditingStaffIdRef = useRef<string | null>(null);
     useEffect(() => {
-        if (editingStaffId) {
+        if (editingStaffId && editingStaffId !== prevEditingStaffIdRef.current) {
             const member = settings.staff?.find((s: any) => s.id === editingStaffId);
             if (member) {
                 setEditingStaffData(JSON.parse(JSON.stringify(member))); // Deep clone
             }
-        } else {
+        } else if (!editingStaffId) {
             setEditingStaffData(null);
         }
+        prevEditingStaffIdRef.current = editingStaffId;
     }, [editingStaffId, settings.staff]);
 
+    useEffect(() => {
+        if (!isOwner) return;
+        setLocksLoading(true);
+        getPermissionLocksAction()
+            .then(setLocks)
+            .catch(() => {})
+            .finally(() => setLocksLoading(false));
+    }, [isOwner]);
+
+    async function handleAddLock() {
+        if (lockTargetType === 'staff' && !lockTargetStaffId) return;
+        setLockSaving(true);
+        try {
+            await setPermissionLockAction({
+                permissionId: lockPermId,
+                lockedValue: lockValue,
+                ...(lockTargetType === 'role' ? { targetRole: lockTargetRole } : { targetStaffId: lockTargetStaffId }),
+            });
+            setLocks(await getPermissionLocksAction());
+            addNotification(l('პერმისია დაიბლოკა', 'Разрешение заблокировано', 'Permission locked'), 'success');
+        } catch (e: any) {
+            addNotification(e?.message || l('შეცდომა', 'Ошибка', 'Error'), 'error');
+        } finally {
+            setLockSaving(false);
+        }
+    }
+
+    async function handleRemoveLock(lock: PermissionLock) {
+        try {
+            await clearPermissionLockAction({
+                permissionId: lock.permissionId,
+                ...(lock.targetStaffId ? { targetStaffId: lock.targetStaffId } : { targetRole: lock.targetRole }),
+            });
+            setLocks(prev => prev.filter(x => !(x.permissionId === lock.permissionId && x.targetRole === lock.targetRole && x.targetStaffId === lock.targetStaffId)));
+        } catch (e: any) {
+            addNotification(e?.message || l('შეცდომა', 'Ошибка', 'Error'), 'error');
+        }
+    }
 
 
 
@@ -542,7 +627,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <PermissionGuard adminOnly={true}>
+        <PermissionGuard adminOnly={true} allowAdministrator={true}>
             <div key={settings.studioSlug || 'loading'} className="max-w-7xl mx-auto space-y-8 animate-fade-up pb-10">
             {isAdmin && (
                 <>
@@ -689,6 +774,107 @@ export default function SettingsPage() {
                         </div>
                     </Section>
 
+                    {isOwner && (
+                        <Section title={l('პერმისიების დაბლოკვა', 'Блокировка разрешений', 'Permission Locks')} icon={Shield}>
+                            <div className="p-4 space-y-4">
+                                <p className="text-[10px] text-muted/70 leading-relaxed px-1">
+                                    {l(
+                                        'დაბლოკილი პერმისია ვეღარ შეიცვლება როლის დეფოლტით ან პირადი წვდომის მორგებით — ის ყოველთვის იმარჯვებს.',
+                                        'Заблокированное разрешение больше нельзя изменить ни ролью по умолчанию, ни персональной настройкой доступа — оно всегда побеждает.',
+                                        'A locked permission can no longer be changed by a role default or a personal access override — the lock always wins.'
+                                    )}
+                                </p>
+
+                                {locksLoading ? (
+                                    <div className="text-center py-6 text-[10px] font-bold text-muted/50 tracking-widest">{l('იტვირთება...', 'Загрузка...', 'Loading...')}</div>
+                                ) : locks.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {locks.map((lock, i) => {
+                                            const staffMember = lock.targetStaffId ? settings.staff?.find((s: any) => s.id === lock.targetStaffId) : null;
+                                            const targetLabel = staffMember ? `${staffMember.first_name} ${staffMember.last_name}` : (lock.targetStaffId || lock.targetRole);
+                                            const permLabel = LOCKABLE_PERMISSIONS.find(p => p.value === lock.permissionId)?.label || lock.permissionId;
+                                            return (
+                                                <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-surface/30 border border-border-subtle/30">
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-bold text-primary truncate">{permLabel}</p>
+                                                        <p className="text-[9px] font-bold text-muted/50 tracking-widest mt-0.5">
+                                                            {targetLabel} · {lock.lockedValue ? l('ჩართული', 'Включено', 'ON') : l('გამორთული', 'Выключено', 'OFF')}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleRemoveLock(lock)}
+                                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-red-500/40 hover:text-red-500 hover:bg-red-500/10 transition-all flex-shrink-0"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <p className="text-center py-4 text-[10px] font-bold text-muted/40 tracking-widest">{l('დაბლოკილი პერმისია არ არის', 'Заблокированных разрешений нет', 'No locked permissions')}</p>
+                                )}
+
+                                <div className="pt-3 border-t border-border-subtle/20 space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <SearchSelect
+                                            options={LOCKABLE_PERMISSIONS}
+                                            value={lockPermId}
+                                            onChange={setLockPermId}
+                                            className="!border-border-subtle hover:!border-indigo-500/40"
+                                        />
+                                        <SearchSelect
+                                            options={[
+                                                { value: 'false', label: l('გამორთვა', 'Выключить', 'OFF') },
+                                                { value: 'true', label: l('ჩართვა', 'Включить', 'ON') },
+                                            ]}
+                                            value={String(lockValue)}
+                                            onChange={v => setLockValue(v === 'true')}
+                                            className="!border-border-subtle hover:!border-indigo-500/40"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <SearchSelect
+                                            options={[
+                                                { value: 'role', label: l('როლი', 'Роль', 'Role') },
+                                                { value: 'staff', label: l('კონკრეტული თანამშრომელი', 'Конкретный сотрудник', 'Specific staff member') },
+                                            ]}
+                                            value={lockTargetType}
+                                            onChange={v => setLockTargetType(v as 'role' | 'staff')}
+                                            className="!border-border-subtle hover:!border-indigo-500/40"
+                                        />
+                                        {lockTargetType === 'role' ? (
+                                            <SearchSelect
+                                                options={[
+                                                    { value: 'administrator', label: l('ადმინისტრატორი', 'Администратор', 'Administrator') },
+                                                    { value: 'teacher', label: l('მასწავლებელი', 'Учитель', 'Teacher') },
+                                                ]}
+                                                value={lockTargetRole}
+                                                onChange={v => setLockTargetRole(v as 'administrator' | 'teacher')}
+                                                className="!border-border-subtle hover:!border-indigo-500/40"
+                                            />
+                                        ) : (
+                                            <SearchSelect
+                                                options={(settings.staff || []).map((s: any) => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
+                                                value={lockTargetStaffId}
+                                                onChange={setLockTargetStaffId}
+                                                className="!border-border-subtle hover:!border-indigo-500/40"
+                                            />
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={handleAddLock}
+                                        disabled={lockSaving || (lockTargetType === 'staff' && !lockTargetStaffId)}
+                                        className="w-full py-3.5 bg-indigo-600 text-white text-xs font-black rounded-2xl active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        <Shield className="w-4 h-4" />
+                                        {l('დაბლოკვა', 'Заблокировать', 'Lock')}
+                                    </button>
+                                </div>
+                            </div>
+                        </Section>
+                    )}
+
                     <Section title={t.branchManagement} icon={Building2}>
                         <div className="p-4 space-y-3">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -827,6 +1013,56 @@ export default function SettingsPage() {
                             <LanguageSwitcher variant="landing" mode="persistent" onChange={(l) => setLanguage(l as any)} />
                         </div>
                     </Row>
+                    {isOwner && !isSuperAdmin && (
+                        <Row label={l('მთავარი ადმინისტრატორის სტატუსის გადაცემა', 'Передача статуса Главного администратора', 'Transfer Main Administrator status')}
+                            sub={l('სტატუსი გადაეცემა უკვე არსებულ Administrator-ს — მათ შეექმნებათ ახალი, ცალკე ანგარიში.', 'Статус передаётся уже существующему Administrator — для него создаётся новая, отдельная учётная запись.', 'Status goes to an existing Administrator — a new, separate account is created for them.')}
+                        >
+                            <div className="flex flex-col sm:flex-row gap-2 w-full items-stretch sm:items-center">
+                                <SearchSelect
+                                    options={(settings.staff || []).filter((s: any) => s.role === 'administrator').map((s: any) => ({ value: s.id, label: `${s.first_name} ${s.last_name}` }))}
+                                    value={transferTargetId}
+                                    onChange={setTransferTargetId}
+                                    placeholder={l('აირჩიეთ Administrator', 'Выберите Administrator', 'Select Administrator')}
+                                    className="!border-border-subtle hover:!border-amber-500/40 min-w-[220px]"
+                                />
+                                <button
+                                    onClick={async () => {
+                                        if (!transferTargetId) return;
+                                        const target = (settings.staff || []).find((s: any) => s.id === transferTargetId);
+                                        const ok = await confirm({
+                                            title: l('სტატუსის გადაცემა', 'Передача статуса', 'Transfer status'),
+                                            message: l(
+                                                `${target?.first_name} ${target?.last_name} გახდება ახალი მთავარი ადმინისტრატორი. თქვენ დაკარგავთ სრულ წვდომას და გახდებით ჩვეულებრივი Administrator. ეს მოქმედება არ არის მარტივად შექცევადი. დარწმუნებული ხართ?`,
+                                                `${target?.first_name} ${target?.last_name} станет новым Главным администратором. Вы потеряете полный доступ и станете обычным Administrator. Это действие непросто отменить. Вы уверены?`,
+                                                `${target?.first_name} ${target?.last_name} will become the new Main Administrator. You will lose full access and become an ordinary Administrator. This is not easily reversible. Are you sure?`
+                                            ),
+                                            confirmText: l('გადაცემა', 'Передать', 'Transfer'),
+                                            danger: true,
+                                        });
+                                        if (!ok) return;
+                                        setTransferring(true);
+                                        try {
+                                            const { transferMainAdministratorAction } = await import('@/app/actions/ownership-transfer');
+                                            const result = await transferMainAdministratorAction({ targetStaffId: transferTargetId, origin: window.location.origin });
+                                            addNotification(
+                                                l(`გადაცემულია! ახალ მთავარ ადმინისტრატორს (${result.newOwnerEmail}) ეგზავნება პაროლის დაყენების ბმული.`, `Передано! Новому Главному администратору (${result.newOwnerEmail}) отправлена ссылка для установки пароля.`, `Transferred! The new Main Administrator (${result.newOwnerEmail}) has been sent a password-setup link.`),
+                                                'bg-emerald-500'
+                                            );
+                                            setTransferTargetId('');
+                                        } catch (err: any) {
+                                            addNotification(err?.message || l('შეცდომა', 'Ошибка', 'Error'), 'bg-rose-500');
+                                        } finally {
+                                            setTransferring(false);
+                                        }
+                                    }}
+                                    disabled={!transferTargetId || transferring}
+                                    className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border border-amber-500/20 text-xs font-black transition-all disabled:opacity-40 whitespace-nowrap"
+                                >
+                                    {transferring ? <div className="w-4 h-4 border-2 border-amber-600/30 border-t-amber-600 rounded-full animate-spin" /> : l('გადაცემა', 'Передать', 'Transfer')}
+                                </button>
+                            </div>
+                        </Row>
+                    )}
                     <Row label={l('სისტემიდან გამოსვლა', 'Выйти из системы', 'Logout')} sub={t.logoutDesc}>
                         <div className="flex items-center w-full">
                             <button onClick={logout} className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-black transition-all group border border-rose-500/10">
@@ -1034,6 +1270,7 @@ export default function SettingsPage() {
                                     <label className="text-[10px] font-black text-muted tracking-widest ml-1">{t.accessLevelLabel}</label>
                                     <SearchSelect
                                         options={[
+                                            { value: 'administrator', label: l('ადმინისტრატორი', 'Администратор', 'Administrator') },
                                             { value: 'manager', label: t.managerRole },
                                             { value: 'teacher', label: t.teacherRole },
                                             { value: 'receptionist', label: t.receptionistRole },
@@ -1092,6 +1329,11 @@ export default function SettingsPage() {
                                         {showStaffPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
                                     </button>
                                 </div>
+                                {newStaff.password && (
+                                    <p className="text-[9px] text-muted/50 font-medium ml-1">
+                                        {l('მინ. 8 სიმბოლო, 1 დიდი ასო, 1 ციფრი, 1 სპეც. სიმბოლო', 'Мин. 8 символов, 1 заглавная, 1 цифра, 1 спец. символ', 'Min. 8 chars, 1 uppercase, 1 digit, 1 special char')}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="space-y-4">
@@ -1145,7 +1387,7 @@ export default function SettingsPage() {
                                         ...newStaff,
                                         full_name: `${newStaff.first_name} ${newStaff.last_name}`.trim(),
                                         status: 'active'
-                                    } as any);
+                                    } as any).catch(() => {});
                                     setStaffModalOpen(false);
                                     setNewStaff({
                                         first_name: '',
@@ -1191,9 +1433,22 @@ export default function SettingsPage() {
                                 setEditingStaffData({ ...member, ...patch });
                             };
 
-                            const handleSave = () => {
-                                updateStaff(member.id, member);
-                                setEditingStaffId(null);
+                            const handleSave = async () => {
+                                // Await the write and only close on success —
+                                // this used to close immediately after firing
+                                // an unawaited updateStaffAction(), so a
+                                // rejection (permission denied, network error)
+                                // was invisible: the modal reported success
+                                // while nothing was actually saved.
+                                setStaffSaving(true);
+                                try {
+                                    await updateStaff(member.id, member);
+                                    setEditingStaffId(null);
+                                } catch {
+                                    // Error already surfaced via addNotification inside updateStaff().
+                                } finally {
+                                    setStaffSaving(false);
+                                }
                             };
 
                             return (
@@ -1301,14 +1556,19 @@ export default function SettingsPage() {
                                                     {showStaffPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
                                                 </button>
                                             </div>
+                                            {member.password && (
+                                                <p className="text-[9px] text-muted/50 font-medium ml-1">
+                                                    {l('მინ. 8 სიმბოლო, 1 დიდი ასო, 1 ციფრი, 1 სპეც. სიმბოლო', 'Мин. 8 символов, 1 заглавная, 1 цифра, 1 спец. символ', 'Min. 8 chars, 1 uppercase, 1 digit, 1 special char')}
+                                                </p>
+                                            )}
                                         </div>
                                         {/* Role Selection */}
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-black text-muted tracking-widest ml-1">{l('წვდომის დონე (როლი)', 'Уровень доступа (Роль)', 'Access Level (Role)')}</label>
                                             <SearchSelect
                                                 options={[
-                                                    { value: 'owner', label: l('მფლობელი', 'Владелец', 'Owner') },
-                                                    { value: 'admin', label: l('ადმინისტრატორი', 'Администратор', 'Admin') },
+                                                    { value: 'owner', label: l('მთავარი ადმინისტრატორი', 'Главный администратор', 'Main Administrator') },
+                                                    { value: 'administrator', label: l('ადმინისტრატორი', 'Администратор', 'Administrator') },
                                                     { value: 'manager', label: l('მენეჯერი', 'Менеджер', 'Manager') },
                                                     { value: 'teacher', label: l('მასწავლებელი', 'Учитель', 'Teacher') },
                                                     { value: 'receptionist', label: l('რეცეფშენი', 'Ресепшн', 'Receptionist') },
@@ -1434,7 +1694,7 @@ export default function SettingsPage() {
                                                             danger: true
                                                         });
                                                         if (ok) {
-                                                            removeStaff(member.id);
+                                                            removeStaff(member.id).catch(() => {});
                                                             setEditingStaffId(null);
                                                         }
                                                     }}
@@ -1456,9 +1716,10 @@ export default function SettingsPage() {
                                         </button>
                                         <button
                                             onClick={handleSave}
-                                            className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2 uppercase"
+                                            disabled={staffSaving}
+                                            className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2 uppercase disabled:opacity-50"
                                         >
-                                            <Save className="w-4 h-4" />
+                                            {staffSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
                                             {l('შენახვა', 'Сохранить', 'Save')}
                                         </button>
                                     </div>

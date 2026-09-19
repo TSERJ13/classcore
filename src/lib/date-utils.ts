@@ -46,3 +46,9 @@ export const generateYearOptions = (start = 1950, end = new Date().getFullYear()
     }
     return options;
 };
+
+/** Adds one hour to an "HH:MM" string, wrapping past midnight. */
+export const addOneHour = (timeStr: string): string => {
+    const [h, m] = timeStr.split(':').map(Number);
+    return `${String((h + 1) % 24).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
+};

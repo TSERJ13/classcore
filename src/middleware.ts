@@ -18,11 +18,15 @@ export async function middleware(request: NextRequest) {
         && !publicStaticRoutes.includes('/' + segments[0])
         && studioDashboardPages.includes(segments[1]);
 
-    // A Student Portal URL is /[slug]/[studentId] where second segment is NOT a dashboard page
-    const isPortal = (segments.length === 2 || segments.length === 3) 
-        && !publicStaticRoutes.includes('/' + segments[0])
-        && !studioDashboardPages.includes(segments[1])
-        && segments[1] !== 'registration';
+    // The teacher-invite claim page (/[slug]/staff-invite/[token],
+    // docs/authorization-module.md §8) is public — no session, the token
+    // in the URL is the credential — same as /[slug]/registration.
+    // Excluded from isPortal below explicitly (like 'registration' already
+    // is) rather than relying on it happening to fall through — it did
+    // fall through by accident before this since 'staff-invite' isn't in
+    // studioDashboardPages, but that's not something isPortal's own
+    // Student Portal logic should depend on staying true by coincidence.
+    const isStaffInvite = segments.length === 3 && segments[1] === 'staff-invite';
 
     // Redirect /sa-admin to /sa-login
     if (pathname === '/sa-admin') {
@@ -44,8 +48,18 @@ export async function middleware(request: NextRequest) {
         request: { headers: request.headers },
     });
 
-    // Public static routes & Student Portals pass through without auth
-    if (isPublicStatic || isPortal) {
+    // Public static routes and the staff-invite claim page pass through
+    // without auth. Student Portal URLs (/[slug]/[studentId]) used to be
+    // in this list too — docs/tasks.md's Student portal phase — that page
+    // had no real access control at all (a cosmetic, never-server-checked
+    // phone-suffix prompt), so anyone with the URL could view a student's
+    // private subscription/payment history. It's gone from this bypass on
+    // purpose now: those routes fall through to the normal auth check
+    // below (staff-token OR Supabase Auth — a student's new real Auth
+    // session satisfies it the same as staff does), and the page itself
+    // (src/app/[studio]/[studentId]/page.tsx) enforces that a student
+    // session may only view their own page.
+    if (isPublicStatic || isStaffInvite) {
         return response;
     }
 

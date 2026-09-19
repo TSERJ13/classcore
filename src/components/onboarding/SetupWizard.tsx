@@ -108,8 +108,8 @@ export function SetupWizard() {
                 canViewAnalytics: true,
                 canViewSMS: true
             }
-        });
-        
+        }).catch(() => {});
+
         nextStep();
     };
 

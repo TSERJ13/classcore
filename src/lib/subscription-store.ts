@@ -4,6 +4,7 @@
  */
 
 import { updateStudent, getStudents } from './student-store';
+import { getPlans, type Plan } from './plan-store';
 
 export interface SubscriptionInfo {
     id: string;
@@ -11,14 +12,23 @@ export interface SubscriptionInfo {
     plan: string;
     sessions_used: number;
     sessions_total: number | null;
-    status: 'active' | 'expired' | 'paused';
+    status: 'active' | 'expired' | 'paused' | 'cancelled';
     expires_at: string;
     purchased_at: string;
     starts_at?: string;
     created_at?: string;
     teacher_comment?: string;
+    // Self-pause bookkeeping (set by pauseActiveSubscription) — lets the UI show
+    // "Paused (X days left)" instead of just a bare 'paused' status.
+    paused_at?: string;
+    pause_days?: number;
     type: 'sessions' | 'monthly';
-    plan_type?: 'group' | 'individual' | 'rental';
+    plan_type?: 'group' | 'personal' | 'individual' | 'rental';
+    // Stable reference to the originating tariff (src/lib/plan-store.ts Plan.id), so
+    // per-tariff config (e.g. freeze_options) can be looked up later. Optional because
+    // subscriptions issued before this field existed don't have it — see
+    // findTariffForSubscription() for the name-based fallback lookup those need.
+    plan_id?: string;
     group_id?: string;
     category?: string; // e.g. 'Dance', 'Salsa', 'Yoga'
     is_default?: boolean;
@@ -34,11 +44,104 @@ export interface SubscriptionInfo {
 
 type SubMap = Record<string, SubscriptionInfo[]>;
 
-import { getStaffSession, loadSettings, saveSettings } from './settings-store';
+import { getStaffSession, loadSettings, saveSettings, getVacationExtensionDays } from './settings-store';
 import { recordAuditAction } from './audit-store';
 import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, makeEntityId } from './utils';
 import { pushStudioStateToCloud } from './sync-store';
 import { syncRecordToCloud, deleteRecordFromCloud, pushFullStudioMetadata } from './master-sync';
+
+export interface EffectiveStatus {
+    status: 'active' | 'suspended' | 'cancelled';
+    reason?: 'overdue' | 'paused';
+    days?: number; // days overdue, or days of pause remaining
+}
+
+/**
+ * The date a subscription is actually overdue from. Normally that's just
+ * expires_at, but for a Monthly tariff with a payment_window configured, the
+ * PRD (Tariffs §11) counts "overdue" from the window's end-day in the month
+ * of expires_at, not from the raw date — a subscription bought on the 20th
+ * against a "1-5" window isn't overdue the moment day 20 of next month hits,
+ * it's overdue after that month's 5th passes.
+ */
+function getEffectiveDueDate(sub: SubscriptionInfo): string {
+    let due = sub.expires_at;
+
+    if (sub.plan_type === 'group' && due) {
+        const tariff = findTariffForSubscription(sub);
+        if (tariff?.payment_window) {
+            const d = new Date(due);
+            const lastDayOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+            const endDay = Math.min(tariff.payment_window.endDay, lastDayOfMonth);
+            due = new Date(d.getFullYear(), d.getMonth(), endDay).toISOString().split('T')[0];
+        }
+    }
+
+    // Studio vacation mode (PRD §13): push every subscription's due date out
+    // by the vacation's length, so the closure never costs a student time.
+    if (due) {
+        const extensionDays = getVacationExtensionDays(loadSettings());
+        if (extensionDays > 0) {
+            const d = new Date(due);
+            d.setDate(d.getDate() + extensionDays);
+            due = d.toISOString().split('T')[0];
+        }
+    }
+
+    return due;
+}
+
+/**
+ * Derives the PRD's 3-status model (active/suspended/cancelled) from the stored
+ * subscription. 'suspended' covers both a manual self-pause and an auto-detected
+ * payment overdue (2+ days past due); 'cancelled' covers a manual cancel or
+ * 30+ days of non-payment. `reason`/`days` drive the card's informational note
+ * ("Paused (12 days left)" / "Overdue (3 days)") without creating a 4th status.
+ */
+export function getEffectiveStatus(sub: SubscriptionInfo): EffectiveStatus {
+    if (sub.status === 'cancelled') return { status: 'cancelled' };
+
+    // A self-pause with a still-running window overrides everything else. Once the
+    // window has elapsed, nothing currently flips the stored status back to 'active'
+    // (no server-side cron in this app) — rather than reporting "suspended" forever
+    // with no days left, fall through to the normal due-date/overdue check below,
+    // since pauseActiveSubscription() already pushed expires_at forward by the
+    // pause length.
+    if (sub.status === 'paused') {
+        if (sub.paused_at && sub.pause_days) {
+            const elapsedDays = Math.floor((Date.now() - new Date(sub.paused_at).getTime()) / 86400000);
+            const remaining = sub.pause_days - elapsedDays;
+            if (remaining > 0) return { status: 'suspended', reason: 'paused', days: remaining };
+        } else {
+            return { status: 'suspended', reason: 'paused' };
+        }
+    }
+
+    const todayStr = getLocalISODate();
+    const dueDate = getEffectiveDueDate(sub);
+    if (dueDate && dueDate < todayStr) {
+        const daysOverdue = Math.floor((new Date(todayStr).getTime() - new Date(dueDate).getTime()) / 86400000);
+        if (daysOverdue >= 30) return { status: 'cancelled' };
+        if (daysOverdue >= 2) return { status: 'suspended', reason: 'overdue', days: daysOverdue };
+    }
+
+    return { status: 'active' };
+}
+
+/**
+ * Finds the tariff (Plan) a subscription was issued from, so per-tariff config
+ * (freeze_options, payment_window, ...) can be looked up. Prefers the stable
+ * `plan_id` reference; falls back to matching by name+type for subscriptions
+ * issued before that field existed.
+ */
+export function findTariffForSubscription(sub: SubscriptionInfo): Plan | null {
+    const plans = getPlans();
+    if (sub.plan_id) {
+        const byId = plans.find(p => p.id === sub.plan_id);
+        if (byId) return byId;
+    }
+    return plans.find(p => p.name === sub.plan && p.type === sub.plan_type) || null;
+}
 
 const BASE_SUBS_KEY = 'cc_student_subscriptions';
 const BASE_DELETED_SUBS_KEY = 'cc_deleted_subscriptions';
@@ -360,7 +463,7 @@ export function getStudentSubscriptions(studentId: string): SubscriptionInfo[] {
 export function getSubscription(
     studentId: string,
     groupId?: string,
-    planType?: 'group' | 'individual' | 'rental',
+    planType?: 'group' | 'personal' | 'individual' | 'rental',
     includeExpiredWithSessions: boolean = false
 ): SubscriptionInfo | null {
     if (!studentId || studentId === 'undefined') return null;
@@ -640,6 +743,8 @@ export function pauseActiveSubscription(studentId: string, subId: string, days: 
         ...sub,
         status: 'paused', // change status to paused explicitly
         expires_at: date.toISOString().split('T')[0],
+        paused_at: getLocalISODate(),
+        pause_days: days,
     };
 
     saveSubscription(studentId, newSub);
@@ -649,7 +754,7 @@ export function pauseActiveSubscription(studentId: string, subId: string, days: 
 export function incrementSessionsUsed(
     studentId: string,
     subId?: string,
-    planType?: 'group' | 'individual' | 'rental',
+    planType?: 'group' | 'personal' | 'individual' | 'rental',
     groupId?: string
 ): SubscriptionInfo | null {
     if (!studentId || studentId === 'undefined') return null;
@@ -686,7 +791,7 @@ export function incrementSessionsUsed(
 export function refundSessionsUsed(
     studentId: string,
     subId?: string,
-    planType?: 'group' | 'individual' | 'rental',
+    planType?: 'group' | 'personal' | 'individual' | 'rental',
     groupId?: string
 ): SubscriptionInfo | null {
     const subs = getStudentSubscriptions(studentId);

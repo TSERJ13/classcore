@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { createStaffToken } from '@/lib/staff-token';
+import { verifyPassword, isHashedPassword, hashPassword } from '@/lib/password-hash';
 
 /**
  * Server-side staff (PIN/password) login.
@@ -18,10 +19,13 @@ import { createStaffToken } from '@/lib/staff-token';
  * to the specific staff member + org that matched — nothing forgeable,
  * and nothing that leaks other staff members' passwords to the client.
  *
- * NOTE: staff passwords are still stored in plaintext in the `staff`
- * table. This route stops shipping them to the browser and stops the
- * cookie-forgery bypass, but does not by itself fix plaintext storage —
- * that needs a password hashing migration, flagged separately.
+ * Password comparison now goes through verifyPassword() (src/lib/
+ * password-hash.ts): a hashed row (new staff, or anyone edited through
+ * src/app/actions/staff.ts) is checked with scrypt; a legacy plaintext row
+ * still compares directly so existing logins keep working, and gets
+ * rehashed in place the moment it logs in successfully (see
+ * rehashIfPlaintext below) — no separate bulk-migration script needed,
+ * plaintext rows just age out as people log in.
  */
 
 const supabaseAdmin = createClient(
@@ -29,6 +33,16 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
 );
+
+/** Upgrades a legacy plaintext row to a hash the moment it's used to log in successfully — fire-and-forget, never blocks the login response. */
+function rehashIfPlaintext(staffId: string, storedPassword: string, plainPassword: string) {
+    if (isHashedPassword(storedPassword)) return;
+    hashPassword(plainPassword).then(hashed => {
+        supabaseAdmin.from('staff').update({ password: hashed }).eq('id', staffId).then(({ error }) => {
+            if (error) console.error('❌ [staff-login] Failed to rehash legacy password:', error.message);
+        });
+    }).catch(() => {});
+}
 
 function safeStaff(row: any) {
     const dataObj = (row.data && typeof row.data === 'object') ? row.data : {};
@@ -70,10 +84,14 @@ export async function POST(req: Request) {
             }
         }
 
-        const matches = (candidates || []).filter((s: any) => {
+        const matches: any[] = [];
+        for (const s of candidates || []) {
             const pass = s.password || s.data?.password;
-            return pass === password;
-        });
+            if (await verifyPassword(password, pass)) {
+                matches.push(s);
+                rehashIfPlaintext(s.id, pass, password);
+            }
+        }
 
         if (matches.length === 0) {
             const { data: allSettings } = await supabaseAdmin.from('studio_settings').select('*');
@@ -84,7 +102,8 @@ export async function POST(req: Request) {
                         for (const st of staffArr) {
                             const e = (st.email || '').toLowerCase().trim();
                             const fn = (st.full_name || st.first_name || '').toLowerCase().trim();
-                            if ((e === cleanEmail || fn === cleanEmail || fn.includes(cleanEmail)) && st.password === password) {
+                            if ((e === cleanEmail || fn === cleanEmail || fn.includes(cleanEmail)) && await verifyPassword(password, st.password)) {
+                                rehashIfPlaintext(st.id, st.password, password);
                                 matches.push({
                                     id: st.id,
                                     org_id: setRow.org_id,
@@ -130,8 +149,11 @@ export async function POST(req: Request) {
             if (!token) return NextResponse.json({ ok: false, error: 'Server not configured for staff login.' }, { status: 500 });
 
             const res = NextResponse.json({ ok: true, type: 'single', slug, studioName: name, staff: { ...safeStaff(staff), studioName: name } });
+            // docs/authorization-module.md §4 — cookie lifetime must match
+            // the token's own 12h expiry (staff-token.ts); this used to
+            // outlive the token by 6.5 days for no reason.
             res.cookies.set('cc_staff_token', token, {
-                httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7,
+                httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 12,
             });
             if (name && !/^[0-9a-f-]{20,}$/i.test(name)) {
                 res.cookies.set('cc_studio_name', encodeURIComponent(name), {

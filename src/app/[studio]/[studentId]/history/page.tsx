@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Clock, CreditCard, ShoppingBag, Calendar } from 'lucide-react';
+import { ChevronLeft, Clock, CreditCard, ShoppingBag, Calendar, ShieldCheck } from 'lucide-react';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { getStudentSubscriptions, type SubscriptionInfo } from '@/lib/subscription-store';
 import { useT } from '@/contexts/LanguageContext';
 import { getStudents } from '@/lib/student-store';
 import { loadSettings, DEFAULT_SETTINGS } from '@/lib/settings-store';
 import type { Student } from '@/types';
+import { useUser } from '@/hooks/useUser';
+import Link from 'next/link';
 
 export default function PaymentHistoryPage() {
     const params = useParams() as { studio: string, studentId: string };
@@ -16,9 +18,15 @@ export default function PaymentHistoryPage() {
     const studentId = (params?.studentId || '').toLowerCase();
     const router = useRouter();
     const { t, lang } = useT();
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const [history, setHistory] = useState<SubscriptionInfo[]>([]);
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [studentData, setStudentData] = useState<Student | null>(null);
+
+    // Same real-auth gate as the parent [studentId]/page.tsx (docs/tasks.md's
+    // Student portal phase) — this sub-route had no gate of its own at all
+    // before this, despite showing the same private payment history.
+    const { user: authUser, profile: authProfile, loading: authLoading } = useUser();
 
     useEffect(() => {
         if (!studentId || !studio) return;
@@ -29,6 +37,35 @@ export default function PaymentHistoryPage() {
         const students = getStudents();
         setStudentData(students.find(s => s.id === studentId) || null);
     }, [studentId, studio]);
+
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-6">
+                <div className="w-20 h-20 border-4 border-indigo-500/10 border-t-indigo-500 rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    if (!authUser) {
+        return (
+            <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-8 p-6 text-center">
+                <div className="w-20 h-20 bg-indigo-500 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-indigo-500/40">
+                    <ShieldCheck className="w-10 h-10 text-white" />
+                </div>
+                <Link href="/login" className="py-4 px-8 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-500/20 active:scale-95 transition-all">
+                    {t.portalLogin}
+                </Link>
+            </div>
+        );
+    }
+
+    if (authProfile?.role === 'student' && authProfile?.student_id !== studentId) {
+        return (
+            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-8 text-center space-y-6">
+                <p className="text-sm font-medium text-muted">{l('ეს არ არის თქვენი გვერდი.', 'Это не ваша страница.', 'This is not your page.')}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-card animate-fade-up max-w-lg mx-auto pb-10 pt-6 px-4 space-y-8">

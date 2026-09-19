@@ -5,6 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Zap, Lock, ArrowRight, CheckCircle2, Shield, Loader2 } from 'lucide-react';
 import { AppLogo } from '@/components/ui/Logo';
+import { validatePasswordPolicy } from '@/lib/password-policy';
+
+const POLICY_MESSAGES_KA: Record<string, string> = {
+    length: 'პაროლი უნდა შედგებოდეს მინიმუმ 8 სიმბოლოსგან',
+    uppercase: 'პაროლი უნდა შეიცავდეს მინიმუმ ერთ დიდ ასოს',
+    digit: 'პაროლი უნდა შეიცავდეს მინიმუმ ერთ ციფრს',
+    special: 'პაროლი უნდა შეიცავდეს მინიმუმ ერთ სპეციალურ სიმბოლოს',
+};
 
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState('');
@@ -18,6 +26,13 @@ export default function ResetPasswordPage() {
         e.preventDefault();
         if (password !== confirmPassword) {
             setError('პაროლები არ ემთხვევა');
+            return;
+        }
+        // docs/authorization-module.md §5 — this page used to accept any
+        // non-empty password, no strength check at all.
+        const policyCheck = validatePasswordPolicy(password);
+        if (!policyCheck.valid) {
+            setError(POLICY_MESSAGES_KA[policyCheck.reason || 'length']);
             return;
         }
 

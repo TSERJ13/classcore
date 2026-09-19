@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Users, CalendarCheck, BookOpen, Settings,
     CreditCard, Receipt, GraduationCap, BarChart2,
     CalendarDays, DoorOpen, ChevronRight, LucideIcon, ShoppingBag, MessageSquare,
-    Building2, Plus, Check, LogOut, Zap
+    Building2, Plus, Check, LogOut, Zap, Ticket, TrendingUp, FileText, Banknote
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -25,19 +25,30 @@ type NavItem = {
 };
 
 const ALL_ITEMS: (NavItem & { color: string })[] = [
+    // Section 1: მთავარი და სასწავლო
     { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard, color: 'text-emerald-500' },
     { href: '/attendance', labelKey: 'attendance', icon: CalendarCheck, color: 'text-blue-500' },
-    { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard, color: 'text-[#6d28d9]' },
-    { href: '/students', labelKey: 'students', icon: Users, color: 'text-sky-500' },
     { href: '/calendar', labelKey: 'calendar', icon: CalendarDays, color: 'text-violet-500' },
+    { href: '/students', labelKey: 'students', icon: Users, color: 'text-sky-500' },
     { href: '/groups', labelKey: 'groups', icon: BookOpen, color: 'text-purple-500' },
     { href: '/teachers', labelKey: 'teachers', icon: GraduationCap, color: 'text-amber-500' },
     { href: '/halls', labelKey: 'halls', icon: DoorOpen, color: 'text-rose-500' },
+
+    // Section 2: აბონემენტები და ფინანსები
+    { href: '/subscriptions', labelKey: 'subscriptions', icon: CreditCard, color: 'text-[#6d28d9]' },
+    { href: '/subscriptions/plans', labelKey: 'tariffs', icon: Ticket, color: 'text-indigo-400' },
+    { href: '/analytics', labelKey: 'analytics', icon: BarChart2, color: 'text-orange-500' },
+    { href: '/finance', labelKey: 'finance', icon: TrendingUp, color: 'text-emerald-400' },
+    { href: '/billing', labelKey: 'billing', icon: Zap, color: 'text-yellow-500' },
+    { href: '/invoices', labelKey: 'invoices', icon: FileText, color: 'text-blue-400' },
+    { href: '/payments', labelKey: 'payments', icon: Banknote, color: 'text-teal-400' },
+
+    // Section 3: დამატებითი ინსტრუმენტები
     { href: '/shop', labelKey: 'shop', icon: ShoppingBag, color: 'text-pink-500' },
     { href: '/history', labelKey: 'history', icon: Receipt, color: 'text-zinc-400' },
-    { href: '/analytics', labelKey: 'analytics', icon: BarChart2, color: 'text-orange-500' },
     { href: '/sms-manager', labelKey: 'sms_manager', icon: MessageSquare, color: 'text-cyan-500' },
-    { href: '/billing', labelKey: 'billing', icon: Zap, color: 'text-yellow-500' },
+
+    // Section 4: სისტემა
     { href: '/settings', labelKey: 'settings', icon: Settings, color: 'text-slate-400' },
 ];
 
@@ -162,37 +173,66 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
 
     const sections = [
-        { label: l('მთავარი', 'Главное', 'Main'), items: ['/dashboard', '/attendance', '/subscriptions', '/students', '/calendar'] },
-        { label: l('მართვა', 'Управление', 'Management'), items: ['/groups', '/teachers', '/halls'] },
-        { label: l('ინსტრუმენტები', 'Инструменты', 'Tools'), items: ['/shop', '/history', '/analytics', '/sms-manager'] },
-        { label: l('სისტემა', 'Система', 'System'), items: ['/billing', '/settings'] }
+        { 
+            label: l('მთავარი', 'Главное', 'Main'), 
+            items: ['/dashboard', '/attendance', '/calendar', '/students', '/groups', '/teachers', '/halls'] 
+        },
+        { 
+            label: l('ფინანსები', 'Финансы', 'Finance'), 
+            items: ['/subscriptions', '/subscriptions/plans', '/analytics', '/finance', '/billing', '/invoices', '/payments'] 
+        },
+        { 
+            label: l('ინსტრუმენტები', 'Инструменты', 'Tools'), 
+            items: ['/shop', '/history', '/sms-manager'] 
+        },
+        { 
+            label: l('სისტემა', 'Система', 'System'), 
+            items: ['/settings'] 
+        }
     ];
 
     return (
         <nav className="flex-1 py-1 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-4">
             {sections.map((section, sIdx) => {
-                const sectionItems = ALL_ITEMS.filter(item => section.items.includes(item.href)).filter(item => {
+                const sectionItems = section.items
+                    .map(href => ALL_ITEMS.find(item => item.href === href)!)
+                    .filter(Boolean)
+                    .filter(item => {
                     const role = profile?.role || defaultRole;
                     if (isOwnerOrAdmin(role)) return true;
 
                     const mapping: Record<string, string> = {
                         '/attendance': 'canViewAttendance',
-                        '/subscriptions': 'canViewSubscriptions',
-                        '/students': 'canViewStudents',
                         '/calendar': 'canViewCalendar',
+                        '/students': 'canViewStudents',
                         '/groups': 'canViewGroups',
                         '/teachers': 'canViewTeachers',
                         '/halls': 'canViewHalls',
-                        '/shop': 'canViewShop',
+                        '/subscriptions': 'canViewSubscriptions',
+                        '/subscriptions/plans': 'canViewSubscriptions',
                         '/analytics': 'canViewAnalytics',
-                        '/sms-manager': 'canViewSMS',
+                        '/finance': 'canViewBilling',
                         '/billing': 'canViewBilling',
+                        '/invoices': 'canViewBilling',
+                        '/payments': 'canViewBilling',
+                        '/shop': 'canViewShop',
+                        '/history': 'canViewAudit',
+                        '/sms-manager': 'canViewSMS',
                     };
 
                     const permKey = mapping[item.href];
                     if (permKey) return !!(profile as any)?.[permKey];
 
-                    const adminOnly = ['/billing', '/settings'];
+                    // '/settings' also opens for the 'administrator' role tier
+                    // (Permissions module, docs/authorization-module.md §2) —
+                    // matches PermissionGuard's allowAdministrator escape
+                    // hatch on that page. Billing/finance/invoices/payments
+                    // stay Main-Administrator-only (ADMINISTRATOR_DEFAULTS
+                    // excludes canViewBilling/manageBilling on purpose).
+                    if (item.href === '/settings') {
+                        return isOwnerOrAdmin(profile?.role) || role === 'administrator';
+                    }
+                    const adminOnly = ['/billing', '/finance', '/invoices', '/payments'];
                     if (adminOnly.includes(item.href)) {
                         return isOwnerOrAdmin(profile?.role);
                     }

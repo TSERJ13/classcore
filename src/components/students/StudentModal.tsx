@@ -5,8 +5,9 @@ import {
     X, User, UserRound, Phone, Mail, Calendar, Trash2, Camera, Zap, QrCode, RefreshCw, Download, CreditCard,
     ShoppingBag, CalendarCheck, PlusCircle, MessageCircle, ChevronRight, ChevronLeft, Wifi, Link, Wallet,
     Check, Plus, AlertTriangle, FileText, Facebook, Instagram, Send, Tag, Image as ImageIcon, Search, Save,
-    Contact, Percent, Banknote
+    Contact, Percent, Banknote, Lock, Eye, EyeOff, ShieldCheck
 } from 'lucide-react';
+import { createStudentLoginAction, revokeStudentLoginAction } from '@/app/actions/student-login';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -291,6 +292,19 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
     const availableGroups = getGroups();
     const [availableStyles, setAvailableStyles] = useState<string[]>([]);
     const [newStyleInput, setNewStyleInput] = useState('');
+
+    // Student portal login (docs/tasks.md's Student portal phase) — the
+    // `email` field above is used as the login identity, per the user:
+    // in practice the parent's email. `hasPortalAccess` only reflects
+    // what THIS session already knows (set true right after a successful
+    // grant) — reopening an existing student with access already granted
+    // in an earlier session still shows the grant form; attempting it
+    // again surfaces a clear "already has access" error from the server
+    // rather than silently duplicating anything.
+    const [studentPassword, setStudentPassword] = useState('');
+    const [showStudentPwd, setShowStudentPwd] = useState(false);
+    const [grantingAccess, setGrantingAccess] = useState(false);
+    const [hasPortalAccess, setHasPortalAccess] = useState(false);
 
     const [form, setForm] = useState({
         id: '',
@@ -1110,6 +1124,70 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                     </div>
                                 </div>
                             </section>
+
+                            {/* Portal login (docs/tasks.md's Student portal phase) */}
+                            {isEdit && !isTeacher && (
+                                <section className="space-y-4">
+                                    <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center gap-2">
+                                        <ShieldCheck className="w-3.5 h-3.5" /> {l('პორტალის წვდომა', 'Доступ к порталу', 'Portal Access')}
+                                    </p>
+                                    <div className="bg-surface/30 border border-border-subtle/30 rounded-2xl p-4 space-y-3">
+                                        {hasPortalAccess ? (
+                                            <div className="flex items-center gap-3 text-emerald-600">
+                                                <Check className="w-4 h-4" />
+                                                <p className="text-xs font-bold">{l('წვდომა მინიჭებულია', 'Доступ предоставлен', 'Access granted')}</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <p className="text-[10px] text-muted/60 leading-relaxed">
+                                                    {l('შესვლა მოხდება ზემოთ მითითებული მეილით (მშობლის). პაროლს ანიჭებთ თქვენ.', 'Вход будет по указанному выше email (родителя). Пароль назначаете вы.', 'Login uses the email above (the parent\'s). You set the password.')}
+                                                </p>
+                                                <div className="relative">
+                                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                                                    <input
+                                                        type={showStudentPwd ? 'text' : 'password'}
+                                                        value={studentPassword}
+                                                        onChange={e => setStudentPassword(e.target.value)}
+                                                        placeholder="••••••••"
+                                                        className="w-full bg-card border border-border-subtle rounded-xl pl-11 pr-11 py-3 text-sm font-bold outline-none focus:border-indigo-500/50"
+                                                    />
+                                                    <button type="button" onClick={() => setShowStudentPwd(!showStudentPwd)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted">
+                                                        {showStudentPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
+                                                    </button>
+                                                </div>
+                                                {studentPassword && (
+                                                    <p className="text-[9px] text-muted/50 font-medium">
+                                                        {l('მინ. 8 სიმბოლო, 1 დიდი ასო, 1 ციფრი, 1 სპეც. სიმბოლო', 'Мин. 8 символов, 1 заглавная, 1 цифра, 1 спец. символ', 'Min. 8 chars, 1 uppercase, 1 digit, 1 special char')}
+                                                    </p>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    disabled={!studentPassword || !form.email || grantingAccess}
+                                                    onClick={async () => {
+                                                        setGrantingAccess(true);
+                                                        try {
+                                                            await createStudentLoginAction({ studentId: form.id, password: studentPassword });
+                                                            setHasPortalAccess(true);
+                                                            setStudentPassword('');
+                                                            addNotification(l('წვდომა მინიჭებულია', 'Доступ предоставлен', 'Access granted'), 'bg-emerald-500');
+                                                        } catch (err: any) {
+                                                            addNotification(err?.message || l('შეცდომა', 'Ошибка', 'Error'), 'bg-rose-500');
+                                                        } finally {
+                                                            setGrantingAccess(false);
+                                                        }
+                                                    }}
+                                                    className="w-full py-3 bg-indigo-600 text-white text-xs font-black rounded-xl active:scale-95 transition-all disabled:opacity-40"
+                                                >
+                                                    {grantingAccess ? l('მიმდინარეობს...', 'Идёт...', 'Working...') : l('წვდომის მინიჭება', 'Предоставить доступ', 'Grant Access')}
+                                                </button>
+                                                {!form.email && (
+                                                    <p className="text-[9px] text-amber-600 font-bold">{l('ჯერ დაამატეთ მშობლის მეილი ზემოთ', 'Сначала добавьте email родителя выше', 'Add the parent\'s email above first')}</p>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                </section>
+                            )}
 
                             {/* NFC Card */}
                             <section className="space-y-4">
