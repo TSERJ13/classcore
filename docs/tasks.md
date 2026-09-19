@@ -906,3 +906,49 @@ Notes:
 recipient targeting, frequency limits, and quiet hours are stored but not enforced by any send path;
 AI translation; Master Kill-Switch; balance/billing UI; per-template log drill-down + retry; the old
 hardcoded blob still powers Personal/Holiday tabs and all automated sends in `sms-service.ts`.
+
+### Phase 3: Wire the 3 automated signals to the new template model
+
+Status: completed
+
+The first real *send* path through Phase 1/2's model — `runAutomatedSmsCheck()`'s two existing
+automated loops (subscription-expiring, birthday) now check `sms_templates` first, enforcing
+recipient targeting and the per-template frequency limit, falling back to the old hardcoded/
+settings-blob text only when an org has zero matching active templates (so nothing regresses for an
+org that never opened `/sms-manager`, i.e. never got Phase 1's lazy seed).
+
+**Built**:
+- `src/app/actions/sms-templates.ts`: `getEventTemplatesAction(eventKey)` — active templates whose
+  category is enabled, for the caller's org; `checkTemplateFrequencyAction({templateId,
+  recipientStudentId, limitCount, limitDays})` — counts matching `sms_logs` rows in the trailing
+  window, true when under the limit or when no limit is set.
+- `src/lib/sms-service.ts`: `templateMatchesStudent()` (PRD §6's recipient-scope filter — all always
+  matches; group/branch/person check the student's own `enrolled_group_ids`/`branch_id`/`id` against
+  the template's target) and `sendForEvent()` (resolves matching+eligible templates for an event,
+  sends each in the student's `preferred_language`, falls back to the old blob text when nothing
+  matches). Both automated loops now call it instead of reading `settings.sms_templates` directly.
+- `/api/sms/send/route.ts` + `sendSms()`: now accept and persist optional `templateId`/
+  `recipientStudentId` on the `sms_logs` row, so a template-driven send groups into its template (PRD
+  §9) and the frequency check has something to count.
+- **Bug found and fixed while touching this loop**: the student portal's own "SMS reminders" opt-out
+  toggle (`students/[studentId]/page.tsx`'s `sms_reminders` field — a student can flip this off for
+  themselves) was stored but never once read by `runAutomatedSmsCheck()` — every automated send
+  ignored it completely. Now checked in `sendForEvent()` before either path (new-template or
+  fallback) sends anything.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: verified against a pre-change baseline — same 10 pre-existing `any`
+  warnings in `sms-service.ts`, no new ones (a newly-added helper's `student: any` param was typed as
+  a proper `SmsEventStudent` instead, to avoid adding to that backlog).
+- `payment_due` isn't wired here — there's no existing automated call site for it (Subscriptions PRD
+  Phase 5 already found there's no scheduler in this app, so payment reminders stay staff-triggered
+  manually); nothing to modify.
+- `individual_booking_pending` (`sendIndividualBookingConfirmationSms`) is unchanged — that sends to
+  the *teacher*, not a student, so it doesn't fit `sendForEvent()`'s student-recipient shape without
+  a separate design pass.
+
+**Not done (still open)**: quiet hours (still the hardcoded 23:00–10:00 window, not the PRD's
+configurable global setting); Master Kill-Switch; AI translation; balance/billing UI; per-template
+log drill-down + retry button; Personal/Holiday tabs still don't go through the new model at all
+(manual sends, not automated signals — a separate follow-up if the studio wants those tracked
+per-template too).

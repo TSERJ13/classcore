@@ -306,3 +306,55 @@ export async function duplicateSmsTemplateAction(rawInput: unknown): Promise<Act
     revalidatePath('/sms-manager');
     return ok(mapTemplate(data as TemplateRow));
 }
+
+const eventTemplatesSchema = z.object({ eventKey: z.string().min(1) });
+
+/**
+ * Active, category-enabled templates for a given event_key (PRD §5's
+ * auto-linked signals). Used by sms-service.ts's automated check
+ * (Phase 3) to send through the new model instead of the old hardcoded
+ * blob — the old blob stays as a fallback when an org has zero matching
+ * templates (e.g. it never opened /sms-manager, so Phase 1's lazy seed
+ * never ran), so this never regresses an org that hasn't touched the new
+ * system yet.
+ */
+export async function getEventTemplatesAction(rawInput: unknown): Promise<ActionResult<SmsTemplate[]>> {
+    const input = eventTemplatesSchema.parse(rawInput);
+    const ctx = await requireEffectivePermission('canViewSMS');
+
+    const { data: enabledCats, error: catErr } = await ctx.client.from('sms_categories').select('id').eq('org_id', ctx.orgId).eq('enabled', true);
+    if (catErr) return fail('query_failed', catErr.message);
+    const categoryIds = (enabledCats ?? []).map((c: { id: string }) => c.id);
+    if (categoryIds.length === 0) return ok([]);
+
+    const { data, error } = await ctx.client.from('sms_templates').select('*')
+        .eq('org_id', ctx.orgId).eq('trigger_type', 'event').eq('event_key', input.eventKey).eq('status', 'active')
+        .in('category_id', categoryIds);
+    if (error) return fail('query_failed', error.message);
+    return ok((data as TemplateRow[]).map(mapTemplate));
+}
+
+const frequencyCheckSchema = z.object({
+    templateId: z.string().min(1),
+    recipientStudentId: z.string().min(1),
+    limitCount: z.number().int().positive().nullable(),
+    limitDays: z.number().int().positive().nullable(),
+});
+
+/**
+ * Whether a template's frequency limit (PRD §8, template-level) still
+ * allows sending to this recipient — true when no limit is configured.
+ * Counts sms_logs rows for this exact template+recipient inside the
+ * trailing limitDays window.
+ */
+export async function checkTemplateFrequencyAction(rawInput: unknown): Promise<ActionResult<boolean>> {
+    const input = frequencyCheckSchema.parse(rawInput);
+    if (!input.limitCount || !input.limitDays) return ok(true);
+    const ctx = await requireEffectivePermission('canViewSMS');
+
+    const cutoff = new Date(Date.now() - input.limitDays * 24 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await ctx.client.from('sms_logs').select('id', { count: 'exact', head: true })
+        .eq('org_id', ctx.orgId).eq('template_id', input.templateId).eq('recipient_student_id', input.recipientStudentId).gte('timestamp', cutoff);
+    if (error) return fail('query_failed', error.message);
+    return ok((count ?? 0) < input.limitCount);
+}
