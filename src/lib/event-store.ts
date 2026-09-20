@@ -206,26 +206,37 @@ export function addEvent(ev: CalendarEvent) {
     return updated;
 }
 
-export function deleteEvent(id: string) {
-    const events = getEvents();
-    const updated = events.filter(e => e.id !== id);
-    saveEvents(updated);
-    addLocallyDeletedId(getDeletedEventsKey(), id);
+/**
+ * saveEvents() only re-pushes the *surviving* events to the cloud — it
+ * never tells Supabase to remove a deleted row, so it stays in
+ * `calendar_events` and comes back on the next hydration. Every delete path
+ * below needs both the local tombstone (so getEvents() never resurrects it
+ * from a stale cloud snapshot) and this explicit cloud delete, the same way
+ * subscription-store.ts does. Shared here rather than repeated per-caller
+ * so a future fix (batching, the demo-org exclusion, org-id resolution)
+ * only has to happen once.
+ */
+function tombstoneAndDeleteFromCloud(ids: string[]) {
+    if (ids.length === 0) return;
+    const deletedKey = getDeletedEventsKey();
+    ids.forEach(id => addLocallyDeletedId(deletedKey, id));
 
-    // saveEvents() only re-pushes the *surviving* events to the cloud — it
-    // never told Supabase to remove the deleted row, so it stayed in
-    // `calendar_events` and came back on the next hydration. Delete it for
-    // real, the same way subscription-store.ts does.
     const activeSlug = getActiveSlug();
     if (activeSlug && activeSlug !== 'demo.classcore.ge') {
         const finalOrgId = getEffectiveOrgId(activeSlug);
         if (finalOrgId) {
             import('./master-sync').then(mod => {
-                mod.deleteRecordFromCloud('calendar_events', id, finalOrgId).catch(() => {});
+                ids.forEach(id => mod.deleteRecordFromCloud('calendar_events', id, finalOrgId).catch(() => {}));
             });
         }
     }
+}
 
+export function deleteEvent(id: string) {
+    const events = getEvents();
+    const updated = events.filter(e => e.id !== id);
+    saveEvents(updated);
+    tombstoneAndDeleteFromCloud([id]);
     return updated;
 }
 
@@ -297,22 +308,7 @@ export function deleteIndividualLessonEvents(studentId: string, fromDate?: strin
     if (removed.length === 0) return before;
     const events = before.filter(e => !isMatch(e));
     saveEvents(events);
-
-    const deletedKey = getDeletedEventsKey();
-    removed.forEach(e => addLocallyDeletedId(deletedKey, e.id));
-
-    // Same resurrection issue as deleteEvent()/deleteGroupEvents(): removing
-    // rows from the local list and re-pushing only the survivors never
-    // deletes the old rows in Supabase — do that explicitly.
-    const activeSlug = getActiveSlug();
-    if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-        const finalOrgId = getEffectiveOrgId(activeSlug);
-        if (finalOrgId) {
-            import('./master-sync').then(mod => {
-                removed.forEach(e => mod.deleteRecordFromCloud('calendar_events', e.id, finalOrgId).catch(() => {}));
-            });
-        }
-    }
+    tombstoneAndDeleteFromCloud(removed.map(e => e.id));
 
     console.log(`🧹 [EventStore] Removed ${removed.length} future individual-lesson event(s) for student_id=${studentId}`);
     return events;
@@ -324,26 +320,7 @@ export function deleteGroupEvents(groupId: string) {
     const removed = before.filter(e => e.group_id === groupId && e.recurring === 'weekly');
     const events = before.filter(e => !(e.group_id === groupId && e.recurring === 'weekly'));
     saveEvents(events);
-    if (removed.length > 0) {
-        const deletedKey = getDeletedEventsKey();
-        removed.forEach(e => addLocallyDeletedId(deletedKey, e.id));
-    }
-
-    // Same resurrection issue as deleteEvent(): removing rows from the
-    // local list and re-pushing only the survivors never deletes the old
-    // rows in Supabase.
-    if (removed.length > 0) {
-        const activeSlug = getActiveSlug();
-        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            const finalOrgId = getEffectiveOrgId(activeSlug);
-            if (finalOrgId) {
-                import('./master-sync').then(mod => {
-                    removed.forEach(e => mod.deleteRecordFromCloud('calendar_events', e.id, finalOrgId).catch(() => {}));
-                });
-            }
-        }
-    }
-
+    tombstoneAndDeleteFromCloud(removed.map(e => e.id));
     return events;
 }
 
@@ -361,20 +338,7 @@ export function deleteEventsByIds(ids: string[]) {
     const removed = before.filter(e => idSet.has(e.id));
     const events = before.filter(e => !idSet.has(e.id));
     saveEvents(events);
-    if (removed.length > 0) {
-        const deletedKey = getDeletedEventsKey();
-        removed.forEach(e => addLocallyDeletedId(deletedKey, e.id));
-
-        const activeSlug = getActiveSlug();
-        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
-            const finalOrgId = getEffectiveOrgId(activeSlug);
-            if (finalOrgId) {
-                import('./master-sync').then(mod => {
-                    removed.forEach(e => mod.deleteRecordFromCloud('calendar_events', e.id, finalOrgId).catch(() => {}));
-                });
-            }
-        }
-    }
+    tombstoneAndDeleteFromCloud(removed.map(e => e.id));
     return events;
 }
 

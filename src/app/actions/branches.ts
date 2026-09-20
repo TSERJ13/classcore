@@ -29,31 +29,38 @@
  * role tier (Main Administrator or Administrator) rather than a specific
  * permission — same honesty-over-invention approach the registry documents.
  *
- * The actual read/write logic lives in src/lib/logic/branches.ts — these
- * actions are thin wrappers: resolve+check the caller, call the plain
- * logic function, revalidate. Kept this way (rather than inlined) so a
- * future REST route for the mobile/desktop app can call the same logic
- * without duplicating it, once that work actually starts.
+ * The actual read/write logic lives in src/lib/logic/branches.ts and
+ * returns ActionResult<T> (docs/agents/api-contract.md) — these actions are
+ * thin wrappers: resolve+check the caller, call the plain logic function,
+ * revalidate. Kept this way (rather than inlined) so a future REST route
+ * for the mobile/desktop app can call the same logic without duplicating
+ * it, once that work actually starts. Auth failures from
+ * requireStudioManager() still throw — that's shared infra used by many
+ * modules, out of scope for this pilot to convert.
  */
 
 import { revalidatePath } from 'next/cache';
 import { requireStudioManager } from '@/lib/permissions/enforce';
 import { createBranch, updateBranch, deleteBranch } from '@/lib/logic/branches';
+import type { ActionResult } from '@/lib/action-result';
 
-export async function createBranchAction(rawInput: unknown): Promise<void> {
+export async function createBranchAction(rawInput: unknown): Promise<ActionResult<void>> {
     const { orgId, client } = await requireStudioManager();
-    await createBranch(client, orgId, rawInput);
-    revalidatePath('/profile');
+    const result = await createBranch(client, orgId, rawInput);
+    if (!result.error) revalidatePath('/profile');
+    return result;
 }
 
-export async function updateBranchAction(rawInput: unknown): Promise<void> {
+export async function updateBranchAction(rawInput: unknown): Promise<ActionResult<void>> {
     const { orgId, client } = await requireStudioManager();
-    await updateBranch(client, orgId, rawInput);
-    revalidatePath('/profile');
+    const result = await updateBranch(client, orgId, rawInput);
+    if (!result.error) revalidatePath('/profile');
+    return result;
 }
 
-export async function deleteBranchAction(rawInput: unknown): Promise<void> {
+export async function deleteBranchAction(rawInput: unknown): Promise<ActionResult<void>> {
     const { orgId, client } = await requireStudioManager();
-    await deleteBranch(client, orgId, rawInput);
-    revalidatePath('/profile');
+    const result = await deleteBranch(client, orgId, rawInput);
+    if (!result.error) revalidatePath('/profile');
+    return result;
 }
