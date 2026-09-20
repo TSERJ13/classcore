@@ -14,7 +14,7 @@ import {
 import { cn, getLocalISODate, getActiveSlug, formatDate, formatShortName } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import type { CalendarEvent, EventType } from '@/types';
-import { getEvents, addEvent as addEventToStore, deleteEvent as deleteEventFromStore, updateEvent as updateEventInStore, saveEvents, syncGroupScheduleToCalendar, confirmIndividualBooking } from '@/lib/event-store';
+import { getEvents, addEvent as addEventToStore, deleteEvent as deleteEventFromStore, deleteEventsByIds, updateEvent as updateEventInStore, saveEvents, syncGroupScheduleToCalendar, confirmIndividualBooking } from '@/lib/event-store';
 import { getTeachers } from '@/lib/teacher-store';
 import { getHalls } from '@/lib/hall-store';
 import { useStudio } from '@/contexts/StudioContext';
@@ -2012,16 +2012,14 @@ export default function CalendarPage() {
             e.start_time === ev.start_time &&
             e.end_time === ev.end_time
         );
-        let remaining = allEvents;
         for (const e of toDelete) {
-            remaining = remaining.filter(r => r.id !== e.id);
             if (e.group_id) {
                 const d = new Date(e.date + 'T00:00:00');
                 const dow = d.getDay() === 0 ? 6 : d.getDay() - 1;
                 removeSlotFromGroup(e.group_id, { dayOfWeek: dow, startTime: e.start_time, endTime: e.end_time });
             }
         }
-        saveEvents(remaining);
+        deleteEventsByIds(toDelete.map(e => e.id));
         setEvents(getEvents());
         setGroups(getGroups());
     }

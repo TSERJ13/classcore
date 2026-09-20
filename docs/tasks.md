@@ -1193,3 +1193,53 @@ blocked on a real Billing module); log retention *enforcement* (storing the sett
 without a scheduler to act on it — this app has none, confirmed repeatedly across this whole PRD
 pass — so it wasn't added); Personal tab remains untemplated by design; the git-history PII
 exposure is still unremediated (needs the repo owner to run the commands already given).
+
+### Arch task-board reconciliation + Calendar/Events tombstone/cloud-delete fix
+
+Status: completed (reconciliation) / bug fix built — full module migration still open
+
+A user-shared external task-board screenshot listed several "Arch: X module to Server Actions"
+items as still pending, contradicting this doc's own prior "completed" markings. Re-verified every
+listed item directly against current code rather than trusting either source blindly:
+
+- **Actually done** (screenshot was stale): attendance/check-in wiring (via `checkin-client.ts`,
+  which itself wraps `@/app/actions/checkin.ts` — a first, narrower import grep initially missed
+  this indirection and misreported it), `/subscriptions`, `/dashboard` RPC, Groups, Staff/Teachers,
+  Branches/Halls, Shop/Sales/Products.
+- **Genuinely NOT done** (screenshot was right): **Calendar/Events**. `calendar/page.tsx` (3162
+  lines) imports exclusively from `src/lib/event-store.ts` — localStorage + best-effort cloud sync,
+  zero Server Actions. `groups.ts`'s own header comment already flagged this as the deliberately
+  deferred module.
+
+A full investigation (dedicated Explore pass) into what a real migration would require found this
+module far riskier than any module migrated so far: the `calendar_events` schema is described two
+different, disagreeing ways in the repo (`master_schema.sql`'s normalized columns vs. the live
+`data`-JSONB shape the sync routes actually write, with a fragile bare-`HH:MM`-vs-ISO-timestamp
+conversion in between); 9+ other files read/write the store with real cross-module side effects
+(Groups `schedule_slots`+color sync, Subscriptions auto-issue + `incrementSessionsUsed`, Halls
+conflict checks, SMS confirmations, an AI-chat quick-booking flow in `Header.tsx`); and two
+independent, mutually inconsistent conflict-check implementations exist
+(`event-store.hasIndividualSlotConflict` vs. `calendar/page.tsx`'s local `checkConflicts`) that
+would need reconciling. Given this runs against live production data (real students), a full
+migration attempted blind in one pass was judged too high-risk to do without a dedicated scoping
+pass of its own — **deferred, not attempted**.
+
+One concrete bug the investigation surfaced *was* fixed, as a small, safe, self-contained step:
+`calendar/page.tsx`'s `deleteAllGroupOccurrences` (bulk "delete all occurrences of this recurring
+group slot") called `saveEvents(remaining)` directly, skipping the tombstone-set and explicit
+`deleteRecordFromCloud` bookkeeping that every other delete path in `event-store.ts`
+(`deleteEvent`, `deleteGroupEvents`, `deleteIndividualLessonEvents`) already does — meaning
+bulk-deleted recurring occurrences could resurrect on the next cloud hydration. Added
+`event-store.ts`'s `deleteEventsByIds(ids)`, a batch variant of the same tombstone+cloud-delete
+pattern, and switched `deleteAllGroupOccurrences` to call it instead of the raw `saveEvents`.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new warnings on either touched file (both files' existing
+  unused-import/`any` warnings are pre-existing and unrelated to this change).
+- No live GOSMS/Supabase call was made or needed — this was a pure logic fix mirroring an existing,
+  already-used pattern in the same file.
+
+**Not done (still open)**: the full Calendar/Events → Server Actions migration itself (needs its
+own dedicated design pass: reconcile the two conflict-check implementations, resolve the schema
+disagreement against the live DB, and decide whether recurring "weekly" events materialize
+server-side or keep the current client-side ±4-week virtual expansion).
