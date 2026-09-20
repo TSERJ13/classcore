@@ -1243,3 +1243,28 @@ Notes:
 own dedicated design pass: reconcile the two conflict-check implementations, resolve the schema
 disagreement against the live DB, and decide whether recurring "weekly" events materialize
 server-side or keep the current client-side ±4-week virtual expansion).
+
+### REST API foundation — Phase 0: `branches` logic-layer extraction pilot
+
+Status: completed
+
+First concrete step of the REST-API-foundation initiative discussed earlier (mobile/desktop apps
+need real React Native, not a WebView — Server Actions are unreachable from that runtime). Per the
+narrowed scope agreed after review (extract the shared logic layer now; defer REST routes and
+bearer-auth entirely until native work actually starts, since building them speculatively risks
+guessing wrong about what the native client actually needs) — this pass did **only** the
+extraction, nothing else.
+
+**Built**: `src/lib/logic/branches.ts` — `createBranch`/`updateBranch`/`deleteBranch`, plain
+functions taking an already-authenticated `{ client, orgId }` plus the raw input, with the Zod
+validation and Supabase calls moved out of `src/app/actions/branches.ts` verbatim. The Server
+Action file is now a thin wrapper: `requireStudioManager()` for auth, call the logic function,
+`revalidatePath`. Chose `branches` as the pilot because it was already the smallest/simplest
+migrated module (3 actions, no cross-module side effects) — a good template to point at when this
+pattern gets applied to a real entity later, with the least risk of the extraction itself
+introducing a regression.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new warnings on either file.
+- No REST route, bearer-auth, or access/refresh-token work was built — that remains explicitly
+  deferred per the agreed scope, to be picked back up only once native app work actually starts.
