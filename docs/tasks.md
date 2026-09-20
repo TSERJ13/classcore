@@ -1244,6 +1244,66 @@ own dedicated design pass: reconcile the two conflict-check implementations, res
 disagreement against the live DB, and decide whether recurring "weekly" events materialize
 server-side or keep the current client-side ±4-week virtual expansion).
 
+### Calendar/Events migration — scoping pass (planning only, no code changed)
+
+Status: scoping complete — migration itself not started
+
+Per the user's explicit choice ("do whichever you think is best" on whether to scope now or stay
+fully deferred): this is a **plan**, not an implementation. Nothing in `event-store.ts` or
+`calendar/page.tsx` changed in this pass — deliberately, since the risk analysis above is exactly
+why a blind start was ruled out. Laying out the open decisions and a phasing strategy now, so
+whoever picks this up next (me in a future pass, or someone else) has a concrete plan instead of
+re-deriving the same investigation.
+
+**Decision 1 — resolve the schema disagreement, before writing a single Server Action.**
+`master_schema.sql` and the live `/api/sync/bulk` code disagree on `calendar_events`'s shape. This
+cannot be resolved by reading the repo further — it needs one read-only query against the actual
+Supabase project: `select column_name, data_type from information_schema.columns where table_name
+= 'calendar_events'`. Until that's run, don't trust either source. (This also settles whether
+`start_time`/`end_time` are really `TIME` or `TIMESTAMPTZ` server-side — the bare-`HH:MM`-vs-ISO
+conversion currently in `master-sync.ts` is fragile either way and should get a round-trip test
+once the real column type is known.)
+
+**Decision 2 — pick one conflict-check implementation, retire the other.** Recommendation:
+`event-store.hasIndividualSlotConflict` (the store's version) over `calendar/page.tsx`'s local
+`checkConflicts` — it already accounts for `hall.max_parallel_individual`, which the page's local
+copy doesn't. Whoever migrates `addEvents`/the drag-drop path should call the store's version (or
+its future Server Action equivalent) and delete the page-local one, rather than porting both.
+
+**Decision 3 — recurring "weekly" events: keep client-side expansion, don't materialize server-side.**
+Materializing N weeks of real rows server-side would need something to run on a schedule (generate
+the next window before it's needed) — this app has no scheduler anywhere (same constraint raised
+for SMS log retention, task #37). Recommend keeping `calendar/page.tsx`'s existing ±4-week virtual
+expansion (computed client-side over the Server Action's *base* recurring row) rather than taking
+on a second "introduce our first cron job" decision inside this migration. Revisit only if a
+scheduler gets built for another reason first.
+
+**Suggested phasing** (mirrors how Attendance/Students were migrated — dual-write before cutover,
+not a big-bang swap):
+1. Build `src/app/actions/calendar.ts` (+ `src/lib/logic/calendar.ts` per the API-contract
+   convention) covering the CRUD `event-store.ts` exposes today, once Decision 1 is settled.
+2. Cut over the **read-only** consumers first — lowest risk, no write-path coupling to untangle:
+   the public student portal, analytics, dashboard's `getTodayEvents()`. These can move
+   independently of `calendar/page.tsx` itself.
+3. Cut over `calendar/page.tsx`'s reads, keeping its writes on `event-store.ts` a little longer
+   (dual-write: write to both the new Server Action and the local store) to catch discrepancies
+   before trusting the new path alone.
+4. Migrate the cross-module writers one at a time, in order of how contained they are:
+   `individual-availability` (open slots — no group/subscription coupling) → `BookIndividualLessonModal`
+   (booking — touches subscriptions) → `GroupModal`/`groups/page.tsx`'s `syncGroupScheduleToCalendar`
+   call → `calendar/page.tsx`'s own group-editing paths (`updateEventSeries`, `deleteAllGroupOccurrences`)
+   last, since they're the most tangled with Groups' `schedule_slots`.
+5. Only then remove `event-store.ts`'s write paths (keep `getEvents()` reading from the new source
+   until every writer is confirmed migrated, to avoid a window where some data only exists in one
+   place).
+6. `Header.tsx`'s AI-chat quick-booking (`addIndividualLesson`) and the SMS confirmation flow
+   should be re-pointed at whichever step first replaces the function they call, not treated as a
+   separate phase — cheaper to fix in place than to schedule around.
+
+**Not done**: the migration itself. This is a plan to execute against, not a completed task —
+re-verify Decision 1 against the live DB before writing any code, since everything else here
+assumes its answer.
+
 ### REST API foundation — Phase 0: `branches` logic-layer extraction pilot
 
 Status: completed
