@@ -5,7 +5,7 @@ import { Check, Shield, CreditCard, AlertTriangle, ArrowRight, Tag } from 'lucid
 import { cn, formatCurrency } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
-import { getBillingState, SAAS_PRICE_GEL, recordPayment } from '@/lib/saas-billing';
+import { getBillingState, recordPayment } from '@/lib/saas-billing';
 import { logAction } from '@/lib/analytics';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 

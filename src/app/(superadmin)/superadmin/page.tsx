@@ -1,19 +1,17 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Users, Building2, CreditCard, MessageSquare,
-    TrendingUp, ArrowUpRight, ArrowDownRight,
+    TrendingUp, ArrowUpRight,
     Search, Bell, UserPlus, ShieldCheck, ChevronRight,
     AlertTriangle
 } from 'lucide-react';
-import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
-import { getScopedKey } from '@/lib/utils';
-import { getBillingState, getPaymentLogs } from '@/lib/saas-billing';
+import { loadSettings } from '@/lib/settings-store';
+import { getBillingState } from '@/lib/saas-billing';
 import { cn } from '@/lib/utils';
 import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 import Link from 'next/link';
-import SupportChat from '@/components/superadmin/SupportChat';
 import { useT } from '@/contexts/LanguageContext';
 
 export default function SuperAdminDashboard() {
@@ -141,7 +139,7 @@ export default function SuperAdminDashboard() {
             } else {
                 alert(data.error || 'Error during purge');
             }
-        } catch (err) {
+        } catch {
             alert('Request failed');
         }
     };
@@ -351,7 +349,7 @@ export default function SuperAdminDashboard() {
     );
 }
 
-function StatCard({ title, value, icon: Icon, trend, color, lang, t }: any) {
+function StatCard({ title, value, icon: Icon, trend, color, t }: any) {
     const colors: any = {
         indigo: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/10',
         emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/10',

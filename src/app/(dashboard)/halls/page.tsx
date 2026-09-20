@@ -1,15 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
-import { DoorOpen, Users, Edit2, Calendar, ArrowRight, Plus, Trash2, Layout } from 'lucide-react';
+import { DoorOpen, Users, Edit2, Calendar, Plus, Trash2, Layout } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MobileFAB } from '@/components/ui/MobileFAB';
 import { HallModal } from '@/components/halls/HallModal';
 import { useT } from '@/contexts/LanguageContext';
 import type { Hall } from '@/types';
 import { getHallsAction, saveHallsAction, deleteHallAction } from '@/app/actions/halls';
-import { getGroups } from '@/lib/group-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';

@@ -167,7 +167,7 @@ export function createGroup(group: Omit<Group, 'id' | 'enrolled' | 'schedule'>):
 }
 
 /** Called when a calendar event with group_id is created: adds the slot to group.schedule_slots */
-export function addSlotToGroup(groupId: string, slot: ScheduleSlot, groupTitle?: string): void {
+export function addSlotToGroup(groupId: string, slot: ScheduleSlot): void {
     const groups = getGroups();
     const idx = groups.findIndex(g => g.id === groupId);
     if (idx === -1) return;

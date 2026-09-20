@@ -27,7 +27,6 @@ export async function sendEmail(config: SmtpConfig, options: MailOptions): Promi
             : net.connect(port, host);
 
         let step = 0;
-        const commands: string[] = [];
 
         const log = (msg: string) => console.log(`[SMTP] ${msg}`);
 
@@ -66,7 +65,7 @@ export async function sendEmail(config: SmtpConfig, options: MailOptions): Promi
                 case 5: // MAIL FROM accepted (250)
                     // Currently supports single recipient, can be expanded for multiple
                     const recipients = options.to.split(',').map(r => r.trim());
-                    recipients.forEach((rcpt, index) => {
+                    recipients.forEach((rcpt) => {
                         socket.write(`RCPT TO:<${rcpt}>\r\n`);
                     });
                     step += 1;

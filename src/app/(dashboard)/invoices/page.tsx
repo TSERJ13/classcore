@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { 
-    FileText, Plus, Search, CheckCircle2, Clock, AlertCircle, 
-    Download, Trash2, Printer, X, User, DollarSign, Calendar
+import {
+    FileText, Plus, Search, CheckCircle2, Clock, AlertCircle,
+    Trash2, Printer, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -107,7 +107,7 @@ export default function InvoicesPage() {
         deleteInvoice(id);
     };
 
-    const handlePrint = (inv: Invoice) => {
+    const handlePrint = () => {
         window.print();
     };
 
@@ -269,7 +269,7 @@ export default function InvoicesPage() {
                                                     </button>
                                                 )}
                                                 <button
-                                                    onClick={() => handlePrint(inv)}
+                                                    onClick={() => handlePrint()}
                                                     title={l('ამობეჭდვა', 'Печать', 'Print')}
                                                     className="w-7 h-7 rounded-lg hover:bg-surface text-muted hover:text-primary flex items-center justify-center transition-colors"
                                                 >

@@ -9,7 +9,7 @@ interface SystemVideoOverviewProps {
     lang: Lang;
 }
 
-export function SystemVideoOverview({ t, lang }: SystemVideoOverviewProps) {
+export function SystemVideoOverview({ t }: SystemVideoOverviewProps) {
     return (
         <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 relative group cursor-pointer overflow-hidden">
             {/* Background Graphic */}

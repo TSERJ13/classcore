@@ -29,10 +29,6 @@ export function getSales(): ShopSale[] {
         const key = getSalesKey();
         const saved = localStorage.getItem(key);
 
-        const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';
-        const activeBranch = typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main') : 'main';
-        const isMainBranch = activeBranch === 'main';
-
         const parsed = JSON.parse(saved || '[]');
         return Array.isArray(parsed) ? parsed : [];
     } catch {

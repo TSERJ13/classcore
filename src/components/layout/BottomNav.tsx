@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-    LayoutDashboard, Users, CalendarCheck, CalendarDays,
-    BookOpen, Menu, CreditCard,
+    LayoutDashboard, Users, CalendarCheck,
+    Menu, CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';

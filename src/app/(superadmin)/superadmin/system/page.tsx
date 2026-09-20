@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { Trash2, Download, RefreshCw, AlertTriangle, Database, CheckCircle } from 'lucide-react';
-import { getStudioRegistry } from '@/lib/settings-store';
 import { cn } from '@/lib/utils';
 import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 
@@ -21,18 +20,10 @@ function getStorageStats() {
 }
 
 export default function SystemPage() {
-    const { lang, t } = useT();
+    const { t } = useT();
     const [mounted, setMounted] = useState(false);
-    const [cleanupDays, setCleanupDays] = useState(30);
     const [slugs, setSlugs] = useState<string[]>([]);
-    
-    const [promoCodes, setPromoCodes] = useState<{ code: string; discount: number; type: 'percent' | 'fixed'; singleUse: boolean; maxUses: number; usedCount: number }[]>(() => {
-        if (typeof window === 'undefined') return [];
-        const saved = localStorage.getItem('cc_sa_promo_codes');
-        return saved ? JSON.parse(saved) : [];
-    });
-    const [newPromo, setNewPromo] = useState({ code: '', discount: 10, type: 'percent' as const, singleUse: false, maxUses: 0 });
-    
+
     // --- RESTORATION FIX (v4.5) ---
     const [loading, setLoading] = useState(false);
     const [confirmingId, setConfirmingId] = useState<string | null>(null);

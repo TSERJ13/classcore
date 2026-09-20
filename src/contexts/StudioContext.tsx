@@ -4,7 +4,7 @@ import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { setMemoryStudentsCache } from '@/lib/student-store';
 import { setSubscriptionsMemoryCache } from '@/lib/subscription-store';
 import { useUser } from '@/hooks/useUser';
-import { getActiveSlug, getScopedKey, safeSetItem, getLocallyDeletedIds, getEffectiveOrgId } from '@/lib/utils';
+import { getActiveSlug, getScopedKey, safeSetItem, getLocallyDeletedIds } from '@/lib/utils';
 import type { StudioSettings, Branch, SubscriptionLog } from '@/types';
 import { createStaffAction, updateStaffAction, deleteStaffAction } from '@/app/actions/staff';
 import { createBranchAction, updateBranchAction, deleteBranchAction } from '@/app/actions/branches';
@@ -63,7 +63,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState('main');
 
-    const lastSyncedSlugRef = useRef<string | null>(null);
     const isHydratingRef = useRef(false);
     const hydrate = useCallback(async (isAuto = false) => {
         if (isHydratingRef.current && !isAuto) return;
@@ -241,7 +240,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 setLoadingStep('ინტერფეისის მომზადება...');
 
                 setSettings(prev => {
-                    const name = updates.studio_name || cloudSettings.studioName || prev.studioName;
                     const next = {
                         ...prev, ...cloudSettings,
                         orgId: resolvedOrgId, studioName: finalName, logoDataUrl: finalLogo,

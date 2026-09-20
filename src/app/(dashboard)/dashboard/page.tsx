@@ -3,20 +3,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { getTodayCheckins, type CheckinRecord } from '@/lib/checkin-store';
-import { getSubscription, getSubscriptions, getUniqueSubscriptions } from '@/lib/subscription-store';
-import { getSales, type ShopSale } from '@/lib/sales-store';
-import { getUidRegistry } from '@/lib/student-store';
+import { getUniqueSubscriptions } from '@/lib/subscription-store';
+import { getSales } from '@/lib/sales-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, StickyNote, Megaphone, X, ShoppingBag, MessageSquare, RefreshCcw, ShieldAlert, Plus } from 'lucide-react';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, Activity, UserPlus, ClipboardList, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, ShoppingBag, RefreshCcw, ShieldAlert } from 'lucide-react';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { getTodayEvents } from '@/lib/event-store';
-import { getStudents, getStudentPatches, updateStudent } from '@/lib/student-store';
+import { getStudents, updateStudent } from '@/lib/student-store';
 import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getHallName } from '@/lib/hall-store';
-import { addNotification } from '@/lib/notification-store';
-import type { Student } from '@/types';
 import { getGroups } from '@/lib/group-store';
 import { getTeachers } from '@/lib/teacher-store';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
@@ -27,10 +24,6 @@ import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 
 import { getScopedKey } from '@/lib/settings-store';
-import { AppLogo } from '@/components/ui/Logo';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-const toDateStr = (d: Date) => d.toISOString().split('T')[0];
 
 // ─── Mini calendar helpers ──────────────────────────────────────────────────
 
@@ -205,7 +198,7 @@ export default function DashboardPage() {
     const { t, lang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const { settings, isLoaded } = useStudio();
-    const { profile, user, loading } = useUser();
+    const { profile, loading } = useUser();
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [revenueRange, setRevenueRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [liveStats, setLiveStats] = useState({
@@ -234,21 +227,14 @@ export default function DashboardPage() {
     });
     const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
-    const [allEvents, setAllEvents] = useState<any[]>([]);
-    
+    const [allEvents] = useState<any[]>([]);
+
     // Cloud Sync State
-    const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
-    const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
+    const [syncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
+    const [lastSyncTime] = useState<number | null>(null);
 
     const [showAddStudent, setShowAddStudent] = useState(false);
     const [showIssueSub, setShowIssueSub] = useState(false);
-
-    const parseTemplate = (template: string, studentName: string, planName?: string) => {
-        let msg = template.replace(/{name}/g, studentName);
-        msg = msg.replace(/{studio}/g, settings.studioName);
-        if (planName) msg = msg.replace(/{plan}/g, planName);
-        return msg;
-    };
 
     const refreshFullDashboard = useCallback(() => {
         // 1. Refresh Stats
@@ -608,7 +594,7 @@ export default function DashboardPage() {
                 try {
                     const { getBillingState } = require('@/lib/saas-billing');
                     setBilling(getBillingState(settings.studioSlug));
-                } catch (err) { }
+                } catch { }
             }
         };
         refreshBilling();

@@ -10,8 +10,6 @@ export type AnalyticsAction =
     | 'checkout_proceed'
     | 'studio_impersonate';
 
-import { getScopedKey, getActiveSlug } from './utils';
-
 export interface ActionLog {
     id: string;
     timestamp: string;

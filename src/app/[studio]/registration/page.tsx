@@ -2,10 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Camera, User, Phone, Calendar, CheckCircle, ArrowRight, Loader2, Mail, MapPin } from 'lucide-react';
+import { Camera, User, Phone, CheckCircle, ArrowRight, Loader2, Mail, MapPin } from 'lucide-react';
 import { loadSettings, DEFAULT_SETTINGS, type Branch } from '@/lib/settings-store';
-import { updateStudent, generateFormattedStudentId, getStudents } from '@/lib/student-store';
-import { pushStudioStateToCloud } from '@/lib/sync-store';
+import { updateStudent, generateFormattedStudentId } from '@/lib/student-store';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
@@ -15,7 +14,7 @@ import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 export default function StudentRegistrationPage() {
     const params = useParams() as { studio: string };
     const studio = (params?.studio || '').toLowerCase();
-    const { t, lang } = useT();
+    const { t } = useT();
     const [isMounted, setIsMounted] = useState(false);
     const [settings, setSettings] = useState<any>(DEFAULT_SETTINGS);
 
@@ -94,7 +93,7 @@ export default function StudentRegistrationPage() {
             setErrors(prev => ({ ...prev, photo: '' }));
             const optimizedBase64 = await processProfileImage(file);
             setPhotoPreview(optimizedBase64);
-        } catch (err) {
+        } catch {
             setErrors(prev => ({ ...prev, photo: t.imageProcessingError }));
         } finally {
             if (fileRef.current) fileRef.current.value = '';

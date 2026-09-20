@@ -1,11 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-    Menu, Bell, X, Trash2, CheckCircle2, MessageSquare, Send, Search, Users, 
-    User as UserIcon, ChevronRight, Pin, LogOut, Plus, Building2, Check, 
-    ExternalLink, Shield, Paperclip, FileText, Image as ImageIcon, Download 
+import {
+    Menu, Bell, X, Trash2, CheckCircle2, MessageSquare, Send, Search, Users,
+    User as UserIcon, ChevronRight, Pin, Plus, Building2,
+    Shield, Paperclip, FileText, Image as ImageIcon, Download
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';
@@ -16,13 +15,9 @@ import { getNotifications, markAsRead, clearAll, addNotification, type Notificat
 import { cn } from '@/lib/utils';
 import { getStudents } from '@/lib/student-store';
 import { getGroups } from '@/lib/group-store';
-import { getTeachers } from '@/lib/teacher-store';
 import { addIndividualLesson } from '@/lib/event-store';
 import { saveSubscription } from '@/lib/subscription-store';
 import { getLocalISODate } from '@/lib/utils';
-import { THEMES } from '@/lib/settings-store';
-import type { Student } from '@/types';
-import type { Group } from '@/lib/group-store';
 import { NotesDrawer } from '@/components/dashboard/NotesDrawer';
 
 interface ChatAttachment {
@@ -58,8 +53,8 @@ const SUPPORT_CHAT_ID = 'classcore_support';
 export function Header() {
     const pathname = usePathname();
     const { toggle } = useMobileMenu();
-    const { user, profile, loading, logout } = useUser();
-    const { settings, activeBranchId, addBranch, setActiveBranch } = useStudio();
+    useUser();
+    const { settings, addBranch } = useStudio();
     const { t, lang } = useT();
     const [notifOpen, setNotifOpen] = useState(false);
     const [messengerOpen, setMessengerOpen] = useState(false);
@@ -75,11 +70,10 @@ export function Header() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [calLabel, setCalLabel] = useState('');
     const [uncompletedNotesCount, setUncompletedNotesCount] = useState(0);
-    const [profileOpen, setProfileOpen] = useState(false);
     const [branchModalOpen, setBranchModalOpen] = useState(false);
     const [newBranchName, setNewBranchName] = useState('');
-    const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
-    const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
+    const [, setLastSyncTime] = useState<string | null>(null);
+    const [, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
 
     const students = getStudents();
     const groups = getGroups();
@@ -133,7 +127,7 @@ export function Header() {
             } else {
                 setUncompletedNotesCount(0);
             }
-        } catch (e) {
+        } catch {
             setUncompletedNotesCount(0);
         }
     };
@@ -313,8 +307,6 @@ export function Header() {
         // Create events for each slot
         const teacherId = msg.metadata.teacherId || '';
         const title = msg.metadata.style ? `${msg.metadata.style} (${t.individual})` : t.individual;
-        const studentObj = students.find(s => s.id === selectedChatId);
-        const studentName = studentObj?.full_name || `${studentObj?.first_name} ${studentObj?.last_name}` || selectedChatId;
 
         msg.metadata.slots.forEach(slot => {
             const endHour = String(parseInt(slot.time.split(':')[0]) + 1).padStart(2, '0') + ':00';
@@ -451,8 +443,6 @@ export function Header() {
         clearAll();
         setNotifications([]);
     };
-
-    const activeBranchName = settings.branches.find(b => b.id === activeBranchId)?.name || 'Main Branch';
 
     return (
         <>

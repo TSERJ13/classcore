@@ -2,7 +2,7 @@
  * event-store.ts
  * Persists calendar events to localStorage.
  */
-import type { CalendarEvent, EventType } from '@/types';
+import type { CalendarEvent } from '@/types';
 import { pushStudioStateToCloud } from './sync-store';
 import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, getEffectiveOrgId, getLocallyDeletedIds, addLocallyDeletedId } from './utils';
 import { getHalls } from './hall-store';
@@ -17,13 +17,6 @@ function toDateStr(d: Date) {
     return getLocalISODate(d);
 }
 
-const TODAY = new Date();
-
-function makeEvent(id: string, title: string, type: EventType, hallId: string, teacherId: string, dayOffset: number, start: string, end: string, recurring: 'none' | 'weekly' = 'none', groupId?: string): CalendarEvent {
-    const d = new Date(TODAY);
-    d.setDate(TODAY.getDate() + dayOffset);
-    return { id, org_id: getActiveSlug() || '', title, type, hall_id: hallId, teacher_id: teacherId, group_id: groupId, date: toDateStr(d), start_time: start, end_time: end, color: '#6366f1', recurring, reminder_30m: false, created_at: '' };
-}
 
 const SEED_WEEK: CalendarEvent[] = [];
 

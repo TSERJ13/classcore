@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, XCircle, Wifi, CreditCard, AlertCircle } from 'lucide-react';
 import { recordCheckin } from '@/lib/checkin-store';
 import { lookupByUid } from '@/lib/student-store';
-import { useT } from '@/contexts/LanguageContext';
 
 // HEX-normalised UID → student lookup (id matches INITIAL_SESSIONS keys in checkin-store)
 // NFC_DB removed - using student-store lookupByUid

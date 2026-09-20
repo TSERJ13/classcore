@@ -1,10 +1,10 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    Building2, Bell, Globe, Shield, CreditCard, Palette,
-    Check, Camera, Save, Zap, Settings2, Link2, ExternalLink, Copy, Trash2, User, UserCircle, History, MessageCircle, LogOut as LogOutIcon, Plus, Send, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, Languages, CalendarDays, ShoppingBag, BarChart2, Eye, EyeOff, Download, Upload
+    Building2, Shield,
+    Check, Camera, Save, Settings2, ExternalLink, Copy, Trash2, User, UserCircle, LogOut as LogOutIcon, Plus, RefreshCcw, ChevronDown, X, Pencil, AlertTriangle, CalendarDays, ShoppingBag, BarChart2, Eye, EyeOff, Download, Upload
 } from 'lucide-react';
-import { checkCloudConnection, syncStaffToCloud, masterStudioPurge } from '@/lib/sync-store';
+import { masterStudioPurge } from '@/lib/sync-store';
 import { addNotification } from '@/lib/notification-store';
 import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -12,10 +12,9 @@ import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, convertFinancialData, removeFromRegistry, cleanupRegistry, migrateSlugData, addToRegistry, setActiveSlug } from '@/lib/settings-store';
-import { cn, getInitials, compactSlugify, formatCurrency } from '@/lib/utils';
+import { THEMES, ensureUniqueSlug } from '@/lib/settings-store';
+import { cn, getInitials, compactSlugify } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
-import Link from 'next/link';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { AppLogo } from '@/components/ui/Logo';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -87,7 +86,7 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-    const { t, lang, setLang } = useT();
+    const { t, lang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     // Same key set as the "Assign access" toggles below — the module's
     // canView* granularity is the only thing a Permission Lock (§7) can
@@ -105,7 +104,7 @@ export default function SettingsPage() {
         { value: 'canViewAnalytics', label: t.analytics },
         { value: 'canViewSMS', label: 'SMS' },
     ];
-    const { settings, isLoaded, setTheme, setStudioName, setLogo, setNotification, setSecurity, setCurrency, setLanguage, setTimezone, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, setCustomRoles, addStaff, setOwnerInfo, saveSettings } = useStudio();
+    const { settings, isLoaded, setStudioName, setLogo, setSecurity, setLanguage, updateStaff, removeStaff, addBranch, removeBranch, updateBranch, addStaff, setOwnerInfo, saveSettings } = useStudio();
     const { profile, user, logout } = useUser();
     const confirm = useConfirm();
     // 'administrator' (Permissions module, docs/authorization-module.md §2)
@@ -126,7 +125,6 @@ export default function SettingsPage() {
     const [newBranchName, setNewBranchName] = useState('');
     const [newBranchAddress, setNewBranchAddress] = useState('');
     const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
-    const [newRoleName, setNewRoleName] = useState('');
     const [staffModalOpen, setStaffModalOpen] = useState(false);
     const [newStaff, setNewStaff] = useState({
         first_name: '',
@@ -164,9 +162,7 @@ export default function SettingsPage() {
         });
     };
     const [nameSaved, setNameSaved] = useState(false);
-    const [slugSaved, setSlugSaved] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [sessionVal, setSessionVal] = useState(settings.security.sessionTimeout);
     const fileRef = useRef<HTMLInputElement>(null);
     const staffFileRef = useRef<HTMLInputElement>(null);
     const importFileRef = useRef<HTMLInputElement>(null);
@@ -304,43 +300,6 @@ export default function SettingsPage() {
         setTimeout(() => setNameSaved(false), 2000);
     }
 
-    async function saveSlug() {
-        if (!slugVal || slugVal === settings.studioSlug) return;
-        
-        const ok = await confirm({
-            title: l('მისამართის შეცვლა', 'Смена адреса', 'Change URL Address'),
-            message: l(
-                `მისამართის შეცვლა (${settings.studioSlug} -> ${slugVal}) გამოიწვევს გვერდის გადატვირთვას. დარწმუნებული ხართ?`,
-                `Смена адреса (${settings.studioSlug} -> ${slugVal}) приведет к перезагрузке страницы. Вы уверены?`,
-                `Changing the address (${settings.studioSlug} -> ${slugVal}) will cause the page to reload. Are you sure?`
-            ),
-            confirmText: l('შეცვლა', 'Сменить', 'Change'),
-            danger: true
-        });
-
-        if (!ok) return;
-
-        const val = ensureUniqueSlug(slugVal, settings.studioSlug);
-        
-        // 1. Migrate ALL local data keys
-        migrateSlugData(settings.studioSlug, val);
-        
-        // 2. Update Registry and Active Slug
-        addToRegistry(val);
-        setActiveSlug(val);
-        
-        // 3. Update cookie for SSR
-        document.cookie = `cc_active_slug=${val}; path=/; max-age=31536000; SameSite=Lax`;
-        
-        setSlugSaved(true);
-        addNotification(l('მისამართი წარმატებით შეიცვალა', 'Адрес успешно изменен', 'Address successfully changed'), 'success');
-        
-        // 4. Forced reload to the new slug URL
-        setTimeout(() => {
-            window.location.href = `/${val}/settings`;
-        }, 1000);
-    }
-
     async function handleExportData() {
         if (!settings.studioSlug) return;
         
@@ -474,47 +433,6 @@ export default function SettingsPage() {
         }
     }
 
-    async function handleReclaimSlug() {
-        const target = compactSlugify(slugVal || nameVal);
-        if (!target) return;
-
-        const ok = await confirm({
-            title: t.reclaimName,
-            message: t.reclaimConfirm.replace('"${target}"', `"${target}"`),
-            confirmText: t.confirm,
-            cancelText: t.cancel,
-            danger: true
-        });
-
-        if (ok) {
-            removeFromRegistry(target);
-            cleanupRegistry();
-            saveSlug(); // Try saving again after clearing
-        }
-    }
-
-    async function handleCurrencyChange(newCurrency: 'GEL' | 'USD' | 'EUR') {
-        if (newCurrency === settings.currency) return;
-
-        const confirmMsg = l(
-            `ყურადღება! ხდება მხოლოდ ვალუტის ნიშნის (სიმბოლოს) ცვლილება (${settings.currency} -> ${newCurrency}). არსებული თანხების კონვერტაცია არ მოხდება. გნებავთ გაგრძელება?`,
-            `Внимание! Изменяется только символ валюты (${settings.currency} -> ${newCurrency}). Существующие суммы не будут конвертированы. Хотите продолжить?`,
-            `Attention! Only the currency symbol will be changed (${settings.currency} -> ${newCurrency}). Existing amounts will not be converted. Do you want to continue?`
-        );
-
-        const ok = await confirm({
-            title: t.currencyChangeTitle,
-            message: t.currencyChangeDesc.replace('${settings.currency}', settings.currency).replace('${newCurrency}', newCurrency),
-            confirmText: t.confirm,
-            cancelText: t.cancel,
-            danger: false
-        });
-
-        if (ok) {
-            setCurrency(newCurrency);
-        }
-    }
-
     async function handleChangePassword() {
         if (!pwdVal || pwdVal !== pwdConfirmVal) {
             setPwdError(t.passwordsDoNotMatch);
@@ -563,7 +481,7 @@ export default function SettingsPage() {
             const optimizedBase64 = await processProfileImage(file);
             setLogo(optimizedBase64);
             addNotification(l('ლოგო წარმატებით განახლდა', 'Логотип успешно обновлен', 'Logo successfully updated'), 'success');
-        } catch (err) {
+        } catch {
             addNotification({
                 type: 'error',
                 title: t.imageError || 'Error',
@@ -576,7 +494,7 @@ export default function SettingsPage() {
         }
     }
 
-    async function handleStaffPhotoUpload(e: React.ChangeEvent<HTMLInputElement>, staffId: string) {
+    async function handleStaffPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -595,7 +513,7 @@ export default function SettingsPage() {
             const optimizedBase64 = await processProfileImage(file);
             setEditingStaffData((prev: any) => ({ ...prev, photo_url: optimizedBase64 }));
             addNotification(l('ფოტო წარმატებით განახლდა', 'Фото успешно обновлено', 'Photo successfully updated'), 'success');
-        } catch (err) {
+        } catch {
             addNotification({
                 type: 'error',
                 title: t.imageError || 'Error',
@@ -609,9 +527,6 @@ export default function SettingsPage() {
     }
 
     const theme = THEMES[settings.themeKey];
-    const ThemeTextCls = theme.text;
-    const ThemeBgCls = theme.bg;
-    const ThemeBorderCls = theme.border;
 
     if (!isLoaded || !profile) {
         return (
@@ -1462,7 +1377,7 @@ export default function SettingsPage() {
                                                 <input 
                                                     type="file" 
                                                     ref={staffFileRef} 
-                                                    onChange={(e) => handleStaffPhotoUpload(e, member.id)}
+                                                    onChange={(e) => handleStaffPhotoUpload(e)}
                                                     accept="image/*"
                                                     className="hidden" 
                                                 />
@@ -1794,7 +1709,7 @@ export default function SettingsPage() {
                                         setBranchDeletePass('');
                                         setBranchDeleteError('');
                                         addNotification(l('ფილიალი წარმატებით წაიშალა', 'Филиал успешно удален', 'Branch deleted successfully'), 'success');
-                                    } catch (err) {
+                                    } catch {
                                         setBranchDeleteError('Error');
                                     } finally {
                                         setIsDeletingBranch(false);

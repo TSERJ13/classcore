@@ -196,7 +196,6 @@ export async function deletePlan(id: string): Promise<void> {
     }
     markLocalUpdate();
 
-    const settings = loadSettings(activeSlug);
     const orgId = getEffectiveOrgId(activeSlug);
     
     if (orgId && orgId !== 'demo') {

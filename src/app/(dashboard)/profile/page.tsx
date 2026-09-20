@@ -2,29 +2,28 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-    UserCircle, CreditCard, Zap, History, MessageCircle,
-    ChevronRight, Copy, Check, ExternalLink, Send, Shield, Info, Wallet, Loader2,
-    Trash2, Building2, UserPlus, Filter, RotateCcw, Users, Save,
-    FileText, User, Lock, Mail, BadgeCheck, GraduationCap, Banknote, Plus, StickyNote, Clock, Circle, CheckCircle2, X, Edit, LayoutDashboard, Key, MapPin
+    History, MessageCircle,
+    ChevronRight, Check, Shield, Wallet, Loader2,
+    Trash2, Building2, Users,
+    Lock, Mail, Circle, X, Edit, LayoutDashboard, MapPin
 } from 'lucide-react';
-import Link from 'next/link';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
-import { cn, formatCurrency, getLocalISODate } from '@/lib/utils';
-import { getBillingState, getPaymentLogs, SAAS_PRICE_GEL } from '@/lib/saas-billing';
+import { cn, formatCurrency } from '@/lib/utils';
+import { getBillingState } from '@/lib/saas-billing';
 import { addNotification } from '@/lib/notification-store';
-import { type StaffPermissions, type UserRole, type Branch, type StaffMember, ensureUniqueSlug, removeFromRegistry, cleanupRegistry, saveSettings } from '@/lib/settings-store';
+import { type UserRole, type Branch, type StaffMember } from '@/lib/settings-store';
 import { getTrash, removeFromTrash, cleanupOldTrash, type TrashItem } from '@/lib/trash-store';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { compactSlugify, getScopedKey, removeLocallyDeletedId } from '@/lib/utils';
+import { getScopedKey, removeLocallyDeletedId } from '@/lib/utils';
 
 export default function ProfilePage() {
     const { t, lang } = useT();
     const { settings, addStaff, removeStaff, updateStaff, addBranch, updateBranch, removeBranch, setActiveBranch } = useStudio();
-    const { profile, user } = useUser();
-    const confirm = useConfirm();
+    const { profile } = useUser();
+    useConfirm();
     const [mounted, setMounted] = useState(false);
     const [activeSection, setActiveSection] = useState<'branches' | 'team' | 'history' | 'trash'>('branches');
     const [trash, setTrash] = useState<TrashItem[]>([]);
@@ -97,8 +96,6 @@ export default function ProfilePage() {
     };
 
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
-
-    const canManageStaff = profile?.role === 'admin' || profile?.role === 'owner';
 
     const billing = useMemo(() => {
         if (!mounted || !settings.studioSlug) return null;

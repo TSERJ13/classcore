@@ -65,7 +65,7 @@ export function RootLayoutClient({ children, activeLang, activeSlug, studioName 
                                                 </div>
                                             );
                                         }
-                                    } catch(e) {}
+                                    } catch {}
                                 }
                                 return null;
                             })() || (

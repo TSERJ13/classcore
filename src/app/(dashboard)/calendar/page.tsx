@@ -7,8 +7,8 @@ import {
     CalendarPlus,
     Download,
     X,
-    FileSpreadsheet, FileText, CalendarDays, LayoutGrid, Calendar,
-    Clock, DoorOpen, UserCheck, BookOpen, Link, RefreshCw,
+    CalendarDays, LayoutGrid, Calendar,
+    Clock, DoorOpen, UserCheck, BookOpen,
     Users, User, Home, SlidersHorizontal, Plus
 } from 'lucide-react';
 import { cn, getLocalISODate, getActiveSlug, formatDate, formatShortName } from '@/lib/utils';
@@ -24,17 +24,10 @@ import { SearchSelect } from '@/components/ui/SearchSelect';
 import { getStudents } from '@/lib/student-store';
 import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
-import { getVisibleGroupIds, isTeacherRole, isOwnerOrAdmin } from '@/lib/access';
+import { isOwnerOrAdmin } from '@/lib/access';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 /* ─── Constants ──────────────────────────────────────────────── */
-const PALETTES = [
-    { name: 'Indigo / Purple', colors: ['#e0e7ff', '#c7d2fe', '#a5b4fc', '#818cf8', '#6366f1', '#4f46e5', '#4338ca', '#3730a3', '#f3e8ff', '#e9d5ff', '#d8b4fe', '#c084fc', '#a855f7', '#9333ea', '#7e22ce', '#6b21a8'] },
-    { name: 'Pink / Rose', colors: ['#fce7f3', '#fbcfe8', '#f9a8d4', '#f472b6', '#ec4899', '#db2777', '#be185d', '#9d174d', '#ffe4e6', '#fecdd3', '#fda4af', '#fb7185', '#f43f5e', '#e11d48', '#be123c', '#9f1239'] },
-    { name: 'Blue / Cyan', colors: ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', '#cffafe', '#a5f3fc', '#67e8f9', '#22d3ee', '#06b6d4', '#0891b2', '#0e7490', '#155e75'] },
-    { name: 'Emerald / Green', colors: ['#d1fae5', '#a7f3d0', '#6ee7b7', '#34d399', '#10b981', '#059669', '#047857', '#065f46', '#dcfce7', '#bbf7d0', '#86efac', '#4ade80', '#22c55e', '#16a34a', '#15803d', '#166534'] },
-    { name: 'Amber / Orange', colors: ['#fef3c7', '#fde68a', '#fcd34d', '#fbbf24', '#f59e0b', '#d97706', '#b45309', '#92400e', '#ffedd5', '#fed7aa', '#fdba74', '#fb923c', '#f97316', '#ea580c', '#c2410c', '#9a3412'] },
-];
 // Teachers are passed down / accessed via store.
 // Halls are loaded dynamically from hall-store.
 
@@ -124,8 +117,6 @@ function timeToMins(t: string | undefined | null) {
     return Math.floor(h * 60 + m);
 }
 
-function colorBg(hex: string) { return hex + '15'; }
-
 /** Processes events within a day to group overlaps into columns */
 function getProcessedEvents(evs: CalendarEvent[]) {
     // Guard: filter out events with missing or malformed time data
@@ -191,9 +182,7 @@ function DragConfirmModal({ ev, newDate, newStart, newEnd, onThisOnly, onAllOccu
     onAllOccurrences: () => void;
     onCancel: () => void;
 }) {
-    const dayNames = ['კვ', 'ორშ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ'];
     const fullDayNames = ['კვირა', 'ორშაბათი', 'სამშაბათი', 'ოთხშაბათი', 'ხუთშაბათი', 'პარასკევი', 'შაბათი'];
-    const newDayOfWeek = new Date(newDate + 'T00:00:00').getDay();
     const oldDayOfWeek = new Date(ev.date + 'T00:00:00').getDay();
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onCancel}>
@@ -247,7 +236,7 @@ function DragConfirmModal({ ev, newDate, newStart, newEnd, onThisOnly, onAllOccu
 function GridLines({ onClick }: { onClick: (e: React.MouseEvent<HTMLDivElement>) => void }) {
     return (
         <div className="absolute inset-0 cursor-pointer group" onClick={onClick}>
-            {TIME_SLOTS.map((slot, i) => (
+            {TIME_SLOTS.map((slot) => (
                 <div key={slot}
                     className={cn(
                         "h-[18px] w-full border-t box-border pointer-events-none",
@@ -299,6 +288,7 @@ function EventChip({ ev, onClick, onMouseDown, onTouchStart, teachers, halls, gr
         <button
             onClick={e => { e.stopPropagation(); onClick(); }}
             onMouseDown={onMouseDown}
+            onTouchStart={onTouchStart}
             title={`${ev.title}${teacher ? ` — ${teacher.full_name}` : ''}`}
             className={cn(
                 "w-full h-full text-left rounded-lg overflow-hidden transition-all group shadow-sm border border-black/5 relative p-0",
@@ -912,7 +902,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
 
 const EMPTY_EV = { title: '', type: 'group_class' as EventType, hall_id: 'h1', teacher_id: '', group_id: '', student_id: '', date: '', start_time: '09:00', end_time: '10:30', notes: '', recurring: 'none' as 'none' | 'weekly', reminder_30m: false };
 
-function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, halls, groups, canEdit }: { defaultDate: string; defaultTime?: string; onClose: () => void; onAdd: (evs: CalendarEvent[]) => void; teachers: any[]; halls: any[]; groups: Group[]; canEdit: boolean }) {
+function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, halls, groups }: { defaultDate: string; defaultTime?: string; onClose: () => void; onAdd: (evs: CalendarEvent[]) => void; teachers: any[]; halls: any[]; groups: Group[] }) {
     const { settings } = useStudio();
     const defaultStart = defaultTime || '09:00';
 
@@ -971,7 +961,6 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
     const [isNewGroup, setIsNewGroup] = useState(false);
     const [newGroupName, setNewGroupName] = useState('');
     const { t } = useT();
-    const eventTypes = EVENT_TYPES(t);
 
     function setF(k: string, v: any) {
         setForm(p => {
@@ -1053,8 +1042,6 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
             finalTitle = groups.find(g => g.id === groupId)?.name || 'Untitled Group';
         }
 
-        const hallColor = halls.find((h: any) => h.id === form.hall_id)?.color ?? '#6366f1';
-
         const baseEvent = {
             ...form,
             group_id: groupId,
@@ -1066,7 +1053,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
         };
 
         if ((form.recurring as string) === 'weekly') {
-            const activeDays = Object.entries(recurringDays).filter(([_, d]) => d.active);
+            const activeDays = Object.entries(recurringDays).filter(([, d]) => d.active);
             if (activeDays.length === 0) return;
 
             const batch: CalendarEvent[] = [];
@@ -1171,7 +1158,6 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
                                     options={getStudents().map(s => ({ value: s.id, label: s.full_name, subLabel: s.phone }))}
                                     value={form.student_id?.split(',')[0] || ''}
                                     onChange={val => {
-                                        const s = getStudents().find(x => x.id === val);
                                         const currentIds = form.student_id ? form.student_id.split(',').map(id => id.trim()) : [];
                                         
                                         let nextIds = [];
@@ -1410,71 +1396,11 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
     );
 }
 
-/* ─── Export helpers ─────────────────────────────────────────── */
-
-function exportIcal(events: CalendarEvent[], teachers: any[], halls: any[]) {
-    const lines = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//ClassCore//Calendar//GEO',
-        'CALSCALE:GREGORIAN',
-        'METHOD:PUBLISH',
-    ];
-    events.forEach(ev => {
-        const hall = halls.find((h: any) => h.id === ev.hall_id);
-        const teacher = teachers.find(t => t.id === ev.teacher_id);
-        const start = ev.date.replace(/-/g, '') + 'T' + ev.start_time.replace(':', '') + '00';
-        const end = ev.date.replace(/-/g, '') + 'T' + ev.end_time.replace(':', '') + '00';
-        lines.push(
-            'BEGIN:VEVENT',
-            `UID:${ev.id}@classcore.ge`,
-            `DTSTART;TZID=Asia/Tbilisi:${start}`,
-            `DTEND;TZID=Asia/Tbilisi:${end}`,
-            `SUMMARY:${ev.title}`,
-            `DESCRIPTION:${teacher ? `მასწ: ${teacher.full_name}` : ''}`,
-            `LOCATION:${hall?.name ?? ''}`,
-            'END:VEVENT',
-        );
-    });
-    lines.push('END:VCALENDAR');
-    const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'classcore_calendar.ics'; a.click();
-    URL.revokeObjectURL(url);
-}
-
-async function exportExcel() {
-    try {
-        // const XLSX = await import('xlsx');
-        alert('Excel-ის ექსპორტისთვის საჭიროა ბიბლიოთეკა. გთხოვთ გაუშვათ: npm install xlsx');
-        /*
-        const data = events.map(ev => ({
-            'სათაური': ev.title,
-            'ტიპი': EVENT_TYPES.find(t => t.value === ev.type)?.label ?? ev.type,
-            'თარიღი': ev.date,
-            'დაწყება': ev.start_time,
-            'დასასრული': ev.end_time,
-            'დარბაზი': HALLS.find(h => h.id === ev.hall_id)?.name ?? '',
-            'მასწავლებელი': TEACHERS.find(t => t.id === ev.teacher_id)?.name ?? '',
-            'გამეორება': ev.recurring === 'weekly' ? 'ყოველ კვირა' : 'ერთჯერადი',
-        }));
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'კალენდარი');
-        XLSX.writeFile(wb, `classcore_calendar_${new Date().toISOString().slice(0, 10)}.xlsx`);
-        */
-    } catch (err) {
-        console.error('XLSX export failed:', err);
-        alert('Excel-ის ექსპორტისთვის საჭიროა ბიბლიოთეკა. გთხოვთ გაუშვათ: npm install xlsx');
-    }
-}
-
 /* ─── Main Calendar Page ─────────────────────────────────────── */
 
 export default function CalendarPage() {
     const { t, lang } = useT();
     const { profile } = useUser();
-    const isTeacher = isTeacherRole(profile?.role);
     const isOwnerAdmin = isOwnerOrAdmin(profile?.role) || !profile?.role;
     const canEdit = isOwnerAdmin || !!profile?.canEditCalendar;
 
@@ -1535,8 +1461,6 @@ export default function CalendarPage() {
         }
     }, []);
 
-
-    const hallColors: Record<string, string> = Object.fromEntries(halls.map(h => [h.id, h.color]));
 
     const expandedEvents = useMemo(() => {
         const expanded: CalendarEvent[] = [];
@@ -2128,12 +2052,6 @@ export default function CalendarPage() {
         return filtered
             .filter(e => e.date === dateStr)
             .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
-    }
-
-    // Events for a time slot in week view
-    function slotEvents(dateStr: string, slotHour: string) {
-        const slotMins = timeToMins(slotHour);
-        return filtered.filter(e => e.date === dateStr && timeToMins(e.start_time) >= slotMins && timeToMins(e.start_time) < slotMins + 60);
     }
 
     async function exportPDF() {
@@ -2818,7 +2736,7 @@ export default function CalendarPage() {
                         <div className="grid grid-cols-[64px_1fr] relative min-h-[1008px]">
                             {/* Time labels column */}
                             <div className="sticky left-0 z-20 bg-card border-r border-border-subtle/40">
-                                {TIME_SLOTS.map((slot, i) => (
+                                {TIME_SLOTS.map((slot) => (
                                     <div key={slot} className={cn(
                                         "h-[18px] px-2 text-right relative transition-all",
                                         slot.endsWith(':00') ? "bg-surface/10" : "bg-transparent"
@@ -2914,7 +2832,7 @@ export default function CalendarPage() {
                         <div className="grid grid-cols-[64px_repeat(7,1fr)] relative min-h-[1008px]">
                             {/* Time labels column */}
                             <div className="sticky left-0 z-20 bg-card border-r border-border-subtle/40">
-                                {TIME_SLOTS.map((slot, i) => (
+                                {TIME_SLOTS.map((slot) => (
                                     <div key={slot} className={cn(
                                         "h-[18px] px-2 text-right relative transition-all",
                                         slot.endsWith(':00') ? "bg-surface/10" : "bg-transparent"
@@ -3089,7 +3007,6 @@ export default function CalendarPage() {
                     defaultDate={addDate}
                     defaultTime={addTime || undefined}
                     onClose={() => { setAddDate(null); setAddTime(null); }}
-                    canEdit={canEdit}
                     onAdd={(evs) => { addEvents(evs); setAddDate(null); setAddTime(null); }}
                     teachers={teachers}
                     halls={halls}

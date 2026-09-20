@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { X, Send, MessageSquare, AlertCircle, CreditCard, Clock, Sparkles, Cake, Globe } from 'lucide-react';
+import { X, Send, MessageSquare, AlertCircle, CreditCard, Clock, Sparkles, Cake } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { cn } from '@/lib/utils';

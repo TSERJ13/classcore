@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useUser } from '@/hooks/useUser';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { THEMES } from '@/lib/settings-store';
 import { MessageSquare, Settings2, BarChart3, AlertCircle, RefreshCw, Send, PartyPopper, User, Shield, Moon, Power, Wallet, Trash2 } from 'lucide-react';
 import { addNotification } from '@/lib/notification-store';
-import { cn, formatCurrency } from '@/lib/utils';
-import { SearchSelect, SearchSelectOption } from '@/components/ui/SearchSelect';
+import { cn } from '@/lib/utils';
+import { SearchSelect } from '@/components/ui/SearchSelect';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { formatSmsTemplate, resolveSmsRecipientName, sendSms } from '@/lib/sms-service';
 import { getSubscription } from '@/lib/subscription-store';

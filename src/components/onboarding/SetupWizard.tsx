@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, ChevronRight, CheckCircle2, Building2, UserSquare2, Users2, UserPlus2, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import { X, CheckCircle2, Building2, UserSquare2, Users2, UserPlus2, ArrowRight, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
@@ -18,7 +18,6 @@ export function SetupWizard() {
     const { settings, addStaff, setWizardCompleted } = useStudio();
     const [isOpen, setIsOpen] = useState(false);
     const [step, setStep] = useState(0);
-    const [loading, setLoading] = useState(false);
 
     // Form States
     const [hallData, setHallData] = useState({ name: '', capacity: '20', sq_meters: '' });

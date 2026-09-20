@@ -45,7 +45,6 @@ export interface SubscriptionInfo {
 type SubMap = Record<string, SubscriptionInfo[]>;
 
 import { getStaffSession, loadSettings, saveSettings, getVacationExtensionDays } from './settings-store';
-import { recordAuditAction } from './audit-store';
 import { getScopedKey, getActiveSlug, getLocalISODate, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, makeEntityId } from './utils';
 import { pushStudioStateToCloud } from './sync-store';
 import { syncRecordToCloud, deleteRecordFromCloud, pushFullStudioMetadata } from './master-sync';
@@ -562,7 +561,6 @@ export function deleteSubscription(studentId: string, subId: string): void {
     clearCache();
     
     let subToDelete: SubscriptionInfo | null = null;
-    let primaryKey = studentId;
 
     // Scan all keys to find and remove the subscription everywhere
     for (const key of Object.keys(data)) {
@@ -570,7 +568,6 @@ export function deleteSubscription(studentId: string, subId: string): void {
         if (found) {
             if (!subToDelete) {
                 subToDelete = found;
-                primaryKey = key;
             }
             data[key] = data[key].filter(s => s.id !== subId);
             if (data[key].length === 0) delete data[key];
@@ -663,7 +660,7 @@ export function deleteSubscription(studentId: string, subId: string): void {
                 const cData = JSON.parse(cSaved);
                 const filtered = cData.filter((r: any) => r.studentId !== studentId);
                 localStorage.setItem(cKey, JSON.stringify(filtered));
-            } catch (e) { /* ignore */ }
+            } catch { /* ignore */ }
         }
 
         // 2. Clear UI checkmarks
@@ -680,7 +677,7 @@ export function deleteSubscription(studentId: string, subId: string): void {
                     });
                     localStorage.setItem(archiveKey, JSON.stringify(data));
                 }
-            } catch (e) { /* ignore */ }
+            } catch { /* ignore */ }
         }
 
         window.dispatchEvent(new Event('cc_subscription_update'));

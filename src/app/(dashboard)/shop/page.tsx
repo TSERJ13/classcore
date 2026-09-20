@@ -3,14 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
 import {
-    Plus, Search, ShoppingBag, Package, TrendingUp, Filter,
-    ArrowUpRight, Tag, Camera, CheckCircle2, Trash2, Edit, Edit2, AlertTriangle, ArrowRight, X, Check
+    Plus, ShoppingBag, Package, TrendingUp,
+    ArrowUpRight, Tag, Camera, Trash2, Edit2, X, Check
 } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useStudio } from '@/contexts/StudioContext';
-import { cn, formatCurrency, getScopedKey, getLocalISODate } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { MobileFAB } from '@/components/ui/MobileFAB';
 import { type ShopSale } from '@/lib/sales-store';
 import { getSalesAction, recordSaleAction, deleteSaleAction, updateSaleAction } from '@/app/actions/sales';
@@ -20,8 +20,6 @@ import type { Product } from '@/types';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
-const INITIAL_PRODUCTS: Product[] = [];
-
 export default function ShopPage() {
     const { t, lang } = useT();
     const { settings } = useStudio();
@@ -30,7 +28,7 @@ export default function ShopPage() {
     const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
     const [products, setProducts] = useState<Product[]>([]);
-    const [search, setSearch] = useState('');
+    const [search] = useState('');
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isSellOpen, setIsSellOpen] = useState(false);
     const [isEditSaleOpen, setIsEditSaleOpen] = useState(false);

@@ -8,25 +8,12 @@ interface BroadcastMsg { title_ka: string; title_ru: string; title_en: string; b
 
 const EMPTY: BroadcastMsg = { title_ka: '', title_ru: '', title_en: '', body_ka: '', body_ru: '', body_en: '' };
 
-function saveBroadcast(msg: BroadcastMsg) {
-    const history = (() => { try { return JSON.parse(localStorage.getItem('cc_sa_broadcast_history') || '[]'); } catch { return []; } })();
-    const entry = { ...msg, sentAt: new Date().toISOString(), id: (msg as any).id || Date.now().toString() };
-    
-    // Replace if exists, otherwise unshift
-    const idx = history.findIndex((h: any) => h.id === entry.id);
-    if (idx > -1) history[idx] = entry;
-    else history.unshift(entry);
-    
-    localStorage.setItem('cc_sa_broadcast_history', JSON.stringify(history.slice(0, 30)));
-    localStorage.setItem('cc_sa_broadcast', JSON.stringify(entry));
-}
-
 type LangTab = 'ka' | 'ru' | 'en';
 const LANG_FLAGS: Record<LangTab, string> = { ka: '🇬🇪', ru: '🇷🇺', en: '🇬🇧' };
 const LANG_NAMES: Record<LangTab, string> = { ka: 'ქართული', ru: 'რუსული', en: 'ინგლისური' };
 
 export default function BroadcastPage() {
-    const { lang: saLang, t } = useT();
+    const { t } = useT();
     const [mounted, setMounted] = useState(false);
     const [msg, setMsg] = useState<BroadcastMsg>(EMPTY);
     const [lang, setLang] = useState<LangTab>('ka');

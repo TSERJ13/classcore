@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Clock, CreditCard, ShoppingBag, Calendar, ShieldCheck } from 'lucide-react';
-import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { getStudentSubscriptions, type SubscriptionInfo } from '@/lib/subscription-store';
 import { useT } from '@/contexts/LanguageContext';
 import { getStudents } from '@/lib/student-store';

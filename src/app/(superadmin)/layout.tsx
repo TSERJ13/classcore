@@ -3,12 +3,11 @@
 import { useUser } from '@/hooks/useUser';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { ShieldCheck, LogOut, LayoutDashboard, Building2, Users, MessageSquare, Bell, X, ChevronRight, Menu, Moon, Sun, Monitor, AlertTriangle, HelpCircle, Wrench, Megaphone, CreditCard, Globe, Search, MonitorSmartphone, BarChart3, Tag, FileText, MessagesSquare, StickyNote } from 'lucide-react';
+import { ShieldCheck, LogOut, LayoutDashboard, Building2, Bell, X, ChevronRight, Menu, Moon, Sun, AlertTriangle, Wrench, CreditCard, Globe, Search, MonitorSmartphone, BarChart3, Tag, MessagesSquare, StickyNote } from 'lucide-react';
 import SupportChat from '@/components/superadmin/SupportChat';
 import GlobalSearch from '@/components/superadmin/GlobalSearch';
 import Link from 'next/link';
-import { getUnreadSupportCount, loadSettings, getStudioRegistry } from '@/lib/settings-store';
-import { getBillingState } from '@/lib/saas-billing';
+import { getUnreadSupportCount } from '@/lib/settings-store';
 import { useT } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { syncGlobalAdminRegistry } from '@/lib/admin-sync';

@@ -1,8 +1,7 @@
-import { getScopedKey, getActiveSlug as getActiveSlugLowLevel, markLocalUpdate, recordGlobalDeletion, clearGlobalDeletion, getEffectiveOrgId } from './utils';
-import { getStaffSession, loadSettings, type StaffMember } from '@/lib/settings-store';
+import { getScopedKey, getActiveSlug as getActiveSlugLowLevel, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId } from './utils';
+import { getStaffSession, loadSettings } from '@/lib/settings-store';
 import { triggerInstantSync } from './sync-store';
-import { type Student, type StudentPatch, type Branch, type StudioSettings, type TrashItem, type SubscriptionLog } from '@/types';
-import { recordAuditAction } from './audit-store';
+import { type Student, type StudentPatch } from '@/types';
 import { deleteRecordFromCloud, syncRecordToCloud } from './master-sync';
 
 const BASE_UID_REGISTRY_KEY = 'cc_uid_registry';
@@ -18,7 +17,6 @@ export interface UidEntry {
     studentName: string;
 }
 
-import { ALL_STUDENTS } from './student-data';
 
 export const INITIAL_STUDENTS: Student[] = [];
 

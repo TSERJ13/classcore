@@ -1,25 +1,24 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter, usePathname } from 'next/navigation';
-import { SupportChat } from '@/components/support/SupportChat';
+import { useParams, useRouter } from 'next/navigation';
 import {
-    User, CreditCard, Calendar, CheckCircle,
-    ArrowRight, ShieldCheck, Heart,
-    MessageSquare, Smartphone, Clock,
+    User, CreditCard, Calendar,
+    ArrowRight, ShieldCheck,
+    Clock,
     QrCode, Copy, Check, Info, CalendarDays,
-    Send, ChevronRight, ChevronLeft, Download, Users,
-    ExternalLink, BellOff, BellRing,
-    CircleUser, AlertCircle, ShoppingBag, Tag, Loader2, TrendingUp, Activity, History, X
+    ChevronRight, ChevronLeft,
+    BellRing,
+    CircleUser, AlertCircle, ShoppingBag, Tag, Activity, History, X
 } from 'lucide-react';
 const UserIcon = User;
 import { cn, getLocalISODate, formatCurrency, getScopedKey, safeSetItem, formatDate } from '@/lib/utils';
 import Link from 'next/link';
-import { getSubscription, renewSubscription, getStudentSubscriptions, type SubscriptionInfo } from '@/lib/subscription-store';
+import { getSubscription, getStudentSubscriptions, type SubscriptionInfo } from '@/lib/subscription-store';
 import { useT } from '@/contexts/LanguageContext';
 import { getStudentPatch, getStudents, saveStudentPatch } from '@/lib/student-store';
 import { getStudentCheckins } from '@/lib/checkin-store';
-import { getGroups, getGroupById } from '@/lib/group-store';
+import { getGroups } from '@/lib/group-store';
 import { generateQRDataUrl } from '@/lib/qr';
 import { loadSettings, DEFAULT_SETTINGS } from '@/lib/settings-store';
 import { getEvents } from '@/lib/event-store';
@@ -28,7 +27,6 @@ import { getTeachers } from '@/lib/teacher-store';
 import { getHalls, type HallData } from '@/lib/hall-store';
 import { fetchFullStudioState } from '@/lib/master-sync';
 import type { Student, CalendarEvent, Teacher, Product } from '@/types';
-import { SearchSelect } from '@/components/ui/SearchSelect';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { AppLogo as Logo } from '@/components/ui/Logo';
 import { useUser } from '@/hooks/useUser';
@@ -45,7 +43,7 @@ export default function StudentPortalPage() {
         if (studio && typeof window !== 'undefined') {
             const current = localStorage.getItem('cc_active_studio_slug');
             if (current !== studio) {
-                safeSetItem('cc_active_studio_slug', studio, studio);
+                safeSetItem('cc_active_studio_slug', studio);
                 // Also trigger a refresh of store states that might depend on activeSlug
                 window.dispatchEvent(new Event('cc_settings_update'));
             }
@@ -56,15 +54,12 @@ export default function StudentPortalPage() {
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const [sub, setSub] = useState<SubscriptionInfo | null>(null);
     const [studentData, setStudentData] = useState<Student | null>(null);
-    const [status, setStatus] = useState<'idle' | 'paying' | 'success'>('idle');
     const [qrDataUrl, setQrDataUrl] = useState('');
     const [copied, setCopied] = useState(false);
     const router = useRouter();
-    const pathname = usePathname();
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [isLoading, setIsLoading] = useState(true);
-    const [runtimeError, setRuntimeError] = useState<string | null>(null);
-    const [groups, setGroups] = useState<any[]>([]);
+    const [, setGroups] = useState<any[]>([]);
     const [syncing, setSyncing] = useState(false);
 
     // 🛡️ SAFETY REDIRECT
@@ -89,7 +84,7 @@ export default function StudentPortalPage() {
                     const cloudData = await fetchFullStudioState(studio, undefined, undefined, true);
                     const cloud = cloudData?.settingsRecord?.settings || cloudData?.studio?.settings;
                     if (cloud) {
-                        safeSetItem(`cc_settings_${studio}`, JSON.stringify(cloud), studio);
+                        safeSetItem(`cc_settings_${studio}`, JSON.stringify(cloud));
                         setSettings(cloud);
                         return;
                     }
@@ -108,11 +103,8 @@ export default function StudentPortalPage() {
 
     const [activeTab, setActiveTab] = useState<ActiveTab>('info');
     const [scheduleSubTab, setScheduleSubTab] = useState<'mine' | 'all'>('mine');
-    const [selectedTeacherId, setSelectedTeacherId] = useState<string>('');
-    const [selectedStyle, setSelectedStyle] = useState<string>('');
-    const [selectedHallId, setSelectedHallId] = useState<string>('');
     const [teachers, setTeachers] = useState<Teacher[]>([]);
-    const [halls, setHalls] = useState<HallData[]>([]);
+    const [, setHalls] = useState<HallData[]>([]);
     const [shopProducts, setShopProducts] = useState<Product[]>([]);
     const [showQrModal, setShowQrModal] = useState(false);
     const [scheduleView, setScheduleView] = useState<'daily' | 'weekly'>('daily');
@@ -122,9 +114,8 @@ export default function StudentPortalPage() {
     const [viewAllMonths, setViewAllMonths] = useState(false);
 
     const [chatMessages, setChatMessages] = useState<any[]>([]);
-    const [chatInput, setChatInput] = useState('');
-    const [isSyncingChat, setIsSyncingChat] = useState(false);
-    const [selectedChatId, setSelectedChatId] = useState<string>('studio');
+    const [, setIsSyncingChat] = useState(false);
+    const [selectedChatId] = useState<string>('studio');
     const chatScrollRef = useRef<HTMLDivElement>(null);
     const hasLoadedRef = useRef(false);
 
@@ -207,7 +198,7 @@ export default function StudentPortalPage() {
                         for (const [rawKey, data] of Object.entries(mapping)) {
                             if (data) {
                                 const scopedKey = getScopedKey(rawKey, studio);
-                                safeSetItem(scopedKey, JSON.stringify(data), studio);
+                                safeSetItem(scopedKey, JSON.stringify(data));
                             }
                         }
                         
@@ -304,18 +295,6 @@ export default function StudentPortalPage() {
         alert(`${t.buyProductInterest}: ${product.name}.`);
     };
 
-    const addToCalendar = (ev: CalendarEvent, type: 'google' | 'apple') => {
-        const start = ev.start_time.replace(':', '');
-        const end = ev.end_time.replace(':', '');
-        const date = ev.date.replace(/-/g, '');
-        if (type === 'google') {
-            const url = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ev.title)}&dates=${date}T${start}00/${date}T${end}00`;
-            window.open(url, '_blank');
-        } else {
-            downloadIcal(ev);
-        }
-    };
-
     const syncChat = async (forcePushMessages?: any[]) => {
         if (!studentId || !studio) return;
         setIsSyncingChat(true);
@@ -328,7 +307,7 @@ export default function StudentPortalPage() {
                 const localKey = getScopedKey(`chat_${channelId}`, studio);
                 const finalMessages = forcePushMessages || cloudMessages;
                 setChatMessages(finalMessages);
-                safeSetItem(localKey, JSON.stringify(finalMessages), studio);
+                safeSetItem(localKey, JSON.stringify(finalMessages));
             }
         } catch (err) {
             console.error('Chat sync error:', err);
@@ -340,33 +319,6 @@ export default function StudentPortalPage() {
     useEffect(() => {
         if (activeTab === 'chat') syncChat();
     }, [activeTab, selectedChatId]);
-
-    const handleSendMessage = async () => {
-        if (!chatInput.trim() || !studentId || !studio) return;
-        const channelId = selectedChatId === 'studio' ? studentId : selectedChatId;
-        const newMsg = {
-            id: Date.now().toString(),
-            text: chatInput,
-            sender: 'student',
-            sender_name: studentData?.full_name || 'Student',
-            timestamp: new Date().toISOString(),
-            read: false
-        };
-        const updatedMessages = [...chatMessages, newMsg];
-        setChatMessages(updatedMessages);
-        setChatInput('');
-        const localKey = getScopedKey(`chat_${channelId}`, studio);
-        safeSetItem(localKey, JSON.stringify(updatedMessages), studio);
-        try {
-            await fetch('/api/public/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studio, studentId: channelId, messages: updatedMessages })
-            });
-        } catch (err) {
-            console.error('Failed to sync message:', err);
-        }
-    };
 
     useEffect(() => {
         if (chatScrollRef.current) {
@@ -398,16 +350,6 @@ export default function StudentPortalPage() {
         navigator.clipboard.writeText(studentId);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-    };
-
-    const handlePay = () => {
-        setStatus('paying');
-        setTimeout(() => {
-            const updated = renewSubscription(studentId);
-            setSub(updated);
-            setStatus('success');
-            setTimeout(() => setStatus('idle'), 3000);
-        }, 2000);
     };
 
     // ✅ Computed variables that were missing

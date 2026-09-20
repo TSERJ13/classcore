@@ -7,7 +7,7 @@ import {
 import Link from 'next/link';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { THEMES, type ThemeKey, ensureUniqueName, ensureUniqueSlug, saveSettings, isFeatureEnabled } from '@/lib/settings-store';
+import { isFeatureEnabled } from '@/lib/settings-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { useStudio } from '@/contexts/StudioContext';

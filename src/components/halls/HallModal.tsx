@@ -25,7 +25,7 @@ const EMPTY: Partial<Hall> = {
 
 export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalProps) {
     const { t } = useT();
-    const { user, profile } = useUser();
+    const { profile } = useUser();
     const [form, setForm] = useState<Partial<Hall>>({ ...EMPTY });
     const [showDelete, setShowDelete] = useState(false);
     const isEdit = !!hall;

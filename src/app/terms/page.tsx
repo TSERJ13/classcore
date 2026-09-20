@@ -3,7 +3,7 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AppLogo } from "@/components/ui/Logo";
 import Link from "next/link";
-import { ArrowLeft, FileText, CheckCircle2, Globe, Shield, Zap } from "lucide-react";
+import { ArrowLeft, FileText, CheckCircle2, Globe } from "lucide-react";
 
 export default function TermsPage() {
     const { l } = useLanguage();

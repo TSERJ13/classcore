@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { Users, Copy, Check, Search, MessageSquare } from 'lucide-react';
-import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { cn } from '@/lib/utils';
 import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 
@@ -18,7 +17,7 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 export default function UsersPage() {
-    const { lang: saLang, t } = useT();
+    const { t } = useT();
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState<UserRecord[]>([]);

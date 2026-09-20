@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, Fragment } from 'react';
-import { X, Users, Trash2, AlertTriangle, Check, Palette, Clock, Calendar, Save, ArrowRight, User, BookOpen, GraduationCap, Plus, DoorOpen } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Users, Trash2, AlertTriangle, Check, Calendar, BookOpen, GraduationCap, Plus, DoorOpen } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -50,9 +50,6 @@ const DAY_LABELS_KA = ['ორ', 'სამ', 'ოთხ', 'ხუთ', 'პა�
 const DAY_LABELS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_LABELS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-const DAY_FULL_KA = ['ორშაბათი', 'სამშაბათი', 'ოთხშაბათი', 'ხუთშაბათი', 'პარასკევი', 'შაბათი', 'კვირა'];
-const DAY_FULL_EN = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
 // Schedule display handled by group-store slotsToDisplay
 
 // ─── Default time slot ───────────────────────────────────────────
@@ -60,7 +57,7 @@ const DEFAULT_SLOT: ScheduleSlot = { dayOfWeek: 0, startTime: '13:00', endTime: 
 
 export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModalProps) {
     const { t, lang } = useT();
-    const { user, profile } = useUser();
+    const { profile } = useUser();
     const isEdit = !!group;
     const isTeacher = profile?.role === 'teacher';
 
@@ -200,10 +197,6 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
             setSaving(false);
         }
     };
-
-    const inputCls = "w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-2.5 text-sm text-primary placeholder:text-muted/30 outline-none transition-all";
-
-    const dayFullLabels = lang === 'ka' ? DAY_FULL_KA : DAY_FULL_EN;
 
     return (
         <MainPortal>

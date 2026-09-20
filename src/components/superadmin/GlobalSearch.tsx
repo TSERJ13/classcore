@@ -83,15 +83,6 @@ const TYPE_COLORS: Record<ResultType, string> = {
     payment: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20' 
 };
 
-function getTypeLabel(type: ResultType, t: any) {
-    const labels: Record<ResultType, string> = {
-        studio: t.sa_search_studio,
-        client: t.sa_search_student,
-        payment: t.sa_search_payment
-    };
-    return labels[type];
-}
-
 function getTypePlural(type: ResultType, t: any) {
     const plurals: Record<ResultType, string> = {
         studio: t.sa_search_studios,

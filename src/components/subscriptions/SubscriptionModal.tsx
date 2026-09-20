@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, CreditCard, Calendar, Save, Trash2, Pause, Check } from 'lucide-react';
+import { X, CreditCard, Trash2, Pause, Check } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useUser } from '@/hooks/useUser';
@@ -22,9 +22,9 @@ interface SubscriptionModalProps {
     centered?: boolean;
 }
 
-export function SubscriptionModal({ open, subscription, onClose, onSave, onDelete, centered = false }: SubscriptionModalProps) {
+export function SubscriptionModal({ open, subscription, onClose, onSave, onDelete }: SubscriptionModalProps) {
     const { t } = useT();
-    const { user, profile } = useUser();
+    const { profile } = useUser();
     const confirm = useConfirm();
     const { settings } = useStudio();
     const [form, setForm] = useState<SubscriptionInfo | null>(null);

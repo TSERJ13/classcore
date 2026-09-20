@@ -3,22 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { TrendingUp, CreditCard, Users, ShoppingBag } from 'lucide-react';
-import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
 import { cn } from '@/lib/utils';
 import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 import { PLATFORM_PLAN_PRICES, platformPrice } from '@/lib/saas-billing';
 
 interface BillingRecord { slug: string; name: string; logoUrl: string | null; plan: string; studentCount: number; activeSubsCount: number; subsRevenue: number; shopRevenue: number; totalRevenue: number; currency: string; }
 
-const PLAN_COLORS: Record<string, string> = { 
-    trial: 'text-muted bg-surface border border-border-subtle', 
-    basic: 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-blue-500/20', 
-    enterprise: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20' 
-};
 const PLATFORM_PRICES: Record<string, number> = PLATFORM_PLAN_PRICES;
 
 export default function BillingPage() {
-    const { lang: saLang, t } = useT();
+    const { t } = useT();
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
     const [records, setRecords] = useState<BillingRecord[]>([]);

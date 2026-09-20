@@ -2,23 +2,22 @@
 
 import React, { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import {
-    X, User, UserRound, Phone, Mail, Calendar, Trash2, Camera, Zap, QrCode, RefreshCw, Download, CreditCard,
-    ShoppingBag, CalendarCheck, PlusCircle, MessageCircle, ChevronRight, ChevronLeft, Wifi, Link, Wallet,
-    Check, Plus, AlertTriangle, FileText, Facebook, Instagram, Send, Tag, Image as ImageIcon, Search, Save,
-    Contact, Percent, Banknote, Lock, Eye, EyeOff, ShieldCheck
+    X, User, Phone, Mail, Trash2, Camera, Zap, QrCode, RefreshCw, Download, CreditCard,
+    ShoppingBag, CalendarCheck, PlusCircle, MessageCircle, Wifi, Link, Wallet,
+    Check, AlertTriangle, Facebook, Instagram, Send,
+    Contact, Lock, Eye, EyeOff, ShieldCheck
 } from 'lucide-react';
-import { createStudentLoginAction, revokeStudentLoginAction } from '@/app/actions/student-login';
+import { createStudentLoginAction } from '@/app/actions/student-login';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
-import { cn, getInitials, isExpiringSoon, formatCurrency, getCurrencySymbol, smartCapitalize, cleanPhone, formatPhoneDisplay, formatDate } from '@/lib/utils';
+import { cn, getInitials, formatCurrency, getCurrencySymbol, smartCapitalize, cleanPhone, formatPhoneDisplay } from '@/lib/utils';
 import { addNotification } from '@/lib/notification-store';
 import { validateImageSize, processProfileImage } from '@/lib/image-utils';
 import { generateStudentCode, generateQRDataUrl } from '@/lib/qr';
-import { loadSettings } from '@/lib/settings-store';
 import { Student } from '@/types';
 import { registerUid, unregisterStudentUid, getStudentUid } from '@/lib/student-store';
-import { getCustomStyles, addCustomStyle, removeCustomStyle } from '@/lib/style-store';
+import { getCustomStyles } from '@/lib/style-store';
 import { getStudentSales, type ShopSale } from '@/lib/sales-store';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { getStudentCheckins, type CheckinRecord } from '@/lib/checkin-store';
@@ -27,7 +26,6 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { getGroups } from '@/lib/group-store';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { SearchSelect } from '@/components/ui/SearchSelect';
-import { generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
 
 /* ─── Shared Components ──────────────────────────────────────── */
 
@@ -36,7 +34,7 @@ import { generateDayOptions, generateMonthOptions, generateYearOptions } from '@
 
 function BalanceCard({ student }: { student: Student }) {
     const { t } = useT();
-    const { user, profile } = useUser();
+    const { profile } = useUser();
     const { settings } = useStudio();
     const isTeacher = profile?.role === 'teacher';
     const [isAdjusting, setIsAdjusting] = useState(false);
@@ -114,147 +112,6 @@ function BalanceCard({ student }: { student: Student }) {
     );
 }
 
-function Field({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
-    return (
-        <div className="space-y-1.5 min-w-0">
-            {label && (
-                <label className="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-muted opacity-70 px-1">
-                    <span className="opacity-40">{icon}</span>
-                    {label}
-                </label>
-            )}
-            {children}
-        </div>
-    );
-}
-
-function SubscriptionCard({ student }: { student: Student }) {
-    const { t } = useT();
-    const { user, profile } = useUser();
-    const { confirm } = useConfirm();
-    const { settings } = useStudio();
-    const isTeacher = profile?.role === 'teacher';
-    const [subs, setSubs] = useState<any[]>([]);
-
-    const refresh = useCallback(() => {
-        import('@/lib/subscription-store').then(mod => {
-            const all = mod.getStudentSubscriptions(student.id);
-            const active = all.filter(s => {
-                const today = new Date().toISOString().split('T')[0];
-                const notExpired = s.expires_at >= today;
-                const hasVisits = s.type === 'monthly' || (s.sessions_total === null || s.sessions_used < s.sessions_total);
-                return s.status === 'active' && notExpired && hasVisits;
-            });
-            setSubs(active);
-        });
-    }, [student.id]);
-
-    useEffect(() => {
-        refresh();
-        window.addEventListener('cc_subscription_update', refresh);
-        return () => window.removeEventListener('cc_subscription_update', refresh);
-    }, [refresh]);
-
-    if (subs.length === 0) return null;
-
-    return (
-        <div className="space-y-3 mb-6">
-            {subs.map(sub => {
-                // 🛠️ FIX: sub.expires_at is a plain 'YYYY-MM-DD' string. `new
-                // Date(str)` parses it as UTC midnight, while `today` below is
-                // LOCAL midnight — for Georgia's UTC+4 (and any other
-                // positive-offset timezone) that's a ~4h+ gap that Math.ceil()
-                // rounds up into a whole extra day, e.g. a subscription that
-                // actually expires in 5 days shows "6 days left". Anchoring
-                // expiresAt to local midnight too (same 'T00:00:00' pattern
-                // used elsewhere in this codebase) makes both sides comparable.
-                const expiresAt = new Date(`${sub.expires_at}T00:00:00`);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const diffTime = expiresAt.getTime() - today.getTime();
-                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-
-                const isUnlimited = sub.expires_at === '2099-12-31';
-                const isSessions = sub.type === 'sessions';
-                const sessionsLeft = isSessions ? (sub.sessions_total - (sub.sessions_used || 0)) : null;
-                const isExpiring = !isUnlimited && diffDays <= 7;
-                const isLowVisits = isSessions && sessionsLeft !== null && sessionsLeft <= 2;
-                const isDefault = sub.is_default;
-
-                return (
-                    <div key={sub.id} className={cn(
-                        "border rounded-3xl p-5 space-y-3 transition-all relative overflow-hidden",
-                        isDefault ? "ring-2 ring-indigo-500 ring-offset-2 ring-offset-card" : "",
-                        (isExpiring || isLowVisits) ? "bg-amber-500/5 border-amber-500/20" : "bg-indigo-500/5 border-indigo-500/10"
-                    )}>
-                        {isDefault && (
-                            <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg tracking-tighter">
-                                {t.default || 'Default'}
-                            </div>
-                        )}
-
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className={cn(
-                                    "w-10 h-10 rounded-2xl flex items-center justify-center",
-                                    (isExpiring || isLowVisits) ? "bg-amber-500/10 text-amber-500" : "bg-indigo-500/10 text-indigo-500"
-                                )}>
-                                    <Zap className="w-5 h-5 fill-current opacity-20" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.activeSubscriptions}</p>
-                                    <p className="text-sm font-black text-primary truncate max-w-[140px] sm:max-w-[180px]">{sub.plan}</p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-[10px] font-black text-muted tracking-widest opacity-40">{t.remaining}</p>
-                                <p className={cn("text-lg font-black tabular-nums", (isExpiring || isLowVisits) ? "text-amber-500" : "text-indigo-500")}>
-                                    {isSessions ? `${sessionsLeft} ${t.visits}` : isUnlimited ? t.unlimited : `${diffDays} ${t.day}`}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-4 pt-1 border-t border-black/5">
-                            <div className="flex-1">
-                                <p className="text-[8px] font-black text-muted tracking-widest opacity-40 mb-1">{t.expiryDate}</p>
-                                <p className="text-[10px] font-bold text-primary opacity-60">{formatDate(sub.expires_at)}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {!isDefault && (
-                                    <button
-                                        onClick={async () => {
-                                            const mod = await import('@/lib/subscription-store');
-                                            mod.setDefaultSubscription(student.id, sub.id);
-                                        }}
-                                        className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white transition-all"
-                                        title={t.setAsDefault || "Set as Default"}
-                                    >
-                                        <RefreshCw className="w-3.5 h-3.5" />
-                                    </button>
-                                )}
-                                {!isTeacher && (
-                                    <button
-                                        onClick={async () => {
-                                            if (await confirm(t.deleteSubConfirm)) {
-                                                const mod = await import('@/lib/subscription-store');
-                                                mod.deleteSubscription(student.id, sub.id);
-                                            }
-                                        }}
-                                        className="p-2 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all"
-                                        title={t.delete}
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
-}
-
 interface StudentModalProps {
     open: boolean;
     student?: Student | null;
@@ -282,7 +139,7 @@ const FemaleIcon = (props: any) => (
 
 export default function StudentModal({ open, student, onClose, onSave, onDelete, centered }: StudentModalProps) {
     const { t, l } = useLanguage();
-    const { user, profile } = useUser();
+    const { profile } = useUser();
     const { settings } = useStudio();
     const { confirm } = useConfirm();
     const isEdit = !!student;
@@ -290,8 +147,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
     const fileRef = useRef<HTMLInputElement>(null);
 
     const availableGroups = getGroups();
-    const [availableStyles, setAvailableStyles] = useState<string[]>([]);
-    const [newStyleInput, setNewStyleInput] = useState('');
+    const [, setAvailableStyles] = useState<string[]>([]);
 
     // Student portal login (docs/tasks.md's Student portal phase) — the
     // `email` field above is used as the login identity, per the user:
@@ -496,7 +352,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
             const optimizedBase64 = await processProfileImage(file);
             setPhotoPreview(optimizedBase64);
             set('photo_url', optimizedBase64);
-        } catch (err) {
+        } catch {
             addNotification({
                 type: 'error',
                 title: t.imageError || 'Error',
@@ -505,38 +361,6 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
             });
         } finally {
             if (fileRef.current) fileRef.current.value = '';
-        }
-    }
-
-    function handleAddStyle() {
-        if (!newStyleInput.trim()) return;
-        const newStyle = newStyleInput.trim();
-        addCustomStyle(newStyle);
-        setAvailableStyles(getCustomStyles());
-
-        const currentStyles = (form.dance_style || '').split(',').map(x => x.trim()).filter(Boolean);
-        if (!currentStyles.includes(newStyle)) {
-            set('dance_style', [...currentStyles, newStyle].join(', '));
-        }
-        setNewStyleInput('');
-    }
-
-    function handleRemoveStyle(s: string) {
-        removeCustomStyle(s);
-        setAvailableStyles(getCustomStyles());
-
-        const currentStyles = (form.dance_style || '').split(',').map(x => x.trim()).filter(Boolean);
-        if (currentStyles.includes(s)) {
-            set('dance_style', currentStyles.filter(x => x !== s).join(', '));
-        }
-    }
-
-    function toggleStyle(s: string) {
-        const currentStyles = (form.dance_style || '').split(',').map(x => x.trim()).filter(Boolean);
-        if (currentStyles.includes(s)) {
-            set('dance_style', currentStyles.filter(x => x !== s).join(', '));
-        } else {
-            set('dance_style', [...currentStyles, s].join(', '));
         }
     }
 
@@ -649,9 +473,6 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
     }
 
     if (!open) return null;
-
-    const passportExpiring = form.passport_expires_at ? isExpiringSoon(form.passport_expires_at, 30) : false;
-    const passportExpired = form.passport_expires_at ? new Date(form.passport_expires_at) < new Date() : false;
 
     const inputCls = 'w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-xl px-3 py-1.5 sm:py-2 text-[13px] sm:text-sm text-primary font-medium placeholder:text-muted/30 outline-none transition-all shadow-sm';
 

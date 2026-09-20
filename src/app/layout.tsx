@@ -1,12 +1,7 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import React, { type ReactNode } from 'react';
-import { LanguageProvider } from '@/contexts/LanguageContext';
-import { StudioProvider } from '@/contexts/StudioContext';
-import { ConfirmProvider } from '@/contexts/ConfirmContext';
 import { cookies } from 'next/headers';
-import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary';
-import { CacheBuster } from '@/components/CacheBuster';
 
 export const metadata: Metadata = {
     title: 'ClassCore | სტუდიის მართვის სისტემა',

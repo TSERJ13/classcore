@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useT } from '@/contexts/LanguageContext';
-import { Building2, Power, Search, ChevronDown, ArrowUpRight, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Minus, Wallet, Zap, Smartphone, X, ShieldCheck, RefreshCcw, ShieldAlert, RotateCcw, Eraser } from 'lucide-react';
-import { getBillingState, updateBillingState, recordPayment, getSaasReminderSms, extendSubscriptionByDays } from '@/lib/saas-billing';
+import { Building2, Power, Search, ChevronDown, LogIn, Trash2, Edit3, Settings, AlertTriangle, Plus, Zap, Smartphone, X, ShieldCheck, RefreshCcw, ShieldAlert, RotateCcw, Eraser } from 'lucide-react';
+import { getSaasReminderSms } from '@/lib/saas-billing';
 import { logAction } from '@/lib/analytics';
-import { getStudioRegistry, loadSettings, saveSettings, resetStudioData, migrateSlugData, clearAllStudioData, removeFromRegistry, type ResetCategories } from '@/lib/settings-store';
-import { getScopedKey, cn, compactSlugify } from '@/lib/utils';
+import { getStudioRegistry, loadSettings, resetStudioData, migrateSlugData, clearAllStudioData, removeFromRegistry, type ResetCategories } from '@/lib/settings-store';
+import { cn, compactSlugify } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
-import { pushStudioStateToCloud, masterStudioPurge } from '@/lib/sync-store';
+import { masterStudioPurge } from '@/lib/sync-store';
 import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 
 
@@ -40,55 +40,6 @@ interface AuditUser {
 }
 
 
-function loadStudio(slug: string): StudioRecord {
-    const s = loadSettings(slug);
-    const meta = (() => { 
-        try { 
-            const raw = localStorage.getItem(`cc_sa_meta_${slug}`);
-            return raw ? JSON.parse(raw) : {}; 
-        } catch { return {}; } 
-    })();
-    const billing = getBillingState(slug);
-    
-    let studentCount = 0;
-    try { 
-        const key = getScopedKey('cc_student_data', slug);
-        const raw = localStorage.getItem(key);
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed === 'object') studentCount = Object.keys(parsed).length;
-        }
-    } catch { }
-
-    let subsCount = 0;
-    try { 
-        const key = getScopedKey('cc_student_subscriptions', slug);
-        const raw = localStorage.getItem(key);
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed === 'object') {
-                Object.values(parsed).forEach((subs: any) => { 
-                    if (Array.isArray(subs)) subsCount += subs.filter((s: any) => s && s.status === 'active').length; 
-                });
-            }
-        }
-    } catch { }
-    
-    const staffList = Array.isArray(s?.staff) ? s.staff : [];
-    const owner = staffList.find((m: any) => m && m.role === 'owner');
-    
-    return { 
-        slug, name: s.studioName, logoUrl: s.logoDataUrl, studentCount, subsCount, 
-        suspended: meta.suspended || false, 
-        isDeleted: meta.deleted || false, 
-        notes: meta.notes || '', plan: meta.plan || 'trial',
-        nextDue: billing.nextDueDate, status: billing.status, daysOverdue: billing.daysOverdue,
-        ownerPhone: owner?.phone || '—',
-        ownerEmail: owner?.email || '—',
-        updatedAt: s.updatedAt || null
-    };
-}
-
 function saveMeta(slug: string, patch: object) {
     try { 
         const existing = JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}'); 
@@ -109,41 +60,13 @@ const PLAN_LABELS_KEYS: Record<string, string> = {
 };
 const PLAN_OPTIONS = ['trial', 'pro', 'custom'] as const;
 
-// Helper to push meta updates directly to cloud to ensure Superadmin actions are reflected everywhere
-async function pushMetaToCloud(slug: string, patch: object) {
-    try {
-        const existing = JSON.parse(localStorage.getItem(`cc_sa_meta_${slug}`) || '{}');
-        const next = { ...existing, ...patch };
-        localStorage.setItem(`cc_sa_meta_${slug}`, JSON.stringify(next));
-        
-        // 🚨 CRITICAL FIX: We MUST NOT use pushStudioStateToCloud from SuperAdmin!
-        // Superadmin does not have the client's local storage block, so pushing local state
-        // would overwrite the entire database with empty data!
-        // Instead, use our safe server-side partial merge API.
-        const res = await fetch('/api/superadmin/studios/update-meta', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slug, patch })
-        });
-        
-        if (!res.ok) {
-            const data = await res.json();
-            throw new Error(data.error || 'Failed to update meta');
-        }
-        
-        console.log(`✅ [Superadmin] pushMetaToCloud safe merge successful for ${slug}`);
-    } catch (e) {
-        console.error('❌ pushMetaToCloud failed:', e);
-    }
-}
-
 export default function StudiosPage() {
     const router = useRouter();
     const { lang, t } = useT();
     const [mounted, setMounted] = useState(false);
     const [studios, setStudios] = useState<StudioRecord[]>([]);
     const [search, setSearch] = useState('');
-    const [openMenu, setOpenMenu] = useState<string | null>(null);
+    const [, setOpenMenu] = useState<string | null>(null);
     const [editingNote, setEditingNote] = useState<string | null>(null);
     const [noteVal, setNoteVal] = useState('');
     const [editingProfile, setEditingProfile] = useState<StudioRecord | null>(null);
@@ -155,7 +78,6 @@ export default function StudiosPage() {
     const [profileLastName, setProfileLastName] = useState('');
     const [profileLogo, setProfileLogo] = useState('');
     const [activeTab, setActiveTab] = useState<'active' | 'trash' | 'audit'>('active');
-    const [isPurging, setIsPurging] = useState(false);
     const [auditUsers, setAuditUsers] = useState<AuditUser[]>([]);
     const [isAuditing, setIsAuditing] = useState(false);
 
@@ -169,40 +91,6 @@ export default function StudiosPage() {
         onConfirm?: (val?: string) => void,
         loading?: boolean
     }>({ type: null, title: '', message: '' });
-
-    const handlePurgeTestData = () => {
-        setModal({
-            type: 'confirm',
-            title: t.sa_studios_purgeTestBtn,
-            message: t.sa_studios_purgeTestConfirm,
-            onConfirm: async () => {
-                setIsPurging(true);
-                try {
-                    const res = await fetch('/api/superadmin/global-purge', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pattern: 'load-test-' })
-                    });
-                    const data = await res.json();
-                    if (res.ok) {
-                        // Clean local registry for matching pattern to avoid "revert" flash
-                        const list = getStudioRegistry();
-                        const nextList = list.filter(s => !s.startsWith('load-test-'));
-                        localStorage.setItem('cc_studios_list', JSON.stringify(nextList));
-                        
-                        setModal({ type: 'alert', title: t.sa_studios_successTitle, message: t.sa_studios_purgedMsg.replace('{0}', data.deleted.toString()) });
-                        loadData();
-                    } else {
-                        throw new Error(data.error);
-                    }
-                } catch (err: any) {
-                    setModal({ type: 'alert', title: t.sa_studios_errorTitle, message: err.message });
-                } finally {
-                    setIsPurging(false);
-                }
-            }
-        });
-    };
 
     // Reset Modal State
     const [resetModal, setResetModal] = useState<{
@@ -380,11 +268,6 @@ export default function StudiosPage() {
         }
     };
 
-    const syncStudio = async (slug: string) => {
-        // Kept for legacy callers — does nothing harmful now since all actions go direct to API
-        console.log('[Admin] syncStudio called for:', slug);
-    };
-
     const setPlan = async (slug: string, plan: string) => {
         const studio = studios.find(s => s.slug === slug);
         if (!studio) return;
@@ -460,20 +343,6 @@ export default function StudiosPage() {
         } catch (err) {
             console.error('❌ [Admin] updateBalance failed:', err);
         }
-    };
-
-    const manualActivate = (slug: string) => {
-        setModal({
-            type: 'confirm',
-            title: t.sa_studios_colActions,
-            message: `${t.sa_studios_colStudio} "${slug}" -> 49 GEL?`,
-            onConfirm: () => {
-                recordPayment(slug, 'cash', 49, 1);
-                syncStudio(slug);
-                loadData();
-                setModal({ type: null, title: '', message: '' });
-            }
-        });
     };
 
     const sendReminder = (studio: StudioRecord) => {
