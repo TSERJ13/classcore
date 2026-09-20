@@ -1613,3 +1613,75 @@ Notes:
   warranted. Also still open, unchanged from the prior entry: whether `FINAL_PERMISSIONS_FIX.sql`
   was ever run against the live DB, and what `branches`' actual current RLS state is — needs live
   DB access to answer.
+
+### Calendar/Events — minimal Server Actions port (docs/architecture-migration.md §12)
+
+Picked up the one item on the board still genuinely blocked on a scope decision. §12 already had a
+detailed writeup of why this was deliberately deferred: no real per-occurrence identity for
+recurring events (editing/deleting a future week or an individual lesson today either silently
+no-ops or wrongly mutates the whole series), pervasive teacher self-service writes across the
+module (not just the calendar page — booking their own lessons, publishing their own
+availability), and a timestamp-vs-HH:MM schema mismatch. Asked which of 3 scopes to take (leave the
+occurrence bug alone and do a minimal port / fix the bug as part of this migration / fix the bug
+without touching Server Actions at all) — told to use judgment, picked the minimal port: doesn't
+require inventing a per-occurrence exception model as a side effect of what should be an
+architecture-only pass.
+
+**Built**: `src/app/actions/calendar.ts` — `createCalendarEventAction`/`updateCalendarEventAction`/
+`deleteCalendarEventAction`/`deleteCalendarEventsAction`, `requireEffectivePermission('canEditCalendar')`
+-gated, zod-validated, matching the real `calendar_events` schema (`id, org_id, hall_id, group_id,
+title, start_time, end_time` as timestamptz + `data` JSONB — confirmed via `/api/sync/bulk`'s
+`MINIMAL_COLUMNS`/`sanitizeRow`). Scoped to exactly the 4 operations `calendar/page.tsx` performs on
+a REAL, addressable row (create, update, delete-one, delete-a-batch for its own
+`deleteAllGroupOccurrences`) — wired in `calendar/page.tsx` to run ADDITIONALLY alongside the
+existing `event-store.ts` write, which is completely unchanged. Every read-only consumer (the
+calendar page's own reads, attendance's schedule display, dashboard's schedule widget,
+individual-availability, `BookIndividualLessonModal`, the public student portal) is unaffected.
+What's new: a permission denial or DB error, previously swallowed by the best-effort
+service-role `/api/sync/bulk` push (no server-side `canEditCalendar` check at all, no round-trip
+confirmation), now surfaces a toast — previously it was 100% silent either way.
+
+**Three review rounds, three real findings, the last one serious**:
+- Round 1 caught `updateEvent()` retargeting a recurring occurrence's expanded `_wN` id to the real
+  base row (mirroring `deleteEvent()`'s existing suffix-strip) — safe for delete, but for update it
+  would have silently overwritten that real row with the occurrence's shifted date/time. Fixed by
+  only firing the new action when `updated.id` matched a real row *unchanged* (gated on the same
+  `prev` lookup that already decides whether the local store call no-ops), otherwise skipping it —
+  same outcome as the pre-existing local no-op, no corruption risk. Also added a `NOT_FOUND` check
+  on zero-row-matched update/delete... which round 3 then found was itself wrong (below).
+- Round 2 confirmed `deleteAllGroupOccurrences` could call the batch-delete action with an empty
+  `ids` array (nothing to delete), which zod rejected as a validation error — fixed with a
+  length-guard before the call — and that the create schema's `title.trim().min(1)` was stricter
+  than the edit UI actually enforces, so clearing a title (which saves fine locally) would surface a
+  spurious server error; fixed to match `sanitizeRow`'s own `row.title || 'Event'` fallback instead
+  of rejecting.
+- **Round 3, the serious one**: this Server Action runs *alongside* `event-store.ts`'s own
+  fire-and-forget write of the same id, which has far fewer round trips (no permission checks) and
+  usually lands first — so a plain `.insert()` on create almost always hit a duplicate-key conflict
+  on an event that was, in fact, saved, surfacing a false failure on ordinary use. First fix was
+  `upsert()` — which turned out to be a real security regression: `requireOrgIdDualAuth()` hands
+  staff-token (teacher) sessions a service-role client with **no RLS**, and an `upsert`'s
+  `ON CONFLICT DO UPDATE` has no way to be scoped by `org_id` — any org's caller with
+  `canEditCalendar` could have overwritten another org's event by supplying its id, a genuine
+  tenant-isolation hole. Fixed with insert-then-verify-ownership-on-conflict instead: insert; on a
+  `23505` conflict, look up the existing row's `org_id`; treat it as the benign same-org race only
+  if it matches, otherwise reject. Two follow-on issues in that same fix, both closed: the lookup's
+  own error was being swallowed (a transient DB error on the ownership check would have produced a
+  misleading `ID_CONFLICT` instead of `DB_ERROR`); and the rejection message named which org the
+  conflicting id belonged to, which would have let any caller enumerate other orgs' event ids by id
+  — genericized to not confirm existence either way. This same round also concluded the
+  earlier-added `NOT_FOUND` checks on update/delete (round 1) were wrong for the identical reason as
+  the upsert bug — they're raced by the same legacy fire-and-forget path and would misfire on a
+  benign race — so those were reverted back to plain error-only checks; correctness here now leans
+  on the caller-side `prev`/`baseEv` gates instead of a server-side existence check.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing. `next lint` on both touched files: clean
+  (pre-existing `no-explicit-any` warnings elsewhere in the 3000-line calendar page are untouched,
+  not introduced by this change).
+- **Not done, deliberately**: everything §12 already listed as deferred (per-occurrence identity,
+  teacher self-service booking/open-slot writes, the timestamp/HH:MM schema split) is exactly as
+  unfixed as before — this pass never touches occurrence semantics. Also not done: batching
+  (`addEvents()` fires one `createCalendarEventAction` round trip per event in a multi-day recurring
+  create instead of one batched insert) — accepted as a background, fire-and-forget cost rather than
+  building a 5th Server Action for it now.

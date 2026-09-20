@@ -678,11 +678,53 @@ None of this makes Calendar un-migratable — it means it needs its own
 explicit scoping conversation (which occurrence-editing bugs to fix vs.
 preserve, how to handle teacher-token writes) before code gets written,
 the same way Attendance's real size forced a decision before that
-migration started. Left on `event-store.ts`/localStorage for now; every
-consumer (`calendar/page.tsx`, `attendance/page.tsx`'s schedule display,
-`dashboard/page.tsx`'s schedule widget, `individual-availability/page.tsx`,
-`BookIndividualLessonModal`, the public student portal) is unaffected by
-everything else in this migration and keeps working exactly as before.
+migration started.
+
+**Update — a narrow slice built, occurrence semantics still untouched.**
+Asked explicitly which of 3 scopes to take (leave the occurrence bug alone
+and do a minimal port / fix the bug as part of this migration / fix the bug
+without touching Server Actions at all), the answer was to use judgment —
+picked the minimal-port option as the one that doesn't require inventing a
+per-occurrence exception model as a side effect of an "architecture" pass.
+Built `src/app/actions/calendar.ts`: `createCalendarEventAction`/
+`updateCalendarEventAction`/`deleteCalendarEventAction`/
+`deleteCalendarEventsAction`, `requireEffectivePermission('canEditCalendar')`
+-gated, covering exactly the 4 operations `calendar/page.tsx` performs on a
+REAL row (create, update, delete-one, delete-a-batch for
+`deleteAllGroupOccurrences`). These run ADDITIONALLY alongside the existing
+`event-store.ts` write, which stays completely unchanged — every read-only
+consumer listed above is genuinely unaffected. What's new: a permission
+denial or DB error, previously swallowed by the best-effort service-role
+push, now surfaces a toast; previously it was 100% silent either way.
+
+This is a real module, not a toy — three review rounds against it each
+found a genuine issue, the last one serious enough to be worth naming
+here: `createCalendarEventAction`'s first version used `upsert()` to
+tolerate the expected race against `event-store.ts`'s own fire-and-forget
+write of the same id, but an `upsert`'s `ON CONFLICT DO UPDATE` has no way
+to be scoped by `org_id` on a service-role (staff-token) client — any
+org's caller with `canEditCalendar` could have overwritten another org's
+event by supplying its id. Fixed by insert-then-verify-ownership-on-conflict
+instead (see the file's comments) — the same class of tenant-isolation bug
+`requireOrgIdDualAuth`'s own docstring warns about, caught here before it
+shipped rather than after. Also caught and fixed: naively stripping a
+recurring occurrence's expanded `_wN` id suffix to "retarget" an edit at
+the real base row (matching `deleteEvent`'s existing pattern) is only safe
+for delete — for update it would have silently overwritten that real row
+with the occurrence's shifted date/time; fixed by only firing the new
+action when the id matched a real row unchanged, otherwise skipping it
+(matching the local no-op exactly, per the "don't touch occurrence
+semantics" scope).
+
+**Still deliberately not done**: no batching (a multi-day recurring create
+fires one round trip per event — accepted, since it's fire-and-forget and
+typical batches are small); everything else in this section (per-occurrence
+identity, teacher self-service writes for booking/open-slots, the
+timestamp/HH:MM schema split) is exactly as unfixed as described above.
+Every consumer (`calendar/page.tsx`'s own reads, `attendance/page.tsx`'s
+schedule display, `dashboard/page.tsx`'s schedule widget,
+`individual-availability/page.tsx`, `BookIndividualLessonModal`, the public
+student portal) is unaffected and keeps working exactly as before.
 
 ## 13. Shop (Sales + Products) — and a reusable dual-auth path for Server Actions
 

@@ -15,6 +15,8 @@ import { cn, getLocalISODate, getActiveSlug, formatDate, formatShortName } from 
 import { useT } from '@/contexts/LanguageContext';
 import type { CalendarEvent, EventType } from '@/types';
 import { getEvents, addEvent as addEventToStore, deleteEvent as deleteEventFromStore, deleteEventsByIds, updateEvent as updateEventInStore, saveEvents, syncGroupScheduleToCalendar, confirmIndividualBooking } from '@/lib/event-store';
+import { createCalendarEventAction, updateCalendarEventAction, deleteCalendarEventAction, deleteCalendarEventsAction } from '@/app/actions/calendar';
+import { addNotification } from '@/lib/notification-store';
 import { getTeachers } from '@/lib/teacher-store';
 import { getHalls } from '@/lib/hall-store';
 import { useStudio } from '@/contexts/StudioContext';
@@ -1798,6 +1800,23 @@ export default function CalendarPage() {
         setAnchor(d);
     }
 
+    /**
+     * Fires the new permission-gated Server Action (src/app/actions/calendar.ts)
+     * alongside the existing local-cache write each handler below already
+     * does — see that file's header for why this doesn't replace it yet.
+     * A real failure here (permission denial, validation, a DB constraint)
+     * was previously completely silent (event-store.ts's best-effort,
+     * service-role sync has no round trip); at minimum, tell the studio
+     * the change may not have reached the server.
+     */
+    function runCalendarAction(action: Promise<{ error: { message: string } | null }>, failureLabel: string) {
+        action.then(result => {
+            if (result.error) addNotification(`${failureLabel}: ${result.error.message}`, 'bg-rose-500');
+        }).catch((err) => {
+            addNotification(`${failureLabel}: ${err instanceof Error ? err.message : 'Unknown error'}`, 'bg-rose-500');
+        });
+    }
+
     function addEvents(newEvents: CalendarEvent[]) {
         const currentEvents = getEvents();
         const runningEvents = [...currentEvents];
@@ -1815,6 +1834,7 @@ export default function CalendarPage() {
 
         added.forEach(ev => {
             addEventToStore(ev);
+            runCalendarAction(createCalendarEventAction(ev), lang === 'ka' ? 'ღონისძიების შენახვა ვერ მოხერხდა' : 'Failed to save event');
             if (ev.group_id) {
                 const date = new Date(ev.date + 'T00:00:00');
                 const jsDay = date.getDay();
@@ -1860,6 +1880,17 @@ export default function CalendarPage() {
             removeSlotFromGroup(prev.group_id, { dayOfWeek: dow, startTime: prev.start_time, endTime: prev.end_time });
         }
         updateEventInStore(updated.id, updated);
+        // Only fire the server round trip when `prev` confirms `updated.id`
+        // was a real, addressable row (the same lookup updateEventInStore
+        // just used to decide whether to no-op locally). A recurring
+        // occurrence's expanded id ("_wN" suffix, no row of its own — see
+        // expandedEvents) has no `prev` match; retargeting it at its base
+        // id would silently overwrite that unrelated real row with this
+        // occurrence's shifted date/time instead of leaving it alone like
+        // the local no-op does — worse than doing nothing, so just skip it.
+        if (prev) {
+            runCalendarAction(updateCalendarEventAction(updated), lang === 'ka' ? 'ღონისძიების შენახვა ვერ მოხერხდა' : 'Failed to save event');
+        }
         setEvents(getEvents());
         // Add new group slot & Sync color
         if (syncGroup && updated.group_id) {
@@ -1915,6 +1946,15 @@ export default function CalendarPage() {
         const baseId = id.replace(/_w-?\d+$/, '');
         const baseEv = events.find(e => e.id === baseId);
         const updated = deleteEventFromStore(baseId);
+        // Only fire the server round trip when baseEv confirms baseId was a
+        // real row — an individual-lesson/open-slot synthetic id (no "_wN"
+        // suffix to strip, never a real row to begin with) reaches here
+        // unconditionally too, and deleting it server-side is expected to
+        // no-op every time; gating avoids treating that expected no-op as a
+        // NOT_FOUND failure worth telling the user about.
+        if (baseEv) {
+            runCalendarAction(deleteCalendarEventAction({ id: baseId }), lang === 'ka' ? 'ღონისძიების წაშლა ვერ მოხერხდა' : 'Failed to delete event');
+        }
         setEvents(updated);
         // Bidirectional sync: remove from group schedule
         if (baseEv?.group_id) {
@@ -1944,6 +1984,9 @@ export default function CalendarPage() {
             }
         }
         deleteEventsByIds(toDelete.map(e => e.id));
+        if (toDelete.length > 0) {
+            runCalendarAction(deleteCalendarEventsAction({ ids: toDelete.map(e => e.id) }), lang === 'ka' ? 'ღონისძიების წაშლა ვერ მოხერხდა' : 'Failed to delete event');
+        }
         setEvents(getEvents());
         setGroups(getGroups());
     }
