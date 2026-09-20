@@ -1338,3 +1338,53 @@ Notes:
   block this pass's other fix (`deleteAllGroupOccurrences`) had just duplicated a 5th time in
   `event-store.ts` into one `tombstoneAndDeleteFromCloud(ids)` helper, traced against all 4 prior
   call sites to confirm it's behavior-preserving.
+
+### SMS log retention enforcement — the app's first scheduled job
+
+Status: completed
+
+The SMS PRD's "log retention" setting was never built at all (see Phase 9's note) because this app
+had no scheduler anywhere. User chose Vercel Cron to fix that ("Vercel is active again, do
+whichever you think is right on the mechanism") — this introduces the app's first ever scheduled
+job.
+
+**Built**:
+- `types/index.ts`: `StudioSettings.smsManager.logRetentionDays?: number` — **opt-in only**. An org
+  that never sets this is never touched by the cron; a studio's SMS history is never deleted
+  without an admin explicitly choosing a number first.
+- `sms-manager/page.tsx`: a "ლოგების ავტომატური წაშლა" panel in Settings (days input, 1-3650 range,
+  save button) — same pattern as the existing low-balance-threshold panel.
+- `vercel.json`: a daily cron (03:00 UTC) hitting the new route.
+- `src/app/api/cron/sms-log-retention/route.ts`: for each studio with `logRetentionDays` set,
+  deletes `sms_logs` rows older than that many days for that org. Auth via
+  `Authorization: Bearer $CRON_SECRET` (Vercel's own documented convention — refuses to run if
+  `CRON_SECRET` isn't set on the project).
+- `supabase/migrations/20260920_sms_logs_retention_index.sql`: composite `(org_id, timestamp)`
+  index on `sms_logs` (the cron's delete filters on both), dropping the now-redundant
+  org_id-only index.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new warnings on any touched file.
+- **Self-review corrections (multiple rounds)**: the schema path for reading `logRetentionDays`
+  server-side was wrong on the first *two* attempts before being traced end-to-end through the real
+  write path (`updateSettings` → `pushFullStudioMetadata` → `/api/sync/metadata`) and fixed to the
+  correct one (`studio_settings.staff_data.smsManager`, not `studio_settings.settings` — that
+  column doesn't exist — and not `staff_data._operations.cc_studio_settings`, which is a *different*
+  blob only the superadmin panel writes). Also fixed after review: added pagination with a stable
+  `.order()` (a plain select caps at 1000 rows), added `maxDuration = 300`, made the route return a
+  failing HTTP status if every org's delete errored (so cron-monitoring alerting isn't blind to a
+  total failure), clamped `logRetentionDays` to a sane range both client- and server-side (an
+  extreme value would otherwise throw an uncaught `Invalid Date` mid-loop), wrapped each org's
+  delete in its own try/catch (one org's failure no longer aborts every org after it), and switched
+  the settings read to PostgREST's `staff_data->smsManager` JSON-path selection instead of pulling
+  the whole `staff_data` blob (which can carry a full base64 studio logo) once a day for every
+  studio just to read one nested number.
+- **Known limitation, not fixed**: each org's delete is one unbounded statement — an org enabling
+  retention for the first time after years of unpurged history could delete a very large number of
+  rows in one call, risking the time budget and holding a write lock against the live
+  `/api/sms/send` logging path. Not batched (chunked deletes with a loop) because that needs
+  verifying against a live Supabase/PostgREST instance this environment doesn't have; documented in
+  the route's own comment as something to revisit if ever observed running long.
+- No live Supabase call was made or possible to verify this against in this environment (no DB
+  credentials here) — every claim about the real schema/write path was verified by reading the
+  actual server code that performs those writes, not by testing against a live database.

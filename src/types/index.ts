@@ -170,6 +170,11 @@ export interface StudioSettings {
         // GOSMS balance (Phase 8's getSmsBalanceAction) drops below this.
         // No extra contact-channel config, per the PRD's own scoping.
         lowBalanceThreshold?: number;
+        // PRD §10/§9's log retention — deliberately opt-in only. Unset (the
+        // default) means the daily cron (src/app/api/cron/sms-log-retention)
+        // skips this org entirely; a studio's SMS history is never deleted
+        // without an admin explicitly choosing a number here first.
+        logRetentionDays?: number;
     };
     // Registration Flow PRD (v1.1) §3-5 — captured once at signup, purely
     // informational (does not auto-create real groups/halls/branches).

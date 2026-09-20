@@ -5,7 +5,7 @@ import { useUser } from '@/hooks/useUser';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { THEMES } from '@/lib/settings-store';
-import { MessageSquare, Settings2, BarChart3, AlertCircle, RefreshCw, Send, PartyPopper, User, Shield, Moon, Power, Wallet } from 'lucide-react';
+import { MessageSquare, Settings2, BarChart3, AlertCircle, RefreshCw, Send, PartyPopper, User, Shield, Moon, Power, Wallet, Trash2 } from 'lucide-react';
 import { addNotification } from '@/lib/notification-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { SearchSelect, SearchSelectOption } from '@/components/ui/SearchSelect';
@@ -45,6 +45,7 @@ export default function SmsManagerPage() {
     const [balanceError, setBalanceError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'disconnected' | 'not_configured'>('checking');
     const [lowBalanceThreshold, setLowBalanceThreshold] = useState<string>(settings.smsManager?.lowBalanceThreshold != null ? String(settings.smsManager.lowBalanceThreshold) : '');
+    const [logRetentionDays, setLogRetentionDays] = useState<string>(settings.smsManager?.logRetentionDays != null ? String(settings.smsManager.logRetentionDays) : '');
     const warnedLowBalance = useRef(false);
 
     const checkBalance = useCallback(() => {
@@ -72,6 +73,13 @@ export default function SmsManagerPage() {
     function handleSaveLowBalanceThreshold() {
         const parsed = lowBalanceThreshold ? parseInt(lowBalanceThreshold, 10) : undefined;
         updateSettings({ smsManager: { ...settings.smsManager, lowBalanceThreshold: Number.isFinite(parsed) ? parsed : undefined } });
+        addNotification(l('შენახულია', 'Сохранено', 'Saved'), 'bg-emerald-500');
+    }
+
+    function handleSaveLogRetention() {
+        const parsed = logRetentionDays ? parseInt(logRetentionDays, 10) : undefined;
+        const clamped = Number.isFinite(parsed) && parsed! > 0 ? Math.min(parsed!, 3650) : undefined;
+        updateSettings({ smsManager: { ...settings.smsManager, logRetentionDays: clamped } });
         addNotification(l('შენახულია', 'Сохранено', 'Saved'), 'bg-emerald-500');
     }
 
@@ -118,6 +126,7 @@ export default function SmsManagerPage() {
             setQuietStart(settings.smsManager?.quietHours?.startHour ?? 23);
             setQuietEnd(settings.smsManager?.quietHours?.endHour ?? 10);
             setLowBalanceThreshold(settings.smsManager?.lowBalanceThreshold != null ? String(settings.smsManager.lowBalanceThreshold) : '');
+            setLogRetentionDays(settings.smsManager?.logRetentionDays != null ? String(settings.smsManager.logRetentionDays) : '');
         }
     }, [isLoaded, settings.smsManager]);
 
@@ -300,6 +309,28 @@ export default function SmsManagerPage() {
                                     className="w-32 bg-white border border-border-subtle rounded-2xl px-4 py-2.5 text-sm font-bold outline-none focus:border-indigo-500/50 text-zinc-900" />
                             </div>
                             <button onClick={handleSaveLowBalanceThreshold}
+                                className="ml-auto px-5 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-xl active:scale-95 transition-all uppercase">
+                                {l('შენახვა', 'Сохранить', 'Save')}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-surface rounded-2xl border border-border-subtle p-6 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Trash2 className="w-4 h-4 text-muted" />
+                            <h2 className="text-base font-semibold text-primary">{l('ლოგების ავტომატური წაშლა', 'Автоудаление логов', 'Automatic Log Deletion')}</h2>
+                        </div>
+                        <p className="text-sm text-muted/70">
+                            {l('ამ ვადაზე უფრო ძველი SMS-ლოგები ყოველდღიურად წაიშლება ავტომატურად. ცარიელი = გამორთული — ლოგები არასოდეს არ წაშლილა თავისით.', 'SMS-логи старше этого срока удаляются автоматически, раз в день. Пусто = отключено — логи никогда не удаляются сами по себе.', 'SMS logs older than this are deleted automatically, once a day. Empty = disabled — logs are never deleted on their own.')}
+                        </p>
+                        <div className="flex items-center gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted tracking-widest ml-1 uppercase">{l('დღეები', 'Дни', 'Days')}</label>
+                                <input type="number" min={1} max={3650} value={logRetentionDays} onChange={e => setLogRetentionDays(e.target.value)}
+                                    placeholder={l('— გამორთული —', '— отключено —', '— disabled —')}
+                                    className="w-32 bg-white border border-border-subtle rounded-2xl px-4 py-2.5 text-sm font-bold outline-none focus:border-indigo-500/50 text-zinc-900" />
+                            </div>
+                            <button onClick={handleSaveLogRetention}
                                 className="ml-auto px-5 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-xl active:scale-95 transition-all uppercase">
                                 {l('შენახვა', 'Сохранить', 'Save')}
                             </button>
