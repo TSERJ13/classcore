@@ -5,9 +5,37 @@
  */
 
 import { getLocalISODate, formatCurrency, formatDate } from './utils';
-import { loadSettings, isStudioOnVacation } from './settings-store';
+import { loadSettings, isStudioOnVacation, isSmsKillSwitchActive, isWithinSmsQuietHours } from './settings-store';
 import { getStudents } from './student-store';
 import { getSubscriptions } from './subscription-store';
+import { getEventTemplatesAction, checkTemplateFrequencyAction, type SmsTemplate } from '@/app/actions/sms-templates';
+
+/**
+ * Whether `template`'s recipient scope (PRD §6) includes this student.
+ * 'all' always matches; 'group'/'branch' match the student's own
+ * enrolled_group_ids/branch_id against the template's target; 'person'
+ * matches only that exact student. A template scoped to a group/branch/
+ * person the student isn't part of is a deliberate no-send, per the
+ * PRD's "this filter is final — the admin's own decision" (§6).
+ */
+type SmsEventStudent = {
+    id: string;
+    phone?: string;
+    full_name?: string;
+    preferred_language?: 'ka' | 'ru' | 'en';
+    enrolled_group_ids?: string[];
+    branch_id?: string;
+    sms_reminders?: boolean;
+};
+
+export function templateMatchesStudent(template: SmsTemplate, student: SmsEventStudent): boolean {
+    if (template.recipientScope === 'all') return true;
+    if (!template.recipientTargetId) return true;
+    if (template.recipientScope === 'group') return !!student.enrolled_group_ids?.includes(template.recipientTargetId);
+    if (template.recipientScope === 'branch') return student.branch_id === template.recipientTargetId;
+    if (template.recipientScope === 'person') return student.id === template.recipientTargetId;
+    return true;
+}
 
 /**
  * Accurately calculate age from birth_date (YYYY-MM-DD).
@@ -126,7 +154,20 @@ export async function sendSms(params: {
     to: string;
     text: string;
     studentName?: string;
+    /** Set when this send came from a src/app/actions/sms-templates.ts template (Phase 3) — lets
+     * /api/sms/send group the sms_logs row by template for the frequency-limit check and future
+     * per-template log drill-down (PRD §9). Omit for the still-unmigrated Personal/Holiday sends. */
+    templateId?: string;
+    recipientStudentId?: string;
 }): Promise<{ success: boolean; error?: string }> {
+    // Master Kill-Switch (SMS PRD §10) — checked here, once, so every send
+    // path (automated, template-driven, or a staff member's manual
+    // Personal/Holiday click) is stopped uniformly without each call site
+    // needing its own check.
+    if (typeof window !== 'undefined' && isSmsKillSwitchActive(loadSettings())) {
+        return { success: false, error: 'SMS sending is paused (kill switch)' };
+    }
+
     let phone = (params.to || '').replace(/[^0-9]/g, '');
     if (phone.length === 9) phone = '995' + phone;
     if (!phone) return { success: false, error: 'Invalid phone number' };
@@ -138,7 +179,9 @@ export async function sendSms(params: {
             body: JSON.stringify({
                 to: phone,
                 text: params.text,
-                studentName: params.studentName
+                studentName: params.studentName,
+                templateId: params.templateId,
+                recipientStudentId: params.recipientStudentId,
             })
         });
         const data = await res.json();
@@ -186,6 +229,54 @@ export async function sendIndividualBookingConfirmationSms(params: {
 }
 
 /**
+ * Sends the given event's active, matching, frequency-eligible template(s)
+ * (Phase 3's category/template model) to one student, falling back to the
+ * old hardcoded/settings-blob text when the org has zero matching
+ * templates — e.g. it never opened /sms-manager, so Phase 1's lazy seed
+ * never ran, or every existing template for this event has been deleted.
+ * This keeps behavior identical to before Phase 3 for any org that
+ * hasn't touched the new system.
+ */
+async function sendForEvent(params: {
+    eventKey: string;
+    student: SmsEventStudent;
+    studioName: string;
+    planName?: string;
+    fallbackTemplate: string;
+}): Promise<void> {
+    const phone = (params.student.phone || '').replace(/[^0-9]/g, '');
+    if (!phone) return;
+    // Respects the student portal's own "SMS reminders" opt-out toggle
+    // (students/[studentId]/page.tsx) — previously stored but never read
+    // by this automated sweep.
+    if (params.student.sms_reminders === false) return;
+
+    const result = await getEventTemplatesAction({ eventKey: params.eventKey });
+    const matching = (result.data || []).filter(t => templateMatchesStudent(t, params.student));
+
+    if (matching.length === 0) {
+        const text = formatSmsTemplate(params.fallbackTemplate, { student: params.student, planName: params.planName, studioName: params.studioName });
+        await sendSms({ to: phone, text, studentName: params.student.full_name });
+        return;
+    }
+
+    const prefLang = (params.student.preferred_language || 'ka') as 'ka' | 'ru' | 'en';
+    for (const tpl of matching) {
+        if (tpl.frequencyLimitCount && tpl.frequencyLimitDays) {
+            const elig = await checkTemplateFrequencyAction({
+                templateId: tpl.id, recipientStudentId: params.student.id,
+                limitCount: tpl.frequencyLimitCount, limitDays: tpl.frequencyLimitDays,
+            });
+            if (elig.error || !elig.data) continue;
+        }
+        const raw = (prefLang === 'ru' ? tpl.textRu : prefLang === 'en' ? tpl.textEn : tpl.textKa) || tpl.textKa || tpl.textRu || tpl.textEn;
+        if (!raw) continue;
+        const text = formatSmsTemplate(raw, { student: params.student, planName: params.planName, studioName: params.studioName });
+        await sendSms({ to: phone, text, studentName: params.student.full_name, templateId: tpl.id, recipientStudentId: params.student.id });
+    }
+}
+
+/**
  * Runs automated SMS checks:
  * 1. Subscriptions expiring today (expiration_day_0)
  * 2. Students having birthdays today (birthday)
@@ -199,10 +290,10 @@ export async function runAutomatedSmsCheck(options?: { force?: boolean }): Promi
         const autoSms = settings?.notifications?.autoSms !== false;
         if (!autoSms && !options?.force) return;
 
-        // Quiet hours: 23:00 - 10:00
-        const currentHour = new Date().getHours();
-        const isQuietHours = currentHour >= 23 || currentHour < 10;
-        if (isQuietHours && !options?.force) return;
+        // Quiet hours (SMS PRD §8/§10) — configurable via the sms-manager
+        // Settings tab now, defaulting to the same 23:00-10:00 window this
+        // check used before it was configurable.
+        if (isWithinSmsQuietHours(settings) && !options?.force) return;
 
         const todayStr = getLocalISODate(); // YYYY-MM-DD
         const [todayYear, todayMonth, todayDay] = todayStr.split('-');
@@ -232,21 +323,14 @@ export async function runAutomatedSmsCheck(options?: { force?: boolean }): Promi
                 if (!localStorage.getItem(smsKey)) {
                     localStorage.setItem(smsKey, 'pending');
 
-                    const prefLang = (student.preferred_language || 'ka') as 'ka' | 'ru' | 'en';
-                    const tpl = (templates as any)?.[prefLang]?.expiration_day_0 || 
-                                (templates as any)?.ka?.expiration_day_0 ||
-                                'გამარჯობა {name}, გენატრებათ ვარჯიში? თქვენი აბონემენტი ({plan}) იწურება დღეს. გთხოვთ განაახლოთ.';
-
+                    const fallbackTpl = (templates as any)?.[(student.preferred_language || 'ka')]?.expiration_day_0 ||
+                        (templates as any)?.ka?.expiration_day_0 ||
+                        'გამარჯობა {name}, გენატრებათ ვარჯიში? თქვენი აბონემენტი ({plan}) იწურება დღეს. გთხოვთ განაახლოთ.';
                     const planName = expiringSub.plan || (expiringSub as any).plan_name || '';
-                    const text = formatSmsTemplate(tpl, { student, planName, studioName });
 
-                    sendSms({ to: phone, text, studentName: student.full_name }).then(res => {
-                        if (res.success) {
-                            localStorage.setItem(smsKey, 'true');
-                        } else {
-                            localStorage.setItem(smsKey, 'failed');
-                        }
-                    }).catch(() => localStorage.setItem(smsKey, 'failed'));
+                    sendForEvent({ eventKey: 'subscription_expiring', student, studioName, planName, fallbackTemplate: fallbackTpl })
+                        .then(() => localStorage.setItem(smsKey, 'true'))
+                        .catch(() => localStorage.setItem(smsKey, 'failed'));
                 }
             }
         }
@@ -265,20 +349,13 @@ export async function runAutomatedSmsCheck(options?: { force?: boolean }): Promi
                     if (!localStorage.getItem(smsKey)) {
                         localStorage.setItem(smsKey, 'pending');
 
-                        const prefLang = (student.preferred_language || 'ka') as 'ka' | 'ru' | 'en';
-                        const tpl = (templates as any)?.[prefLang]?.birthday || 
-                                    (templates as any)?.ka?.birthday ||
-                                    'გამარჯობა {name}, გილოცავთ დაბადების დღეს! საუკეთესო სურვილებით, {studio}.';
+                        const fallbackTpl = (templates as any)?.[(student.preferred_language || 'ka')]?.birthday ||
+                            (templates as any)?.ka?.birthday ||
+                            'გამარჯობა {name}, გილოცავთ დაბადების დღეს! საუკეთესო სურვილებით, {studio}.';
 
-                        const text = formatSmsTemplate(tpl, { student, studioName });
-
-                        sendSms({ to: phone, text, studentName: student.full_name }).then(res => {
-                            if (res.success) {
-                                localStorage.setItem(smsKey, 'true');
-                            } else {
-                                localStorage.setItem(smsKey, 'failed');
-                            }
-                        }).catch(() => localStorage.setItem(smsKey, 'failed'));
+                        sendForEvent({ eventKey: 'birthday', student, studioName, fallbackTemplate: fallbackTpl })
+                            .then(() => localStorage.setItem(smsKey, 'true'))
+                            .catch(() => localStorage.setItem(smsKey, 'failed'));
                     }
                 }
             }

@@ -858,3 +858,429 @@ route; mobile auth design (bearer token vs. cookie — existing staff-token acco
 bearer-token equivalent yet); bulk conversion of the ~15 existing Server Action files in
 `src/app/actions/` to the new shape (they keep their current `void`/throw pattern until touched for
 another reason).
+
+---
+
+## SMS Module PRD (v1.3) alignment
+
+Source: `classcore_sms_module_prd.pdf` (v1.3, დამტკიცებული). Same branch. Gap analysis found this
+module is NOT close to the PRD, unlike Subscriptions/Tariffs — the current `sms-manager/page.tsx` +
+`settings-store.ts`'s `sms_templates` is a fixed 7-key hardcoded blob (payment/expiration/birthday/4
+holidays), not the PRD's user-created category→template architecture. This is a rebuild, not a
+patch, so it's being done in phases like the Subscriptions PRD was, starting with the data model
+before touching the UI.
+
+### Phase 1: Category/template data model + Server Actions
+
+Status: completed
+
+**Built**:
+- `supabase/migrations/20260919_sms_categories_templates.sql` — new `sms_categories` (id, org_id,
+  name, color, icon, module_key, enabled) and `sms_templates` (id, org_id, category_id, name,
+  text_ka/ru/en, trigger_type, event_key, recipient_scope, recipient_target_id, status,
+  frequency_limit_count/days, is_auto_generated) tables, RLS matching this migration series' dual-auth
+  pattern. Also a new `sms_audit_log` table (PRD §9's audit journal). Also backfills `sms_logs` as a
+  tracked migration (`CREATE TABLE IF NOT EXISTS`) — that table exists in production from a
+  manually-run SQL snippet during an earlier security fix (commit `623d88a`'s era) that was never
+  committed as a migration file here; this migration is safe either way and adds the new columns
+  (`template_id`, `recipient_student_id`, `delivery_status`, `provider_message_id`) Phase 1 needs for
+  per-template log grouping later.
+- `src/app/actions/sms-templates.ts` — full CRUD for categories (`listSmsCategoriesAction`,
+  `createSmsCategoryAction`, `toggleSmsCategoryAction`, `deleteSmsCategoryAction`) and templates
+  (`listSmsTemplatesAction`, `createSmsTemplateAction`, `updateSmsTemplateAction`,
+  `deleteSmsTemplateAction`, `duplicateSmsTemplateAction`), gated by the existing `canViewSMS`
+  permission (no separate manage permission exists yet — matches how the current page is gated).
+  Every mutation writes an `sms_audit_log` row (best-effort — never fails the mutation over a logging
+  write). This is the first module written against `docs/agents/api-contract.md`'s `ActionResult<T>`
+  convention from the start, not retrofitted.
+- Lazy seed: `listSmsCategoriesAction()` seeds one "ზოგადი" category with 3 starter templates
+  (payment reminder, subscription expiring, birthday) the first time an org has zero categories —
+  mirrors the Tariffs module's "reclassify on read" lazy-migration pattern (Phase 2 of the
+  Subscriptions PRD work) rather than a batch data migration.
+
+**Known limitation, not fixed here (flagged, not silently skipped)**: the seed's starter template
+text matches `DEFAULT_SETTINGS.sms_templates` (settings-store.ts) — it does NOT read/carry over a
+studio's own customized text if they already edited their templates in the old settings-based UI.
+Server Actions run server-side and have no access to the client-localStorage-backed settings blob
+that holds those per-org edits, and this pass didn't chase down that blob's actual cloud-sync table to
+read it safely. Before the old `sms-manager` UI is ever removed, a follow-up should locate that table
+and migrate real per-org text into `sms_templates`, not just seed defaults.
+
+**Not done (next phases)**: recipient targeting is stored (`recipient_scope`/`recipient_target_id`)
+but nothing enforces it yet at send time; frequency limits and quiet-hours config are stored/planned
+but not wired into any send path; AI auto-translation; Master Kill-Switch; SMS balance/billing UI;
+per-template log drill-down + retry button; the `sms-manager` page itself still reads the old
+hardcoded blob — none of this phase's new tables are wired into the UI yet.
+
+### Phase 2: Categories/templates UI (replaces the fixed "Manage Texts" tab)
+
+Status: completed
+
+**Built**:
+- `src/components/sms/CategoryTemplatesTab.tsx` — the new content of the sms-manager page's first tab
+  ("text"). Lists categories (expand/collapse, enable/disable toggle, delete with confirm, module-key
+  badge for module-linked ones), each showing its templates (status/scope badges, text preview,
+  edit/duplicate/delete). "+ ახალი კატეგორია" inline add row; "+ შაბლონი" per category opens
+  `TemplateModal`.
+- `src/components/sms/TemplateModal.tsx` — create/edit form: name, 3-language text tabs (no AI
+  translation yet — admin still writes each language by hand, unchanged from before), recipient
+  scope (all/group/branch/person) with a `SearchSelect` picker sourced from `getGroupsAction()`
+  (groups), `settings.branches` (branches, passed down from the page), and the page's existing
+  `students` list (person) — frequency limit (count + period days, optional). An event-triggered
+  template (payment_due/subscription_expiring/birthday) shows its signal as a read-only badge; a new
+  template is always `trigger_type: 'manual'` (no UI yet to attach a brand-new template to a system
+  event — see Phase 1's notes on why).
+- `sms-manager/page.tsx`: wired the new tab in; removed the now-dead fixed-template state/handlers
+  (`langTab`, `isSaving`, `handleSave`, `handleTemplateChange`, the `TemplateField` helper, the unused
+  `setSmsTemplates`/`Save` import) that only existed to drive the old 7-field editor. Personal/
+  Holiday/Stats tabs are untouched — they still read `settings.sms_templates` (the old blob) and still
+  work exactly as before.
+
+Notes:
+- `tsc --noEmit`: clean. Lint on touched files: clean (verified against a pre-change baseline —
+  every remaining warning/`any` in this file predates this change).
+- Playwright/dev-server smoke check: `/sms-manager` compiles and returns 200 with no console/build
+  errors (same Supabase-credential limitation as every other phase prevents full end-to-end
+  browser-testing the actual category/template CRUD in this environment).
+
+**Not done (still open, unchanged from Phase 1)**: nothing sends anything through the new model yet —
+recipient targeting, frequency limits, and quiet hours are stored but not enforced by any send path;
+AI translation; Master Kill-Switch; balance/billing UI; per-template log drill-down + retry; the old
+hardcoded blob still powers Personal/Holiday tabs and all automated sends in `sms-service.ts`.
+
+### Phase 3: Wire the 3 automated signals to the new template model
+
+Status: completed
+
+The first real *send* path through Phase 1/2's model — `runAutomatedSmsCheck()`'s two existing
+automated loops (subscription-expiring, birthday) now check `sms_templates` first, enforcing
+recipient targeting and the per-template frequency limit, falling back to the old hardcoded/
+settings-blob text only when an org has zero matching active templates (so nothing regresses for an
+org that never opened `/sms-manager`, i.e. never got Phase 1's lazy seed).
+
+**Built**:
+- `src/app/actions/sms-templates.ts`: `getEventTemplatesAction(eventKey)` — active templates whose
+  category is enabled, for the caller's org; `checkTemplateFrequencyAction({templateId,
+  recipientStudentId, limitCount, limitDays})` — counts matching `sms_logs` rows in the trailing
+  window, true when under the limit or when no limit is set.
+- `src/lib/sms-service.ts`: `templateMatchesStudent()` (PRD §6's recipient-scope filter — all always
+  matches; group/branch/person check the student's own `enrolled_group_ids`/`branch_id`/`id` against
+  the template's target) and `sendForEvent()` (resolves matching+eligible templates for an event,
+  sends each in the student's `preferred_language`, falls back to the old blob text when nothing
+  matches). Both automated loops now call it instead of reading `settings.sms_templates` directly.
+- `/api/sms/send/route.ts` + `sendSms()`: now accept and persist optional `templateId`/
+  `recipientStudentId` on the `sms_logs` row, so a template-driven send groups into its template (PRD
+  §9) and the frequency check has something to count.
+- **Bug found and fixed while touching this loop**: the student portal's own "SMS reminders" opt-out
+  toggle (`students/[studentId]/page.tsx`'s `sms_reminders` field — a student can flip this off for
+  themselves) was stored but never once read by `runAutomatedSmsCheck()` — every automated send
+  ignored it completely. Now checked in `sendForEvent()` before either path (new-template or
+  fallback) sends anything.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: verified against a pre-change baseline — same 10 pre-existing `any`
+  warnings in `sms-service.ts`, no new ones (a newly-added helper's `student: any` param was typed as
+  a proper `SmsEventStudent` instead, to avoid adding to that backlog).
+- `payment_due` isn't wired here — there's no existing automated call site for it (Subscriptions PRD
+  Phase 5 already found there's no scheduler in this app, so payment reminders stay staff-triggered
+  manually); nothing to modify.
+- `individual_booking_pending` (`sendIndividualBookingConfirmationSms`) is unchanged — that sends to
+  the *teacher*, not a student, so it doesn't fit `sendForEvent()`'s student-recipient shape without
+  a separate design pass.
+
+**Not done (still open)**: quiet hours (still the hardcoded 23:00–10:00 window, not the PRD's
+configurable global setting); Master Kill-Switch; AI translation; balance/billing UI; per-template
+log drill-down + retry button; Personal/Holiday tabs still don't go through the new model at all
+(manual sends, not automated signals — a separate follow-up if the studio wants those tracked
+per-template too).
+
+### Phase 4: Configurable quiet hours + Master Kill-Switch
+
+Status: completed
+
+**Built**:
+- `types/index.ts`: `StudioSettings.smsManager?: { quietHours?: {startHour,endHour}, killSwitchActive?
+  }` — distinct from the *other* "kill-switch" this codebase already has (`vacationMode`, the
+  Subscriptions PRD's dated studio-closure mode); this one is a manual, unconditional, undated stop
+  for every SMS send.
+- `settings-store.ts`: `isSmsKillSwitchActive()`, `isWithinSmsQuietHours()` (defaults to the same
+  23:00–10:00 window the old hardcoded check used, when unconfigured).
+- `sms-service.ts`: the Kill-Switch check moved into `sendSms()` itself — the one function every send
+  path already goes through (automated, template-driven Phase 3 sends, and the still-unmigrated
+  Personal/Holiday tabs) — so it stops literally everything without needing a check at each call
+  site. `runAutomatedSmsCheck()`'s hardcoded quiet-hours check now calls `isWithinSmsQuietHours()`.
+- `sms-manager/page.tsx`: new "პარამეტრები" (Settings) tab — quiet hours (start/end hour, draft +
+  Save) and the Kill-Switch (instant-apply toggle, red-highlighted when active, matching an emergency
+  control rather than a draft setting).
+
+Notes:
+- `tsc --noEmit`: clean. Lint: verified against a pre-change baseline on all 4 touched files — no new
+  issues (incidentally fixed one pre-existing unused-import warning in `sms-manager/page.tsx` by
+  actually using `Shield`).
+- Per the PRD's own wording (§10), turning the Kill-Switch off does *not* need to restore anything —
+  it never touches individual category/template `enabled` toggles in the first place, it's purely an
+  independent gate checked in addition to them; "restores to the prior state" in the PRD is simply
+  describing that non-interaction, not a snapshot/restore mechanism, so none was built.
+
+**Not done (still open)**: AI translation; balance/billing UI; per-template log drill-down + retry
+button; Personal/Holiday tabs still don't go through the new model.
+
+### Phase 5: Per-template log drill-down + retry, and a real delivery-status webhook
+
+Status: completed
+
+**Built**:
+- `src/components/sms/LogsTab.tsx` — replaces the flat "Recent Messages" table. Groups
+  `sms_logs` rows by `template_id` (PRD §9's "დაჯგუფება პერ-შაბლონ"), unlinked sends (Personal/
+  Holiday tabs, or an automated send that fell back to the old blob) land in an "სხვა" bucket rather
+  than being hidden. Each group expands to a drill-down list (recipient, phone, timestamp, error
+  text, delivery status badge) with a **Retry** button on failed sends — resends via the same
+  `sendSms()` path, carrying the original `templateId`/`recipientStudentId` through.
+- **Real delivery-status webhook**: `/api/webhooks/gosms/route.ts` was still writing every payload to
+  a repo-root `.sms-logs.json` file — the exact ephemeral-disk/no-scoping pattern already fixed
+  elsewhere (see `/api/sms/send`'s own comments) but missed on this route. Rewritten to update the
+  matching `sms_logs.delivery_status` by `provider_message_id` instead. `/api/sms/send/route.ts` now
+  captures that id (best-effort field detection — GOSMS's exact response schema isn't documented
+  anywhere in this repo) at send time so the webhook has something to match against.
+- **Found and fixed, not originally in scope**: `.sms-logs.json` — the file that old webhook route
+  was writing to — was itself **committed to the repo**, containing real student names and phone
+  numbers from production sends. Removed from the tree and added to `.gitignore`. **This does not
+  remove it from git history** — it's still present in every commit from `a6cb2ac` onward, reachable
+  by anyone with repo access. Purging it for real needs a history rewrite (e.g. `git filter-repo`)
+  and a force-push, which is destructive to any other clones/forks — flagged to the user rather than
+  done unprompted.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: `LogsTab.tsx` and the rewritten webhook route are fully clean; no new
+  issues on touched pre-existing files (verified against a pre-change baseline).
+- Playwright/dev-server smoke check: `/sms-manager` compiles and returns 200, no console/build
+  errors.
+- The webhook's field-name matching (message id, delivery status) is explicitly best-effort per its
+  own comments — GOSMS's real webhook payload schema should be checked against actual traffic (or
+  their docs, if any) once available, rather than trusted as correct from guesswork alone.
+
+**Not done (still open)**: AI translation; balance/billing UI; Personal/Holiday tabs still don't go
+through the new template model; the git-history PII exposure above is flagged, not remediated.
+
+### Phase 6: AI auto-translation (PRD §7)
+
+Status: completed
+
+The one remaining PRD item buildable without a payment-provider decision — AI translation only
+needs an LLM API. Balance/billing itself is still deliberately deferred — genuinely no default
+provider exists anywhere in this codebase, and picking one is a business decision, not a technical
+one.
+
+**Built** (originally implemented against `claude-opus-5` via `@anthropic-ai/sdk`; the user then
+asked to use their own Gemini key instead — swapped before this phase was ever pushed, so the repo
+never carried the Anthropic version):
+- `src/app/actions/sms-translate.ts` — `translateSmsTemplateAction({text, sourceLang})`: calls
+  Google's Gemini API (`gemini-flash-latest`, plain `fetch` over the REST `generateContent` endpoint —
+  no SDK dependency added, the request shape is simple enough not to need one) with a prompt
+  instructing it to preserve every `{placeholder}` used across this app's templates untouched, and to
+  respond with a single-line JSON object mapping the two other language codes to their translations.
+  Gated entirely behind `GEMINI_API_KEY` — with no key set, returns `fail('not_configured', ...)`
+  instead of throwing, matching `/api/sms/send/route.ts`'s existing GOSMS_API_KEY-missing pattern. No
+  other part of the SMS module depends on this; every earlier phase works identically with or without
+  a key set.
+- `src/components/sms/TemplateModal.tsx` — a "თარგმნა" (Translate) button next to the language tabs:
+  translates the currently-active language's text into the other two, filling their fields (never
+  overwriting the source language itself) — fully editable afterward, same as every other field.
+
+**Security note**: the user pasted a real Gemini API key directly into chat. It was never written
+into any file in this repo (verified with a literal-string grep before committing) — it must only
+ever live as an environment variable (`GEMINI_API_KEY` in Vercel's project settings for production;
+`.env.local`, already gitignored, for local dev). Since it was typed into a chat transcript, treat it
+as at higher exposure risk than a key that never left a secrets manager — rotating it in the Google
+AI Studio / Cloud console is worth doing regardless of whether this specific conversation is shared
+anywhere.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: fully clean on both new/touched files.
+- Not tested against a live Gemini API key in this environment (none configured here) — the "not
+  configured" path was verified; the actual translation call itself should be sanity-checked once
+  `GEMINI_API_KEY` is set in the deployment environment.
+
+**Not done (still open)**: balance/billing UI (§11 — needs a payment-provider decision); Personal/
+Holiday tabs still don't go through the new template model; the git-history PII exposure (flagged
+in Phase 5) is not remediated — Claude Code's own Auto Mode safety classifier blocked the
+`git filter-repo` history-rewrite command outright ("Git Destructive"), so this needs to be run by
+the repo owner directly; the exact commands are in the conversation, not repeated here.
+
+### Phase 7: Generalize the Holiday tab into a real template broadcast
+
+Status: completed
+
+The old Holiday tab hardcoded exactly 4 holidays (`new_year`/`easter`/`march_8`/`sept_1`) as a
+literal array in the page component — directly contradicting the PRD's central §3 principle ("no
+fixed predefined categories — the studio creates as many as it needs"). Personal tab is untouched —
+it's a genuinely different, template-less concept (ad-hoc free text to one person), matching the
+PRD §6 example for "person" scope as-is.
+
+**Built**:
+- `src/app/actions/sms-templates.ts`'s lazy seed now also creates a "დღესასწაულები" category with
+  the same 4 starter templates as before (same text), but as real, editable, deletable
+  `sms_templates` rows (`trigger_type: 'manual'`) instead of code — an admin can now edit their text
+  (with the Phase 6 Translate button), retarget them to a specific group/branch/person, add a
+  frequency limit, or delete the ones they don't want, all from the Categories tab. They can also add
+  a wholly new manual template (e.g. a general announcement) and it shows up here too, automatically.
+- `src/lib/sms-service.ts`: exported `templateMatchesStudent()` (previously private to Phase 3's
+  automated-signal path) for reuse.
+- `src/components/sms/BroadcastTab.tsx` (new) — replaces the Holiday tab's content. Lists every
+  active, manual-trigger template in an enabled category, with a live recipient count (computed via
+  `templateMatchesStudent()` against the already-loaded student list — respects each template's own
+  recipient scope, not just "everyone"). "Send" resolves eligible recipients (phone present,
+  `sms_reminders` opt-out respected, frequency limit checked per-recipient the same way the automated
+  path does), formats each in the recipient's own `preferred_language`, and sends via `sendSms()`
+  with `templateId`/`recipientStudentId` so these broadcasts now show up grouped in the Logs tab too
+  — previously they landed in the same flat, ungrouped list as everything else.
+- `sms-manager/page.tsx`: removed the now-fully-dead `HOLIDAYS` array, `selectedHoliday` state, and
+  `handleSendHoliday()`; the `templates`/`setTemplates` state (only the Holiday tab still read it)
+  and the settings-sync effect that fed it are gone too. Tab relabeled "მასობრივი გაგზავნა"
+  (Broadcast) since it's no longer holiday-specific.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: verified against a pre-change baseline — `BroadcastTab.tsx` and
+  `sms-templates.ts` are fully clean; `sms-manager/page.tsx`'s remaining warnings are the same
+  pre-existing ones as every prior phase (none newly introduced; one dead-state warning removed).
+- Playwright/dev-server smoke check: `/sms-manager` compiles and returns 200, no console/build
+  errors.
+
+**Not done (still open)**: balance/billing UI; Personal tab remains untemplated by design (see
+above); the git-history PII exposure is still unremediated (see Phase 5/6's notes).
+
+### Phase 8: Real SMS balance indicator (PRD §2/§11, read-only half)
+
+Status: completed
+
+Re-examined PRD §11 and found the balance/purchase UI splits into two genuinely different pieces:
+"show the real current balance" (a live read against GOSMS) and "process a purchase" (real money —
+explicitly, per the PRD's own text, handled in a separate Billing module that doesn't exist yet).
+Only the first is buildable now. No "Buy SMS" button was added — a button with nowhere to send the
+user would be a dead end, worse than not having one.
+
+Researched (not guessed) the actual endpoint: GOSMS's actively-maintained Node SDK
+(`github.com/gosms-ge/gosmsge-node`, fetched from GitHub — `api.gosms.ge` itself is not reachable
+from this environment's network egress policy) calls `POST https://api.gosms.ge/api/sms-balance`
+with a JSON body `{api_key}`, returning `{success, balance}` — the same base URL and JSON-body style
+this app's existing `/api/sms/send` already uses against `.../api/sendsms`, which corroborates it.
+**No live call was made against this endpoint during development** — `GOSMS_API_KEY` isn't set in
+this environment, and the user explicitly asked that nothing send/hit GOSMS live while this was
+being built (a balance check doesn't send an SMS either way, but the key's absence made the point
+moot regardless).
+
+**Built**:
+- `src/app/actions/sms-balance.ts` — `getSmsBalanceAction()`: POSTs to the endpoint above, returns
+  `ActionResult<{balance: number}>`. `not_configured` when `GOSMS_API_KEY` is unset (same pattern as
+  every other GOSMS-gated feature in this module); never fabricates a number on any failure path.
+- `sms-manager/page.tsx`: a persistent balance pill in the header (visible across every tab, per PRD
+  §2's "constant top bar"), fetched once on mount. Shows nothing but a quiet "unavailable" note on
+  any error — no placeholder/fake balance ever rendered.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: `sms-balance.ts` fully clean; no new issues on the touched page.
+- **Not verified against a live response** — the endpoint and response shape are corroborated from
+  two independent GOSMS SDK sources (the actively-maintained Node one, and field names cross-checked
+  against the pattern this app's own working `sendsms` integration already uses), but the first real
+  call once `GOSMS_API_KEY` is set in the deployment environment should be sanity-checked before
+  relying on the number shown.
+
+**Not done (still open)**: the purchase/checkout flow itself (needs the separate Billing module the
+PRD describes); auto-continue-on-exhaustion (a real toggle here would be inert without a way to
+detect exhaustion, which needs the same billing integration); low-balance in-app warning threshold
+(buildable now that a real number exists — natural next step if wanted); Personal tab remains
+untemplated by design; the git-history PII exposure is still unremediated.
+
+### Phase 9: Audit log viewer, low-balance warning, CSV export, sender/connection status
+
+Status: completed
+
+Closes out the remaining PRD §9/§10 items that don't need a payment provider — reviewed every
+"not done" item across Phases 1-8 and built the ones with no unresolved external dependency.
+
+**Built**:
+- `src/app/actions/sms-templates.ts`'s `listSmsAuditLogAction()` — the read side of the audit
+  journal every mutation has written to `sms_audit_log` since Phase 1; there was simply never a UI
+  to view it back until now.
+- `src/components/sms/LogsTab.tsx` — a "შეტყობინებები / აუდიტი" sub-tab switcher; the new
+  `AuditLogPanel` lists recent category/template actions (created/edited/deleted/duplicated/
+  enabled/disabled) with actor name and timestamp.
+- `types/index.ts`'s `smsManager.lowBalanceThreshold` + a new panel in the Settings tab: a number
+  input; `checkBalance()` (the same function Phase 8's balance fetch used, now reusable) fires one
+  in-app notification per session the first time a fetched balance drops below it — never repeats
+  every re-render, and never fires at all if unset.
+- CSV export in the Settings tab's new "მონაცემები" panel — client-side, reuses the existing
+  `/api/sms/logs` route (no new backend). PRD's own §10 layout puts export under Settings, not Logs.
+- Sender name + provider connection status, also new in Settings: displays the *actual* configured
+  sender id (`NEXT_PUBLIC_GOSMS_SENDER_ID`, defaulting to `'ClassCore'`) — **not** the studio's own
+  `studioName`, which is a real, deliberate divergence from a literal PRD reading. Checked
+  `/api/sms/send/route.ts`: every studio on this SaaS sends under the same shared sender id (GOSMS
+  sender ids need pre-approval, so this can't be dynamic per-studio without a real registration
+  step) — showing `studioName` here as "your sender ID" would have been factually wrong. The text
+  says so explicitly rather than implying a per-studio setting that doesn't exist. "Connection
+  status" is a live/stateless read too, reusing `checkBalance()`'s success/failure as the signal
+  (there's no real persistent connection to a REST API to check) — "Reconnect" just re-runs it.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: verified against a pre-change baseline on all touched files —
+  `LogsTab.tsx` fully clean; `sms-manager/page.tsx` back to exactly its pre-existing 6 warnings (two
+  new ones introduced mid-pass — an untyped CSV row array, a `useCallback` missing a dependency —
+  were fixed before committing, not left as new debt).
+- No live GOSMS call was made or tested during this phase (`GOSMS_API_KEY` unset here, consistent
+  with every other GOSMS-gated phase).
+
+**Not done (still open)**: the purchase/checkout flow and auto-continue toggle (still genuinely
+blocked on a real Billing module); log retention *enforcement* (storing the setting would be inert
+without a scheduler to act on it — this app has none, confirmed repeatedly across this whole PRD
+pass — so it wasn't added); Personal tab remains untemplated by design; the git-history PII
+exposure is still unremediated (needs the repo owner to run the commands already given).
+
+### Arch task-board reconciliation + Calendar/Events tombstone/cloud-delete fix
+
+Status: completed (reconciliation) / bug fix built — full module migration still open
+
+A user-shared external task-board screenshot listed several "Arch: X module to Server Actions"
+items as still pending, contradicting this doc's own prior "completed" markings. Re-verified every
+listed item directly against current code rather than trusting either source blindly:
+
+- **Actually done** (screenshot was stale): attendance/check-in wiring (via `checkin-client.ts`,
+  which itself wraps `@/app/actions/checkin.ts` — a first, narrower import grep initially missed
+  this indirection and misreported it), `/subscriptions`, `/dashboard` RPC, Groups, Staff/Teachers,
+  Branches/Halls, Shop/Sales/Products.
+- **Genuinely NOT done** (screenshot was right): **Calendar/Events**. `calendar/page.tsx` (3162
+  lines) imports exclusively from `src/lib/event-store.ts` — localStorage + best-effort cloud sync,
+  zero Server Actions. `groups.ts`'s own header comment already flagged this as the deliberately
+  deferred module.
+
+A full investigation (dedicated Explore pass) into what a real migration would require found this
+module far riskier than any module migrated so far: the `calendar_events` schema is described two
+different, disagreeing ways in the repo (`master_schema.sql`'s normalized columns vs. the live
+`data`-JSONB shape the sync routes actually write, with a fragile bare-`HH:MM`-vs-ISO-timestamp
+conversion in between); 9+ other files read/write the store with real cross-module side effects
+(Groups `schedule_slots`+color sync, Subscriptions auto-issue + `incrementSessionsUsed`, Halls
+conflict checks, SMS confirmations, an AI-chat quick-booking flow in `Header.tsx`); and two
+independent, mutually inconsistent conflict-check implementations exist
+(`event-store.hasIndividualSlotConflict` vs. `calendar/page.tsx`'s local `checkConflicts`) that
+would need reconciling. Given this runs against live production data (real students), a full
+migration attempted blind in one pass was judged too high-risk to do without a dedicated scoping
+pass of its own — **deferred, not attempted**.
+
+One concrete bug the investigation surfaced *was* fixed, as a small, safe, self-contained step:
+`calendar/page.tsx`'s `deleteAllGroupOccurrences` (bulk "delete all occurrences of this recurring
+group slot") called `saveEvents(remaining)` directly, skipping the tombstone-set and explicit
+`deleteRecordFromCloud` bookkeeping that every other delete path in `event-store.ts`
+(`deleteEvent`, `deleteGroupEvents`, `deleteIndividualLessonEvents`) already does — meaning
+bulk-deleted recurring occurrences could resurrect on the next cloud hydration. Added
+`event-store.ts`'s `deleteEventsByIds(ids)`, a batch variant of the same tombstone+cloud-delete
+pattern, and switched `deleteAllGroupOccurrences` to call it instead of the raw `saveEvents`.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new warnings on either touched file (both files' existing
+  unused-import/`any` warnings are pre-existing and unrelated to this change).
+- No live GOSMS/Supabase call was made or needed — this was a pure logic fix mirroring an existing,
+  already-used pattern in the same file.
+
+**Not done (still open)**: the full Calendar/Events → Server Actions migration itself (needs its
+own dedicated design pass: reconcile the two conflict-check implementations, resolve the schema
+disagreement against the live DB, and decide whether recurring "weekly" events materialize
+server-side or keep the current client-side ±4-week virtual expansion).

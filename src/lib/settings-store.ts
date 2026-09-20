@@ -749,6 +749,34 @@ export function isFeatureEnabled(settings: StudioSettings, feature: keyof NonNul
     return settings.enabledFeatures?.[feature] !== false;
 }
 
+/**
+ * SMS Module PRD §10's Master Kill-Switch — an unconditional stop for
+ * every SMS send (automated, event-triggered, or a manual click),
+ * checked once inside sendSms() (sms-service.ts) rather than at each
+ * call site. Distinct from `vacationMode`/isStudioOnVacation() above,
+ * which only suppresses subscription-related automated sends during a
+ * dated window.
+ */
+export function isSmsKillSwitchActive(settings: StudioSettings): boolean {
+    return settings.smsManager?.killSwitchActive === true;
+}
+
+/**
+ * SMS Module PRD §8/§10's global quiet hours — a wraparound window
+ * (e.g. 23:00 → 10:00) during which no automated send goes out.
+ * Defaults to that same 23:00–10:00 range when unconfigured, matching
+ * this check's previous hardcoded behavior in sms-service.ts.
+ */
+export function isWithinSmsQuietHours(settings: StudioSettings, asOfDate: Date = new Date()): boolean {
+    const q = settings.smsManager?.quietHours;
+    const startHour = q?.startHour ?? 23;
+    const endHour = q?.endHour ?? 10;
+    const hour = asOfDate.getHours();
+    if (startHour === endHour) return false;
+    if (startHour > endHour) return hour >= startHour || hour < endHour;
+    return hour >= startHour && hour < endHour;
+}
+
 /** Apply accent CSS variable to :root */
 export function applyTheme(themeKey: ThemeKey) {
     const theme = THEMES[themeKey];

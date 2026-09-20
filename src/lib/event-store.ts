@@ -347,6 +347,37 @@ export function deleteGroupEvents(groupId: string) {
     return events;
 }
 
+/**
+ * Batch-delete events by id — same tombstone + explicit cloud-delete
+ * bookkeeping as deleteEvent()/deleteGroupEvents(), for callers that resolve
+ * their own id set (e.g. calendar/page.tsx's "delete all occurrences") and
+ * would otherwise call saveEvents() directly, skipping both and letting the
+ * rows resurrect from the next cloud hydration.
+ */
+export function deleteEventsByIds(ids: string[]) {
+    if (ids.length === 0) return getEvents();
+    const idSet = new Set(ids);
+    const before = getEvents();
+    const removed = before.filter(e => idSet.has(e.id));
+    const events = before.filter(e => !idSet.has(e.id));
+    saveEvents(events);
+    if (removed.length > 0) {
+        const deletedKey = getDeletedEventsKey();
+        removed.forEach(e => addLocallyDeletedId(deletedKey, e.id));
+
+        const activeSlug = getActiveSlug();
+        if (activeSlug && activeSlug !== 'demo.classcore.ge') {
+            const finalOrgId = getEffectiveOrgId(activeSlug);
+            if (finalOrgId) {
+                import('./master-sync').then(mod => {
+                    removed.forEach(e => mod.deleteRecordFromCloud('calendar_events', e.id, finalOrgId).catch(() => {}));
+                });
+            }
+        }
+    }
+    return events;
+}
+
 /** Upsert recurring weekly events for a group based on schedule slots */
 export function syncGroupScheduleToCalendar(groupId: string, groupTitle: string, teacherId: string, hallId: string, slots: { dayOfWeek: number; startTime: string; endTime: string }[], color?: string, secondaryTeacherId?: string) {
     const cleaned = getEvents().filter(e => !(e.group_id === groupId && e.recurring === 'weekly'));

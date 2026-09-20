@@ -33,6 +33,15 @@ async function saveLog(orgId: string | null, logEntry: any) {
             status: logEntry.status,
             error: logEntry.error || null,
             timestamp: logEntry.timestamp,
+            // Phase 3 (docs/tasks.md's SMS Module PRD alignment): set when the
+            // send came from a src/app/actions/sms-templates.ts template, so
+            // logs can be grouped per-template (PRD §9) and the frequency
+            // limit check (checkTemplateFrequencyAction) can count them. Null
+            // for the still-untouched Personal/Holiday tabs and the old
+            // settings-blob-based automated sends.
+            template_id: logEntry.templateId || null,
+            recipient_student_id: logEntry.recipientStudentId || null,
+            provider_message_id: logEntry.providerMessageId || null,
         });
     } catch (e) {
         console.error('Failed to save SMS log', e);
@@ -40,7 +49,7 @@ async function saveLog(orgId: string | null, logEntry: any) {
 }
 
 export async function POST(req: Request) {
-    let to, text, studentName;
+    let to, text, studentName, templateId, recipientStudentId;
     let orgId: string | null = null;
     try {
         const ctx = await getSessionOrgContext();
@@ -57,6 +66,8 @@ export async function POST(req: Request) {
         to = body.to;
         text = body.text;
         studentName = body.studentName || 'უცნობი';
+        templateId = body.templateId || null;
+        recipientStudentId = body.recipientStudentId || null;
 
         if (!to || !text) {
             await saveLog(orgId, {
@@ -65,7 +76,8 @@ export async function POST(req: Request) {
                 to: to || 'Unknown',
                 text: text || '',
                 status: 'error',
-                error: 'Missing "to" or "text"'
+                error: 'Missing "to" or "text"',
+                templateId, recipientStudentId,
             });
             return NextResponse.json({ success: false, error: 'Missing "to" or "text"' }, { status: 400 });
         }
@@ -80,7 +92,8 @@ export async function POST(req: Request) {
                 to,
                 text,
                 status: 'error',
-                error: 'Server configuration error (API Key missing)'
+                error: 'Server configuration error (API Key missing)',
+                templateId, recipientStudentId,
             });
             console.error('Missing GOSMS_API_KEY environment variable');
             return NextResponse.json({ success: false, error: 'Server configuration error' }, { status: 500 });
@@ -101,6 +114,14 @@ export async function POST(req: Request) {
 
         const data = await response.json();
         const isSuccess = data.success || (Array.isArray(data) && data[0]?.success);
+        // Best-effort field detection — GOSMS's exact response schema for a
+        // per-message id isn't documented anywhere in this repo, so this
+        // tries the plausible field names rather than assuming one. If
+        // none match, provider_message_id stays null and the delivery-
+        // status webhook (/api/webhooks/gosms) simply has nothing to
+        // match against for this send — never a hard failure either way.
+        const providerMessageId = data?.id || data?.message_id || data?.messageId
+            || (Array.isArray(data) && (data[0]?.id || data[0]?.message_id || data[0]?.messageId)) || null;
 
         if (!response.ok || !isSuccess) {
             console.error('GOSMS Error:', data);
@@ -110,7 +131,8 @@ export async function POST(req: Request) {
                 to,
                 text,
                 status: 'error',
-                error: data.error || (Array.isArray(data) && data[0]?.error) || 'Failed to send SMS'
+                error: data.error || (Array.isArray(data) && data[0]?.error) || 'Failed to send SMS',
+                templateId, recipientStudentId,
             });
             return NextResponse.json({ success: false, error: data.error || 'Failed to send SMS' }, { status: response.status || 500 });
         }
@@ -120,7 +142,9 @@ export async function POST(req: Request) {
             studentName,
             to,
             text,
-            status: 'success'
+            status: 'success',
+            templateId, recipientStudentId,
+            providerMessageId,
         });
 
         return NextResponse.json(data);
@@ -132,7 +156,8 @@ export async function POST(req: Request) {
             to: to || 'Unknown',
             text: text || '',
             status: 'error',
-            error: 'Internal server error'
+            error: 'Internal server error',
+            templateId, recipientStudentId,
         });
         return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
     }
