@@ -276,7 +276,7 @@ export default function DashboardPage() {
         const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
         const todayStr = getLocalISODate(new Date());
-        let activeSubStudentIds = new Set<string>();
+        const activeSubStudentIds = new Set<string>();
         studentsList.forEach(s => {
             let isActive = false;
             const subsList = allSubsList.filter(sub => {

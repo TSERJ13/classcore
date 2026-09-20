@@ -480,7 +480,7 @@ export function loadSettings(slug?: string): StudioSettings {
     try {
         const finalSlug = slug || getActiveSlug();
         const scopedKey = getScopedKey(STORAGE_KEY, finalSlug);
-        let raw = localStorage.getItem(scopedKey);
+        const raw = localStorage.getItem(scopedKey);
 
         if (!raw) {
             const defaults = { ...DEFAULT_SETTINGS };

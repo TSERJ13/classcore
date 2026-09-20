@@ -60,7 +60,7 @@ export function getTodayCheckins(): CheckinRecord[] {
     if (typeof window === 'undefined') return [];
     try {
         const key = dayKey();
-        let saved = localStorage.getItem(key);
+        const saved = localStorage.getItem(key);
 
         const parsed = JSON.parse(saved ?? '[]');
         return Array.isArray(parsed) ? parsed : [] as CheckinRecord[];

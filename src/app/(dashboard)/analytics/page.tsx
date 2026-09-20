@@ -226,9 +226,9 @@ function SimpleBarChart({ data, maxValue, colorClass }: { data: { label: string,
                 const isViolet = colorClass.includes('violet');
                 const isIndigo = colorClass.includes('indigo');
 
-                let barBg = colorClass;
-                let hoverBg = isEmerald ? 'bg-emerald-600' : isViolet ? 'bg-violet-600' : 'bg-indigo-600';
-                let shadowColor = isEmerald ? 'rgba(16,185,129,0.3)' : isViolet ? 'rgba(139,92,246,0.3)' : 'rgba(79,70,229,0.3)';
+                const barBg = colorClass;
+                const hoverBg = isEmerald ? 'bg-emerald-600' : isViolet ? 'bg-violet-600' : 'bg-indigo-600';
+                const shadowColor = isEmerald ? 'rgba(16,185,129,0.3)' : isViolet ? 'rgba(139,92,246,0.3)' : 'rgba(79,70,229,0.3)';
 
                 return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-3 group/bar animate-fade-up h-full" style={{ animationDelay: `${i * 100}ms` }}>

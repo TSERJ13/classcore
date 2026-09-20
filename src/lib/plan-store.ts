@@ -73,7 +73,7 @@ export function getPlans(): Plan[] {
     try {
         const activeSlug = getActiveSlug() || 'demo.classcore.ge';
         const key = getPlansKey(activeSlug);
-        let saved = localStorage.getItem(key);
+        const saved = localStorage.getItem(key);
 
         const deletedIds = getLocallyDeletedIds(getDeletedPlansKey());
 

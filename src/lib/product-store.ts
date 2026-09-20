@@ -21,7 +21,7 @@ export function getProducts(): Product[] {
     try {
         const activeSlug = getActiveSlug() || 'demo.classcore.ge';
         const key = getProductsKey(activeSlug);
-        let saved = localStorage.getItem(key);
+        const saved = localStorage.getItem(key);
 
         if (!saved) return INITIAL_PRODUCTS;
         const parsed = JSON.parse(saved);

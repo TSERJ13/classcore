@@ -56,7 +56,7 @@ export function getHalls(): HallData[] {
             const deletedIds = getLocallyDeletedIds(getDeletedHallsKey());
 
             const key = getHallsKey();
-            let saved = localStorage.getItem(key);
+            const saved = localStorage.getItem(key);
 
             if (saved) {
                 const parsed = JSON.parse(saved);

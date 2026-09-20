@@ -330,7 +330,7 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
     const finalSlug = slug || getActiveSlug();
     if (!finalSlug) return base;
 
-    let scopeId = getEffectiveOrgId(finalSlug) || finalSlug;
+    const scopeId = getEffectiveOrgId(finalSlug) || finalSlug;
 
     const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 

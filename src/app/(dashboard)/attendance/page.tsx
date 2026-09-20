@@ -325,7 +325,7 @@ export default function AttendancePage() {
         });
 
         // 4. Merge all! Regular groups, concrete events, and individual lessons appear together seamlessly
-        let targetSchedule = [...concreteEvents, ...virtualGroupClasses, ...virtualIndLessons];
+        const targetSchedule = [...concreteEvents, ...virtualGroupClasses, ...virtualIndLessons];
 
         // Staff IDs for the current teacher
         const staffMe = (settings.staff || []).find(s => {

@@ -288,7 +288,7 @@ export default function StudentPortalPage() {
         setHalls(getHalls());
         try {
             const keysToTry = ['cc_shop_products', `cc_shop_products_${studio}`];
-            let allProducts: Product[] = [];
+            const allProducts: Product[] = [];
             for (const key of keysToTry) {
                 const saved = localStorage.getItem(key);
                 if (saved) {
@@ -326,7 +326,7 @@ export default function StudentPortalPage() {
                 const data = await res.json();
                 const cloudMessages = data.messages || [];
                 const localKey = getScopedKey(`chat_${channelId}`, studio);
-                let finalMessages = forcePushMessages || cloudMessages;
+                const finalMessages = forcePushMessages || cloudMessages;
                 setChatMessages(finalMessages);
                 safeSetItem(localKey, JSON.stringify(finalMessages), studio);
             }

@@ -718,7 +718,7 @@ export default function StudiosPage() {
 
             // Also sync to staff for compatibility
             if (!settings.staff) settings.staff = [];
-            let owner = settings.staff.find((m: any) => m.role === 'owner');
+            const owner = settings.staff.find((m: any) => m.role === 'owner');
             if (owner) {
                 owner.email = profileEmail;
                 owner.phone = profilePhone;

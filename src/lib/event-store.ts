@@ -475,7 +475,7 @@ export function generateScheduledIndividualEvents(params: {
     const skippedDates: string[] = [];
     const maxSessions = params.sessionsTotal || 100;
     const end = new Date(params.endDate);
-    let current = new Date(params.startDate);
+    const current = new Date(params.startDate);
     let count = 0;
     const oneYearLater = new Date(current);
     oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);

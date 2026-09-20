@@ -179,7 +179,7 @@ function applyRemotePlanDelete(id: string) {
         const key = getScopedKey('cc_subscription_plans', _activeSlug || undefined);
         const raw = localStorage.getItem(key);
         if (!raw) return;
-        let plans: any[] = JSON.parse(raw);
+        const plans: any[] = JSON.parse(raw);
         if (!Array.isArray(plans)) return;
         const next = plans.filter((p: any) => p.id !== id);
         if (next.length !== plans.length) {
@@ -305,7 +305,7 @@ function applyRemoteArrayDelete(baseKey: string, id: string, row?: any) {
         const key = getScopedKey(baseKey, _activeSlug || undefined, branchId);
         const raw = localStorage.getItem(key);
         if (!raw) return;
-        let list: any[] = JSON.parse(raw);
+        const list: any[] = JSON.parse(raw);
         if (!Array.isArray(list)) return;
         const next = list.filter((x: any) => x.id !== id);
         if (next.length !== list.length) {
@@ -330,7 +330,7 @@ function applyRemoteStaffUpsert(row: any) {
         const raw = localStorage.getItem(key);
         if (raw) {
             const settings = JSON.parse(raw);
-            let staffList: any[] = Array.isArray(settings.staff) ? settings.staff : [];
+            const staffList: any[] = Array.isArray(settings.staff) ? settings.staff : [];
             const idx = staffList.findIndex((s: any) => s.id === item.id);
             if (idx >= 0) {
                 staffList[idx] = { ...staffList[idx], ...item };
@@ -396,7 +396,7 @@ function applyRemoteStudentDelete(id: string) {
         const key = getScopedKey('cc_student_data', _activeSlug || undefined);
         const raw = localStorage.getItem(key);
         if (!raw) return;
-        let data: Record<string, any> = JSON.parse(raw);
+        const data: Record<string, any> = JSON.parse(raw);
         if (data && data[id]) {
             delete data[id];
             try { localStorage.setItem(key, JSON.stringify(data)); } catch {}

@@ -142,7 +142,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     
                     // Update Registry
                     const registryRaw = localStorage.getItem('cc_studios_list');
-                    let registry = registryRaw ? JSON.parse(registryRaw) : [];
+                    const registry = registryRaw ? JSON.parse(registryRaw) : [];
                     if (!registry.includes(activeSlug)) {
                         registry.push(activeSlug);
                         await safeSetItem('cc_studios_list', JSON.stringify(registry), activeSlug);

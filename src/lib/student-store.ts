@@ -496,7 +496,7 @@ export function normaliseUid(raw: string): string {
 export function getUidRegistry(): Record<string, UidEntry> {
     const key = getUidRegistryKey();
     try {
-        let stored = localStorage.getItem(key);
+        const stored = localStorage.getItem(key);
         return JSON.parse(stored ?? '{}') as Record<string, UidEntry>;
     } catch {
         return {};
@@ -564,7 +564,7 @@ export function getStudentPatches(): Record<string, StudentPatch> {
     if (typeof window === 'undefined') return {};
     try {
         const key = getStudentDataKey();
-        let stored = localStorage.getItem(key);
+        const stored = localStorage.getItem(key);
         if (stored) {
             const parsed = JSON.parse(stored);
             // If non-empty, return it

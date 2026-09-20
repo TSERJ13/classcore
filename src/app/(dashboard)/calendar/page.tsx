@@ -1035,7 +1035,7 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
 
         let groupId = form.group_id;
         let finalTitle = form.title.trim();
-        let teacherId = form.teacher_id;
+        const teacherId = form.teacher_id;
 
         if (form.type === 'group_class' && isNewGroup) {
             const ng = createGroup({
@@ -1591,7 +1591,7 @@ export default function CalendarPage() {
                 const subStart = sub.purchased_at ? sub.purchased_at.split('T')[0] : '';
                 const subEnd = sub.expires_at ? sub.expires_at.split('T')[0] : '';
 
-                let cur = new Date(startRange);
+                const cur = new Date(startRange);
                 while (cur <= endRange) {
                     const dateStr = toDateStr(cur);
                     if ((!subStart || dateStr >= subStart) && (!subEnd || dateStr <= subEnd)) {
@@ -1876,7 +1876,7 @@ export default function CalendarPage() {
 
     function addEvents(newEvents: CalendarEvent[]) {
         const currentEvents = getEvents();
-        let runningEvents = [...currentEvents];
+        const runningEvents = [...currentEvents];
         const added: CalendarEvent[] = [];
 
         for (const ev of newEvents) {
@@ -1979,7 +1979,7 @@ export default function CalendarPage() {
             saveGroups(updatedGroups);
 
             // 2. Re-sync all events for this group
-            syncGroupScheduleToCalendar(updated.group_id!!, updated.title, updated.teacher_id || '', updated.hall_id || '', slots, updated.color);
+            syncGroupScheduleToCalendar(updated.group_id!, updated.title, updated.teacher_id || '', updated.hall_id || '', slots, updated.color);
             setEvents(getEvents());
         } else {
             // Fallback for non-group series (just update this one for now)
@@ -3073,11 +3073,11 @@ export default function CalendarPage() {
                 <EventPopup
                     ev={selectedEv}
                     onClose={() => setSelectedEv(null)}
-                    onDelete={() => { deleteEvent(selectedEv!!.id); setSelectedEv(null); }}
-                    onDeleteAll={() => { deleteAllGroupOccurrences(selectedEv!!); setSelectedEv(null); }}
+                    onDelete={() => { deleteEvent(selectedEv!.id); setSelectedEv(null); }}
+                    onDeleteAll={() => { deleteAllGroupOccurrences(selectedEv!); setSelectedEv(null); }}
                     onUpdate={(updated) => { updateEvent(updated); setSelectedEv(null); }}
                     onUpdateSeries={(updated, days) => { updateEventSeries(updated, days); setSelectedEv(null); }}
-                    onConfirmBooking={() => { confirmIndividualBooking(selectedEv!!.id); setSelectedEv(null); }}
+                    onConfirmBooking={() => { confirmIndividualBooking(selectedEv!.id); setSelectedEv(null); }}
                     canEdit={canEdit}
                     teachers={teachers}
                     halls={halls}
