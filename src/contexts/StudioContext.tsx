@@ -1030,15 +1030,71 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             throw err;
         }
     };
+    // Shared by addBranch/updateBranch/removeBranch below — each is an
+    // optimistic local update + a Server Action that used to swallow
+    // whatever came back (`.catch(() => {})`) after the optimistic update
+    // had already committed, so a permission/validation/DB failure (a
+    // silent ActionResult error, or a thrown auth error from
+    // requireStudioManager) left a branch looking saved in this browser
+    // when the server never actually persisted it — zero visible signal
+    // anything went wrong. Runs the action, and on either failure shape,
+    // notifies and rolls back via the caller's own `rollback`, which
+    // receives the latest state (not a closed-over snapshot) so it can
+    // guard against clobbering a newer, already-successful edit to the
+    // same branch if this call was the slow one out of two overlapping edits.
+    const runBranchAction = (
+        action: Promise<{ error: { message: string } | null }>,
+        failureLabel: string,
+        rollback: (prev: StudioSettings) => StudioSettings
+    ) => {
+        const onFailure = (message: string) => {
+            addNotification(`${failureLabel}: ${message}`, 'bg-rose-500');
+            // 🛡️ The optimistic update this is undoing didn't just call
+            // setSettings — it went through updateSettings(), which also
+            // persisted the bad state to localStorage (saveSettings) and
+            // the cloud settings blob (pushFullStudioMetadata). Reverting
+            // only React state here would leave that persisted copy
+            // uncorrected, and the next hydration cycle would read it back
+            // in — silently undoing this rollback and reintroducing the
+            // exact bug this function exists to fix, just delayed.
+            setSettings(prev => {
+                const next = rollback(prev);
+                if (next === prev) return prev;
+                saveSettings({ branches: next.branches }, prev, prev.studioSlug);
+                if (prev.studioSlug && prev.orgId) {
+                    import('@/lib/master-sync').then(mod => {
+                        mod.pushFullStudioMetadata(prev.studioSlug, prev.studioName, { ...next, settings: next });
+                    });
+                }
+                return next;
+            });
+        };
+        action
+            .then(result => { if (result.error) onFailure(result.error.message); })
+            .catch((err: any) => onFailure(err?.message || 'Unknown error'));
+    };
     const removeBranch = (id: string) => {
+        const removedIndex = settings.branches.findIndex(b => b.id === id);
+        const removed = removedIndex !== -1 ? settings.branches[removedIndex] : undefined;
         updateSettings({ branches: settings.branches.filter(b => b.id !== id) });
-        deleteBranchAction({ id }).catch(() => {});
+        runBranchAction(deleteBranchAction({ id }), 'Failed to delete branch', prev => {
+            if (!removed || prev.branches.some(b => b.id === removed.id)) return prev;
+            const branches = [...prev.branches];
+            branches.splice(Math.min(removedIndex, branches.length), 0, removed);
+            return { ...prev, branches };
+        });
     };
     const updateBranch = (id: string, data: any) => {
+        const previous = settings.branches.find(b => b.id === id);
         const next = settings.branches.map(b => b.id === id ? { ...b, ...data } : b);
         updateSettings({ branches: next });
         const updated = next.find(b => b.id === id);
-        if (updated) updateBranchAction(updated).catch(() => {});
+        if (!updated) return;
+        runBranchAction(updateBranchAction(updated), 'Failed to update branch', prev => {
+            const current = prev.branches.find(b => b.id === id);
+            if (!previous || !current || JSON.stringify(current) !== JSON.stringify(updated)) return prev;
+            return { ...prev, branches: prev.branches.map(b => b.id === id ? previous : b) };
+        });
     };
     const setCustomRoles = (roles: any) => updateSettings({ customRoles: roles });
     const setOwnerInfo = (info: any) => updateSettings({ owner_info: info });
@@ -1065,12 +1121,25 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     }, []);
 
     const addBranch = useCallback((name: string, address?: string) => {
+        const newBranch: Branch = { id: `br_${Date.now()}`, name, address, is_active: true };
         setSettings(prev => {
-            const newBranch: Branch = { id: `br_${Date.now()}`, name, address, is_active: true };
             const next = { ...prev, branches: [...prev.branches, newBranch] };
             saveSettings({ branches: next.branches }, prev, prev.studioSlug);
-            createBranchAction(newBranch).catch(() => {});
+            // Match updateBranch/removeBranch (both go through updateSettings,
+            // which pushes to the cloud settings blob on every edit) — without
+            // this, a branch created on one device only ever lands in that
+            // device's localStorage; every other device/session still reads
+            // the stale cloud blob and never sees it.
+            if (prev.studioSlug && prev.orgId) {
+                import('@/lib/master-sync').then(mod => {
+                    mod.pushFullStudioMetadata(prev.studioSlug, prev.studioName, { ...next, settings: next });
+                });
+            }
             return next;
+        });
+        runBranchAction(createBranchAction(newBranch), 'Failed to add branch', prev => {
+            if (!prev.branches.some(b => b.id === newBranch.id)) return prev;
+            return { ...prev, branches: prev.branches.filter(b => b.id !== newBranch.id) };
         });
     }, []);
 

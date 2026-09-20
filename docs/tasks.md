@@ -1544,3 +1544,72 @@ Notes:
   the StudioContext dedup already fixes wasn't otherwise touched. The broader "two architectures
   coexisting" observation is accurate as a description of the codebase's history (documented
   repeatedly elsewhere in this file) but isn't itself an actionable line item.
+
+### Branches silently failing to save (relayed by a colleague, "Niko") — swallowed-error fix
+
+**Report**: a second, short relayed message — Niko said branches aren't being created, no other
+detail.
+
+**Root cause found by reading the code** (no live DB/Vercel access, so verified via the actual
+call chain rather than reproduction): `addBranch`/`updateBranch`/`removeBranch` in
+`StudioContext.tsx` all followed the same shape — optimistically commit the change to local state
+(and localStorage) *first*, then fire the corresponding Server Action
+(`createBranchAction`/`updateBranchAction`/`deleteBranchAction`) with `.catch(() => {})`. That
+swallows two different failure shapes: a thrown error (e.g. `requireStudioManager()` rejecting an
+unauthorized caller) *and*, since this session's earlier `branches` logic-layer extraction, a
+resolved `ActionResult` with `error` set (a validation or DB failure that doesn't throw). Either
+way the UI had already shown the branch as saved before the Server Action ran, and nothing ever
+told it the server rejected the write — so a branch could look present in the browser indefinitely
+while never existing server-side, which matches "branches aren't being created" from a user who
+only sees the client.
+
+Ruled out an owner-role-assignment bug first (`register-studio/route.ts` correctly sets
+`role: 'owner'` in `user_metadata` at creation) before concluding this was the cause. Also found,
+but explicitly did not act on: `supabase/FINAL_PERMISSIONS_FIX.sql`, a legacy, not-in-`migrations/`
+script that disables RLS and grants broad `anon`/`authenticated` privileges on `branches` and
+several other tables — unclear whether/when it actually ran against the live DB relative to later
+RLS-enabling migrations, and both confirming and reverting it need live DB access this environment
+doesn't have. Flagging it here as an open risk rather than guessing.
+
+**Built**: a shared `runBranchAction(action, failureLabel, rollback)` helper used by all three
+functions — checks both failure shapes, shows a failure notification, and rolls back via the
+caller's `rollback(prev)`. Two rounds of self-review (`code-review` skill) each found real issues,
+fixed before committing:
+- **Round 1** — `updateBranch`'s first rollback attempt closed over a stale snapshot captured
+  before the async call started, which could clobber a second, already-successful overlapping
+  edit to the same branch. Fixed by having `rollback` receive the *latest* state and compare
+  against it (`JSON.stringify(current) !== JSON.stringify(updated)` before reverting) instead of
+  trusting the snapshot; this is also why `rollback` takes `prev => next` rather than a plain
+  object.
+- **Round 2** — the rollback only called `setSettings`, never re-persisting through
+  `saveSettings`/`pushFullStudioMetadata` the way the original optimistic write had — so the
+  *correction* itself didn't survive a hydration cycle, and the bad state would silently reappear.
+  Fixed by having `onFailure` persist the rolled-back branches array the same way, gated on
+  `orgId` exactly like `updateSettings()` does. Also found in this pass: `addBranch`'s optimistic
+  write never pushed to the cloud settings blob at all (only `saveSettings` to localStorage) —
+  unlike `updateBranch`/`removeBranch`, which both go through `updateSettings()` and therefore
+  push on every edit — so a branch created on one device/session was invisible to any other until
+  something else happened to push settings again. Fixed by adding the same conditional
+  `pushFullStudioMetadata` call to `addBranch`'s success path. Two smaller bugs from the same pass:
+  `addBranch`'s rollback always returned a new spread object even when nothing needed reverting
+  (defeating the `next === prev` no-op check other two functions rely on) — fixed with an explicit
+  membership check; `removeBranch`'s rollback re-inserted a restored branch at the *end* of the
+  array instead of its original index — fixed by capturing the index before the optimistic removal
+  and splicing it back in on rollback.
+- Toast text for all three (previously Georgian: `ფილიალის დამატება/განახლება/წაშლა ვერ მოხერხდა`,
+  `უცნობი შეცდომა`) switched to English to match this file's own established convention for
+  sibling staff error messages (`'Failed to save staff changes'`, etc.) — this file has no other
+  Georgian-language strings in code, only in user-facing content.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing, both before and after every round of
+  fixes above.
+- **Not done**: `runBranchAction`'s `onFailure` duplicates the same `saveSettings` +
+  `pushFullStudioMetadata` sequence that `updateSettings()` already implements, instead of sharing
+  one persistence path — flagged by the final review pass as a maintainability risk (the two
+  copies can drift if one is changed without the other) but not refactored, since giving
+  `updateSettings()` a functional-updater form to share the logic safely would touch a
+  widely-called function with many existing callsites — larger, riskier scope than this fix
+  warranted. Also still open, unchanged from the prior entry: whether `FINAL_PERMISSIONS_FIX.sql`
+  was ever run against the live DB, and what `branches`' actual current RLS state is — needs live
+  DB access to answer.
