@@ -1304,6 +1304,34 @@ not a big-bang swap):
 re-verify Decision 1 against the live DB before writing any code, since everything else here
 assumes its answer.
 
+**Update — Decision 1 partially resolved, and a new scope finding**: `supabase/SUBSCRIPTION_PERSISTENCE_FIX.sql`
+(a manually-run fix script, not in `migrations/`) does
+`ALTER TABLE public.calendar_events ADD COLUMN IF NOT EXISTS data JSONB DEFAULT '{}'::jsonb;` —
+confirms the live table really does have the `data` JSONB column the sync code assumes (the
+`master_schema.sql` normalized-columns-only version is the outdated one). This is enough to safely
+read events (`select('data')` returns the exact same object shape `event-store.ts` already works
+with — `start_time`/`end_time` as plain `"HH:MM"` strings inside the JSON, sidestepping the
+TIME-vs-timestamp ambiguity entirely for reads). Started building the read-only Server Action on
+this basis, per the phasing plan's step 2 (cut over read-only consumers first).
+
+Got as far as reading the two intended first consumers' actual code before writing it, and found a
+scope-changing fact: `dashboard/page.tsx`'s `getTodayEvents()` call and `analytics/page.tsx`'s
+`getEvents()` call are each one line inside a much larger **synchronous** stats-computation
+function that also calls `getStudents()`, `getSales()`, `getSubscriptions()`, etc. — all
+synchronous, local-store reads, computed together in one pass. Swapping just the calendar read to
+an async Server Action isn't a data-source swap, it's a sync→async restructure of that whole
+function (dashboard's touches attendance-rate/expected-today stats; analytics' touches
+teacher-payroll/bonus stats) — real, non-trivial code that I can't visually or functionally verify
+in this environment (no Supabase credentials here — see the SMS log-retention phase for the same
+limitation). Rather than restructure a payroll-adjacent computation blind and unverified, stopped
+here rather than push through it.
+
+**Not done**: the Server Action itself was not committed (kept out of the tree rather than half-
+build it) — this note exists so the next attempt starts from "read-only is 90% blocked on a
+sync→async restructure of two stats functions," not from scratch. The `data`-JSONB read approach
+above is still the right one to use once that restructure is scoped and someone can verify the
+result against the running app.
+
 ### REST API foundation — Phase 0: `branches` logic-layer extraction pilot
 
 Status: completed
