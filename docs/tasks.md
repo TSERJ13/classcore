@@ -1268,3 +1268,13 @@ Notes:
 - `tsc --noEmit`: clean. Lint: no new warnings on either file.
 - No REST route, bearer-auth, or access/refresh-token work was built — that remains explicitly
   deferred per the agreed scope, to be picked back up only once native app work actually starts.
+- **Self-review correction**: the first version of this pilot still threw raw `Error`s instead of
+  returning `ActionResult<T>` — missing the point, since `api-contract.md` uses this exact entity
+  (`createBranch`/`listBranches`) as its own worked example of the convention. Fixed:
+  `src/lib/logic/branches.ts`'s three functions now return `ActionResult<void>` via `ok()`/`fail()`
+  for validation/query failures; `requireStudioManager()`'s auth check still throws (shared infra,
+  out of scope here). Existing callers (`StudioContext.tsx`) were already fire-and-forget
+  (`.catch(() => {})`) so this needed no caller changes. Also factored the tombstone/cloud-delete
+  block this pass's other fix (`deleteAllGroupOccurrences`) had just duplicated a 5th time in
+  `event-store.ts` into one `tombstoneAndDeleteFromCloud(ids)` helper, traced against all 4 prior
+  call sites to confirm it's behavior-preserving.
