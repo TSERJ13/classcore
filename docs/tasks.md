@@ -1416,3 +1416,64 @@ Notes:
 - No live Supabase call was made or possible to verify this against in this environment (no DB
   credentials here) — every claim about the real schema/write path was verified by reading the
   actual server code that performs those writes, not by testing against a live database.
+
+### Test infrastructure + repo-wide no-unused-vars cleanup
+
+Status: completed
+
+Requested directly ("do 1 and 2 as well" — add tests, clean up the lint debt). Scope corrected
+mid-task: the initial estimate ("563 errors, 33 files") was wrong — a `head_limit`-truncated grep —
+the real number was ~572 `no-unused-vars` errors across 90+ files, told to the user before
+proceeding rather than silently doing a fraction of what was agreed.
+
+**Built**:
+- `vitest.config.ts` + `package.json`'s `test` script — this project had zero test tooling.
+  Pinned to Vitest v2 (v5 wanted `@types/node` ^22, this project has ^20 — v2 avoids bumping an
+  unrelated dependency for no reason).
+- `src/lib/action-result.test.ts`, `src/lib/logic/branches.test.ts` — unit tests for the two
+  purest pieces of this session's own earlier work (the `ok`/`fail`/`clampPagination` helpers, and
+  the branches logic module against a small fake chainable Supabase client, since there's no live
+  DB here to test against for real).
+- Eliminated every `no-unused-vars` error repo-wide. Split the mechanical bulk across 4 parallel
+  Agent batches (unused imports/destructured vars/dead functions/`catch(e)`→`catch{}`), each
+  required to verify its own `tsc --noEmit` + a filtered lint re-run before reporting back — this
+  was genuinely parallelizable (independent file sets, mechanical, easily verified per-batch) so
+  four batches ran concurrently rather than one at a time.
+
+**Self-review found and fixed after the batches finished** (own mistake + a final full-diff pass):
+- I gave the batches an incorrect blanket instruction — "removing a trailing unused parameter is
+  always safe since JS/TS lets callers pass more args than declared." True for plain JS, false for
+  this typed codebase: `tsc` errors the moment a call site still passes the old arg count. Two
+  batches independently caught this via their own mandatory `tsc` step and self-corrected (reverted
+  the signature, used an `eslint-disable-next-line` instead). Two others still left 2 call sites
+  broken (passing an extra arg to a function whose signature had lost that param) — found via a
+  cross-batch `tsc --noEmit` and fixed directly (dropped the now-ignored argument at the call site
+  in both cases, since neither function actually used that parameter internally either).
+- ~26 more `no-unused-vars` instances turned up in files outside the original 90-file list — the
+  same `head_limit` truncation that caused the original miscount also missed files whose *first*
+  lint error was something other than `no-unused-vars`. Fixed these myself: mostly `catch(e)` →
+  `catch{}` and dead locals, plus one genuinely security-relevant case in
+  `src/app/api/auth/staff-login/route.ts` (`const { password, data, ...rest } = row` — a
+  deliberate exclusion idiom to strip password fields before returning staff data; silenced with
+  `eslint-disable-next-line` rather than "fixed" by removing the destructuring, which would have
+  put the password back into `rest`).
+- A final full-diff code-review (separate from each batch's own self-check) found 3 real leftover
+  cases where a batch removed the *consumer* of a value but left the now-pointless computation
+  running: `attendance/page.tsx` fetched every shop product on every drawer-open with the result
+  now written to a setter nothing reads (its only consumer, quick-sell, was the dead code removed);
+  `analytics/page.tsx` had a bare `getExpenses(...)` call left directly in the render body,
+  re-reading localStorage every render for a discarded value; `master-sync.ts`'s
+  `pushCollectionToCloud` kept a `createClient()` call under the assumption it had a needed side
+  effect, but that function never uses any Supabase client — it calls `fetch()` directly. All three
+  deleted (not just the flagged unused variable — the whole now-pointless computation).
+- Found and fixed one real, unrelated bug while going through calendar/page.tsx by hand:
+  `EventChip` received an `onTouchStart` handler from both its callers but never wired it to the
+  rendered `<button>` — mobile touch-drag was silently non-functional. Added the one missing prop,
+  mirroring the sibling `onMouseDown` that was already wired correctly.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing. Full `next lint`: 0 `no-unused-vars`
+  errors remaining anywhere in the repo.
+- Deliberately NOT touched: `no-explicit-any` (~690 instances), `react-hooks/exhaustive-deps`
+  (~38), `no-img-element` (~48) — each needs a real per-site type or behavior decision, not a
+  mechanical fix, and was explicitly out of scope for this pass.
