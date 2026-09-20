@@ -411,11 +411,30 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             return !isEmpty(JSON.parse(raw));
                         } catch { return false; }
                     };
+                    // This Core fetch (`fetchFullStudioState(..., 'core')`) deliberately
+                    // never requests these collections — /api/sync/state's `isHeavy`
+                    // gating always resolves them to `Promise.resolve({ data: [] })`
+                    // for a 'core' chunk. They're real data, but they arrive moments
+                    // later via the separate Heavy background sync below (which has
+                    // its own per-collection query-failure guard, not this one) — so
+                    // an "empty" mapping value here is guaranteed and expected, not a
+                    // signal of anything wrong. Silencing just the warning for these
+                    // specific keys (guardedWrite's actual skip-the-write behavior is
+                    // unchanged) so it stops reading as a cloud-data-loss bug that
+                    // fires on literally every hydration.
+                    // Keep this in sync with /api/sync/state's `isHeavy`-gated indices
+                    // (students, subscriptions, attendance, sales, expenses, trash,
+                    // calendar_events, products) — every one of them is a guaranteed
+                    // `[]` in a 'core' chunk. `cc_attendance_data` isn't in `mapping`
+                    // (attendance has its own write path), so it's not listed here.
+                    const HEAVY_ONLY_CORE_KEYS = new Set(['cc_student_data', 'cc_student_subscriptions', 'cc_calendar_events', 'cc_expenses', 'cc_shop_products', 'cc_shop_sales', 'cc_global_trash']);
                     const guardedWrite = async (key: string, data: any) => {
                         if (data === null || data === undefined) return;
                         const scoped = getScopedKey(key, activeSlug || 'default');
                         if (isEmpty(data) && localHasData(scoped)) {
-                            console.warn(`🛡️ [Hydration] Empty cloud result for ${key} — preserving local data.`);
+                            if (!HEAVY_ONLY_CORE_KEYS.has(key)) {
+                                console.warn(`🛡️ [Hydration] Empty cloud result for ${key} — preserving local data.`);
+                            }
                             return;
                         }
                         // 🛡️ Race-condition guard: don't overwrite local array with shorter cloud
@@ -516,18 +535,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         await safeSetItem(dayKey, JSON.stringify(merged), activeSlug);
                     }
 
-                    window.dispatchEvent(new Event('cc_data_hydrated'));
-                    window.dispatchEvent(new Event('cc_settings_update'));
-                    window.dispatchEvent(new Event('cc_sa_meta_update'));
-                    window.dispatchEvent(new Event('cc_calendar_events_update'));
-                    window.dispatchEvent(new Event('cc_student_update'));
-                    window.dispatchEvent(new Event('cc_teacher_update'));
-                    window.dispatchEvent(new Event('cc_groups_update'));
-                    window.dispatchEvent(new Event('cc_halls_update'));
-                    
-                    ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
+                    // 🛡️ Was two separate dispatch passes with 5 events listed in
+                    // both — every listener bound to cc_student_update/
+                    // cc_teacher_update/cc_groups_update/cc_halls_update/
+                    // cc_calendar_events_update fired twice per hydration cycle
+                    // (e.g. dashboard/page.tsx's getDashboardStatsAction() effect,
+                    // showing up as duplicate POST /dashboard calls). One deduped
+                    // pass — each event fires exactly once per cycle.
+                    ['cc_data_hydrated', 'cc_settings_update', 'cc_sa_meta_update', 'cc_calendar_events_update',
+                     'cc_student_update', 'cc_teacher_update', 'cc_groups_update', 'cc_halls_update',
                      'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
-                     'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
+                     'cc_subscription_plans_update', 'cc_attendance_update']
                         .forEach(e => window.dispatchEvent(new Event(e)));
 
                     // 📡 GO LIVE: subscribe to realtime changes for this org so a

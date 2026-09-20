@@ -508,6 +508,7 @@ export default function DashboardPage() {
     // docs/architecture-migration.md §8 for why this pass stops there).
     useEffect(() => {
         let cancelled = false;
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
         const loadServerStats = () => {
             getDashboardStatsAction().then(stats => {
                 if (cancelled) return;
@@ -520,10 +521,23 @@ export default function DashboardPage() {
                 }));
             }).catch(err => console.error('❌ [Dashboard] get_dashboard_stats failed:', err));
         };
+        // 🛡️ A single hydration cycle (StudioContext) dispatches several of
+        // the events below together in one burst — without this, each one
+        // fired its own separate getDashboardStatsAction() call, showing up
+        // as several duplicate POST /dashboard requests per page load.
+        // Debounce so a burst collapses into one real call.
+        const loadServerStatsDebounced = () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(loadServerStats, 300);
+        };
         loadServerStats();
         const events = ['cc_subscription_update', 'cc_attendance_update', 'cc_sale_update', 'cc_student_update'];
-        events.forEach(e => window.addEventListener(e, loadServerStats));
-        return () => { cancelled = true; events.forEach(e => window.removeEventListener(e, loadServerStats)); };
+        events.forEach(e => window.addEventListener(e, loadServerStatsDebounced));
+        return () => {
+            cancelled = true;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            events.forEach(e => window.removeEventListener(e, loadServerStatsDebounced));
+        };
     }, []);
 
     // No longer using isDemo hardcoded overrides

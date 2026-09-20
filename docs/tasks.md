@@ -1477,3 +1477,70 @@ Notes:
 - Deliberately NOT touched: `no-explicit-any` (~690 instances), `react-hooks/exhaustive-deps`
   (~38), `no-img-element` (~48) — each needs a real per-site type or behavior decision, not a
   mechanical fix, and was explicitly out of scope for this pass.
+
+### Production diagnostic follow-up (relayed by a colleague, "Niko") — hydration noise + duplicate POSTs
+
+Status: completed (the 2 items verified as real); the rest still open, needs live-app access
+
+A colleague's network/console audit of the live app (dashboard/students/groups pages) reported:
+duplicate POST requests per page (dashboard 4x, students 2x, groups 2x), ~10 sidebar links
+prefetched on every load, base64 avatars inline in payloads, MasterSync's background hydration
+firing on every nav + ~5min, and — flagged as the most serious finding — 4 console warnings
+("Empty cloud result for cc_student_data/cc_student_subscriptions/cc_calendar_events/cc_expenses,
+preserving local data") appearing on literally every hydration cycle, read as evidence Supabase
+never returns real data for these 4 collections and the app silently runs on stale local copies.
+
+**Investigated each claim against the actual code before acting on any of it** (no live DB/Vercel
+logs access in this environment, so verification was via reading the real hydration/API code, not
+via reproducing the network trace):
+
+- **"Empty cloud result" — a false alarm, not a data-loss bug.** `StudioContext.tsx`'s hydrate()
+  runs two phases: Core (immediate) and Heavy (a `setTimeout` right after, separate API call).
+  `/api/sync/state/route.ts`'s `isHeavy` gating means students/subscriptions/calendar_events/
+  expenses/sales/products/trash are *always* `Promise.resolve({ data: [] })` in a `'core'`-chunk
+  response — by design, not by failure. The warning (`guardedWrite`, only ever called from the Core
+  block) is therefore guaranteed to fire for exactly these keys on every single cycle, regardless
+  of whether Supabase is healthy. Traced each of the 4 (and 3 more the colleague didn't list —
+  `cc_shop_products`/`cc_shop_sales`/`cc_global_trash`, also `isHeavy`-gated) through to the
+  *separate* Heavy-phase write path and confirmed each one has its own real write with its own
+  `queryFailed` guard (e.g. `calendar_events` at what's now line ~726) — real data does arrive,
+  just a beat later than the misleading warning suggests.
+- **Duplicate POST /dashboard and /groups — real, and root-caused.** The hydrate() function used to
+  dispatch `cc_groups_update`/`cc_halls_update`/`cc_student_update`/`cc_teacher_update`/
+  `cc_calendar_events_update` individually *and again* inside a second `forEach` dispatch pass —
+  every listener bound to any of those 5 events fired twice per hydration cycle. `dashboard/page.tsx`
+  listens to 4 of the events this affects (`cc_subscription_update`/`cc_attendance_update`/
+  `cc_sale_update`/`cc_student_update`) to re-run `getDashboardStatsAction()` (a Server Action —
+  shows up as `POST /dashboard`); `groups/page.tsx` listens to `cc_groups_update` for
+  `getGroupsAction()`. This fully explains the observed duplicate/quadruple POSTs.
+- **/students' "one 200, one 503"** is most likely React Query's default automatic retry-on-error
+  (`useStudentsListQuery`, `@tanstack/react-query`) reacting to an occasional real 503 — not a
+  separate bug of its own. Not fixed directly; should become less frequent as a side effect of the
+  fix below (fewer simultaneous requests during a hydration burst → less contention).
+- **Sidebar prefetching ~10 links unclicked** — confirmed as plain Next.js `<Link>` default
+  behavior (no `prefetch={false}` set anywhere in `Sidebar.tsx`), not a custom bug. Real, and worth
+  tuning, but a deliberate scope decision (which links matter enough to prefetch) rather than a
+  one-line fix — left open.
+
+**Built**:
+- `StudioContext.tsx`: merged the two duplicate-event-dispatch passes into one deduped list (each
+  event now fires exactly once per hydration cycle).
+- `StudioContext.tsx`: added `HEAVY_ONLY_CORE_KEYS` — `guardedWrite` still skips the write exactly
+  as before (unchanged behavior), it just no longer logs the misleading warning for the 7 keys that
+  are guaranteed-empty-by-design in a Core-only chunk. Self-review caught that the first pass at
+  this list only had 4 of the 7 actual `isHeavy` keys (missed `cc_shop_products`/`cc_shop_sales`/
+  `cc_global_trash`) — completed against `/api/sync/state`'s actual gating before committing.
+- `dashboard/page.tsx`: debounced the `getDashboardStatsAction()` reload (300ms) so several of its
+  4 listened-for events firing together in one hydration burst collapse into one real network call
+  instead of one each.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- **Not done (still open, needs the colleague's or someone's live-app/Vercel access to verify or
+  finish)**: whether the 503s stop once the request-flood is reduced (can't reproduce/measure
+  without a live environment); sidebar prefetch tuning (a product decision on which links are
+  worth it, not just a technical fix); moving avatars from base64-in-payload to Storage URLs
+  (larger, separate piece of work); `groups/page.tsx`'s own duplicate-listener pattern beyond what
+  the StudioContext dedup already fixes wasn't otherwise touched. The broader "two architectures
+  coexisting" observation is accurate as a description of the codebase's history (documented
+  repeatedly elsewhere in this file) but isn't itself an actionable line item.
