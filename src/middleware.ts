@@ -33,6 +33,9 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/sa-login', request.url));
     }
 
+    const host = request.headers.get('host') || request.nextUrl.host || '';
+    const isAppDomain = host.includes('classcore.app');
+
     // 🚀 Handle legacy /[slug]/[dashboardPage] URLs: Extract slug to cookie & redirect to clean un-prefixed dashboard URL
     if (isPrefixedDashboard) {
         const slug = segments[0];
@@ -41,12 +44,19 @@ export async function middleware(request: NextRequest) {
         url.pathname = pagePath;
         const res = NextResponse.redirect(url);
         res.cookies.set('cc_active_slug', slug, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
+        if (isAppDomain && !request.cookies.get('cc_lang')) {
+            res.cookies.set('cc_lang', 'en', { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
+        }
         return res;
     }
 
     let response = NextResponse.next({
         request: { headers: request.headers },
     });
+
+    if (isAppDomain && !request.cookies.get('cc_lang')) {
+        response.cookies.set('cc_lang', 'en', { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
+    }
 
     // Public static routes and the staff-invite claim page pass through
     // without auth. Student Portal URLs (/[slug]/[studentId]) used to be

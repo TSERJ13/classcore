@@ -1,7 +1,6 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import React, { type ReactNode } from 'react';
-import { cookies } from 'next/headers';
 
 export const metadata: Metadata = {
     title: 'ClassCore | სტუდიის მართვის სისტემა',
@@ -30,12 +29,20 @@ export const viewport: Viewport = {
 
 
 
+import { cookies, headers } from 'next/headers';
 import { RootLayoutClient } from '@/components/layout/RootLayoutClient';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
     const cookieStore = cookies();
+    const headersList = headers();
+    const host = headersList.get('host') || '';
+    const isAppDomain = host.includes('classcore.app');
+
     const activeSlug = cookieStore.get('cc_active_slug')?.value || null;
-    const activeLang = cookieStore.get('cc_lang')?.value as any || null;
+    let activeLang = cookieStore.get('cc_lang')?.value as any || null;
+    if (!activeLang && isAppDomain) {
+        activeLang = 'en';
+    }
     const studioNameRaw = cookieStore.get('cc_studio_name')?.value || '';
     const studioName = decodeURIComponent(studioNameRaw);
 
@@ -44,6 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             activeLang={activeLang} 
             activeSlug={activeSlug} 
             studioName={studioName}
+            isAppDomain={isAppDomain}
         >
             {children}
         </RootLayoutClient>

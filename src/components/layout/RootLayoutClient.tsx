@@ -8,7 +8,7 @@ import { ConfirmProvider } from '@/contexts/ConfirmContext';
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary';
 import { CacheBuster } from '@/components/CacheBuster';
 
-export function RootLayoutClient({ children, activeLang, activeSlug, studioName }: any) {
+export function RootLayoutClient({ children, activeLang, activeSlug, studioName, isAppDomain }: any) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => { 
         setMounted(true); 
@@ -23,8 +23,10 @@ export function RootLayoutClient({ children, activeLang, activeSlug, studioName 
         }
     }, []);
 
+    const effectiveLang = activeLang || (isAppDomain ? 'en' : 'ka');
+
     return (
-        <html lang={activeLang || 'ka'} suppressHydrationWarning>
+        <html lang={effectiveLang} suppressHydrationWarning>
             <head>
                 <link rel="apple-touch-icon" href="/logo.svg" />
             </head>
@@ -33,7 +35,7 @@ export function RootLayoutClient({ children, activeLang, activeSlug, studioName 
                     <>
                         <CacheBuster />
                         <UserProvider>
-                            <LanguageProvider defaultLang={activeLang}>
+                            <LanguageProvider defaultLang={activeLang} isAppDomain={isAppDomain}>
                                 <StudioProvider defaultSlug={activeSlug} defaultStudioName={studioName}>
                                     <ConfirmProvider>
                                         <GlobalErrorBoundary>

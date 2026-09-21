@@ -13,28 +13,38 @@ interface LangContextValue {
 
 const LangContext = createContext<LangContextValue | null>(null);
 
-export function LanguageProvider({ children, defaultLang }: { children: React.ReactNode; defaultLang?: Lang | null }) {
+export function LanguageProvider({ children, defaultLang, isAppDomain }: { children: React.ReactNode; defaultLang?: Lang | null; isAppDomain?: boolean }) {
+    const isApp = Boolean(isAppDomain || (typeof window !== 'undefined' && window.location.hostname.includes('classcore.app')));
+    const defaultFallback: Lang = isApp ? 'en' : 'ka';
+
     // Initial persistent state from SSR (cookie) or default
-    const [persistentLang, setPersistentLangState] = useState<Lang>(defaultLang || 'ka');
+    const [persistentLang, setPersistentLangState] = useState<Lang>(defaultLang || defaultFallback);
     // Session state (resets on tab close/new session)
     const [sessionLang, setSessionLangState] = useState<Lang | null>(null);
     const [, setIsLoaded] = useState(false);
 
     useEffect(() => {
         setIsLoaded(true);
+        const isCurrentApp = Boolean(isAppDomain || (typeof window !== 'undefined' && window.location.hostname.includes('classcore.app')));
+        const fallback: Lang = isCurrentApp ? 'en' : 'ka';
         
         const syncFromStorage = () => {
             // Priority 1: Session override
             const storedSession = sessionStorage.getItem('cc_lang_session') as Lang;
             if (storedSession && ['ka', 'en', 'ru'].includes(storedSession)) {
                 setSessionLangState(storedSession);
+                return;
             }
             
             // Priority 2: Persistent preference
             const storedPersistent = localStorage.getItem('cc_lang') as Lang;
             if (storedPersistent && ['ka', 'en', 'ru'].includes(storedPersistent)) {
                 setPersistentLangState(storedPersistent);
+                return;
             }
+
+            // Priority 3: Domain default (en on classcore.app, ka on others)
+            setPersistentLangState(fallback);
         };
 
         syncFromStorage();
@@ -44,7 +54,7 @@ export function LanguageProvider({ children, defaultLang }: { children: React.Re
             window.removeEventListener('storage', syncFromStorage);
             window.removeEventListener('cc_lang_change', syncFromStorage);
         };
-    }, []);
+    }, [isAppDomain]);
 
     const setLang = useCallback((l: Lang, mode: 'persistent' | 'session' = 'persistent') => {
         if (mode === 'session') {

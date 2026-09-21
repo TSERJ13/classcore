@@ -81,10 +81,13 @@ export default function LoginPage() {
                 // 1. Check staff login (works with email, full_name, or username)
                 setLoginStatus(l('სტუდიების შემოწმება...', 'Проверка студий...', 'Checking studios...'));
                 const staffResult = await validateStaffLogin(email, password);
-                
                 if (staffResult && !('error' in staffResult)) {
                     if (staffResult.type === 'single') {
-                        const staffLang = (staffResult.staff as any)?.preferred_language || (staffResult.staff as any)?.data?.preferred_language;
+                        let staffLang = (staffResult.staff as any)?.preferred_language || (staffResult.staff as any)?.data?.preferred_language;
+                        const isApp = typeof window !== 'undefined' && window.location.hostname.includes('classcore.app');
+                        if (isApp && (!staffLang || staffLang === 'ka')) {
+                            staffLang = 'en';
+                        }
                         if (staffLang && ['ka', 'en', 'ru'].includes(staffLang)) {
                             localStorage.setItem('cc_lang', staffLang);
                             document.cookie = `cc_lang=${staffLang}; path=/; max-age=31536000; SameSite=Lax`;
@@ -208,7 +211,11 @@ export default function LoginPage() {
                 setIsSubmitting(false);
                 return;
             }
-            const staffLang = (studio.staff as any)?.preferred_language || (studio.staff as any)?.data?.preferred_language;
+            let staffLang = (studio.staff as any)?.preferred_language || (studio.staff as any)?.data?.preferred_language;
+            const isApp = typeof window !== 'undefined' && window.location.hostname.includes('classcore.app');
+            if (isApp && (!staffLang || staffLang === 'ka')) {
+                staffLang = 'en';
+            }
             if (staffLang && ['ka', 'en', 'ru'].includes(staffLang)) {
                 localStorage.setItem('cc_lang', staffLang);
                 document.cookie = `cc_lang=${staffLang}; path=/; max-age=31536000; SameSite=Lax`;
