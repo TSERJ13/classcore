@@ -251,9 +251,19 @@ export default function DashboardPage() {
                 s.enrolled_group_ids?.some(gid => visibleGroupIds.includes(gid))
             );
         }
-        const allSubsList = (isTeacher && visibleGroupIds)
-            ? allSubsListRaw.filter(sub => visibleGroupIds.includes(sub.group_id || ''))
-            : allSubsListRaw;
+        // `studentsList` is now branch-scoped (student-store.ts's getStudents()
+        // filters by branch_ids) and, for teachers, further scoped to their
+        // visible groups. Subscriptions and attendance don't carry their own
+        // branch_id yet (a separate, larger Phase 2 item — see docs/tasks.md),
+        // so a subscription/check-in is attributed to a branch through the
+        // student(s) it belongs to, which uses this same set. Shop sales stay
+        // org-wide for now — many are walk-in purchases with no student_id to
+        // key off of.
+        const branchStudentIds = new Set(studentsList.map(s => s.id));
+        const allSubsList = allSubsListRaw.filter(sub => {
+            if (!sub.student_id) return false;
+            return sub.student_id.split(',').map(x => x.trim()).some(id => branchStudentIds.has(id));
+        });
         const students = studentsList.length;
         const now = new Date();
         const currentMonth = now.toISOString().split('-').slice(0, 2).join('-');
@@ -294,7 +304,11 @@ export default function DashboardPage() {
             return sub.status === 'active' && !hasExpiredByDate && !hasUsedAllSessions;
         }).length;
 
-        const checkins = getTodayCheckins();
+        // Check-ins are org-wide records keyed only by studentId (no branch
+        // field of their own), so — same as subscriptions above — scope
+        // "today's attendance" to check-ins belonging to a student in the
+        // currently visible (branch + role) student set.
+        const checkins = getTodayCheckins().filter(c => branchStudentIds.has(c.studentId));
         const attendance = checkins.length;
 
         // ── Plan Prices & Revenue Helpers ────────────────────────────────────
@@ -330,11 +344,10 @@ export default function DashboardPage() {
                 if (Array.isArray(recs)) recs.forEach((r: any) => { if (r?.studentId) attendedStudentIds.add(r.studentId); });
             } catch { /* ignore */ }
         }
-        // Restrict to visible students for teachers
-        const visibleStudentIdSet = new Set(studentsList.map(s => s.id));
-        const attendedVisible = isTeacher
-            ? Array.from(attendedStudentIds).filter(id => visibleStudentIdSet.has(id)).length
-            : attendedStudentIds.size;
+        // Restrict to the currently visible (branch + role) student set —
+        // this used to only narrow for teachers, leaving the monthly
+        // attendance rate counting every branch's check-ins for owners/admins.
+        const attendedVisible = Array.from(attendedStudentIds).filter(id => branchStudentIds.has(id)).length;
         const attendanceRateMonth = students > 0 ? Math.round((attendedVisible / students) * 100) : 0;
 
         // ── Today: expected (enrolled in a group scheduled today) vs attended ──
@@ -482,6 +495,12 @@ export default function DashboardPage() {
 
     useEffect(() => {
         refreshFullDashboard();
+        // 🛠️ FIX: switching the active branch (BranchSwitcher -> setActiveBranch,
+        // which dispatches 'cc_branch_change') never triggered a recompute here —
+        // the numbers only happened to change on whatever unrelated event fired
+        // next (a hydration cycle, an edit elsewhere). Branch-scoped stats need
+        // to redraw the moment the branch itself changes.
+        window.addEventListener('cc_branch_change', refreshFullDashboard);
         window.addEventListener('cc_subscription_update', refreshFullDashboard);
         window.addEventListener('cc_attendance_update', refreshFullDashboard);
         window.addEventListener('cc_sale_update', refreshFullDashboard);
@@ -490,6 +509,7 @@ export default function DashboardPage() {
         window.addEventListener('cc_sync_done', refreshFullDashboard);
 
         return () => {
+            window.removeEventListener('cc_branch_change', refreshFullDashboard);
             window.removeEventListener('cc_subscription_update', refreshFullDashboard);
             window.removeEventListener('cc_attendance_update', refreshFullDashboard);
             window.removeEventListener('cc_sale_update', refreshFullDashboard);
@@ -510,7 +530,7 @@ export default function DashboardPage() {
         let cancelled = false;
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
         const loadServerStats = () => {
-            getDashboardStatsAction().then(stats => {
+            getDashboardStatsAction(settings.activeBranchId || undefined).then(stats => {
                 if (cancelled) return;
                 setLiveStats(prev => ({
                     ...prev,
@@ -531,14 +551,22 @@ export default function DashboardPage() {
             debounceTimer = setTimeout(loadServerStats, 300);
         };
         loadServerStats();
-        const events = ['cc_subscription_update', 'cc_attendance_update', 'cc_sale_update', 'cc_student_update'];
+        // 🛠️ FIX: this used to run once on mount ([] deps) with no branch
+        // listener at all, so the RPC's own org-wide default (p_branch_id
+        // NULL) always won here and silently overwrote the correctly
+        // branch-scoped client-side numbers set by refreshFullDashboard
+        // above — the actual reason the dashboard looked identical across
+        // branches even after that computation was fixed. Re-subscribing on
+        // every activeBranchId change (via the dependency array below) and
+        // reacting to 'cc_branch_change' makes this overlay branch-aware too.
+        const events = ['cc_branch_change', 'cc_subscription_update', 'cc_attendance_update', 'cc_sale_update', 'cc_student_update'];
         events.forEach(e => window.addEventListener(e, loadServerStatsDebounced));
         return () => {
             cancelled = true;
             if (debounceTimer) clearTimeout(debounceTimer);
             events.forEach(e => window.removeEventListener(e, loadServerStatsDebounced));
         };
-    }, []);
+    }, [settings.activeBranchId]);
 
     // No longer using isDemo hardcoded overrides
     const isDemo = false;

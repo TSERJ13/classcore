@@ -1809,3 +1809,65 @@ Notes:
   same clean `tsc`/`vitest` result.
 - Any other page migrated to TanStack Query in the future gets this for free — no per-page provider
   needed, just import the hooks.
+
+### Fix: Dashboard ignored branch isolation entirely (Phase 1 follow-up)
+
+The owner reported that switching the active branch (BranchSwitcher) changed nothing on
+`/dashboard` — same student count, revenue, subscriptions, attendance, schedule — while the new
+`/students` page correctly showed an empty roster for a freshly created branch with no students
+assigned yet. The second half was *expected*: real isolation means a branch with zero members
+shows zero, which the `/students` Server Action path (`searchStudents`, branch-isolation Phase 1)
+already gets right. The first half was a real, separate bug — the Dashboard never adopted Phase 1
+at all; it still runs on `getStudents()`/`getGroups()`/`getUniqueSubscriptions()`/`getTodayCheckins()`
+(legacy client-side localStorage stores), plus a server-authoritative overlay for 4 numbers via
+`get_dashboard_stats()`, none of which had ever been touched to filter by branch.
+
+Root causes found and fixed:
+- `student-store.ts`'s `getStudents()` *did* have branch-filtering logic already, but (a) it only
+  ever checked the old legacy singular `data.branch_id` field, never the new `branch_ids` array
+  Phase 1 added, and (b) worse, it had a "resilience" fallback that showed **every student in the
+  org** whenever the branch filter matched zero rows — which is true for every branch other than
+  `main`, since nothing had ever populated `branch_ids` beyond the migration's own backfill. This
+  bypass is the direct reason the dashboard's student count never changed. Fixed to check
+  `branch_ids` first (falling back to the legacy field only when `branch_ids` is empty), and
+  removed the bypass entirely — a branch with zero students must render as zero.
+- `group-store.ts`'s `getGroups()` tracked `branch_id` on every `Group` object (Phase 1) but never
+  actually filtered by it — explicitly documented as a known gap in its own header comment. This
+  fed the dashboard's "Today's Groups"/schedule cards, which is why they showed identical classes
+  regardless of branch. Now filters the same way, without the show-everyone-on-empty anti-pattern.
+- `dashboard/page.tsx`'s `refreshFullDashboard()`: subscriptions and check-ins don't have their own
+  `branch_id` yet (a separate, larger item — attributing a transactional record to a branch cleanly
+  needs its own migration, deliberately deferred, same as the original Phase 2/3 roadmap). As an
+  interim, correct-today fix, a subscription/check-in is now attributed to a branch through the
+  student(s) it belongs to (`branchStudentIds`, derived from the now-fixed `getStudents()`). This
+  scopes active-subscription count, revenue-from-subscriptions, and today's/monthly attendance.
+  Shop sales are left org-wide for now and called out as a known gap in a comment — many are
+  walk-in purchases with no `student_id` to key off of, so there's no correct way to attribute them
+  without their own branch tagging.
+- `get_dashboard_stats()` (the Postgres RPC backing the "4 server-authoritative numbers" overlay in
+  the same page) had the identical gap independently — it computed org-wide with no branch
+  parameter at all, then **overwrote** the (now-fixed) client-side numbers with the wrong org-wide
+  ones on every load. New migration `20260921_dashboard_stats_branch_scope.sql` adds an optional
+  `p_branch_id text DEFAULT NULL` parameter (default reproduces the exact old org-wide behavior,
+  so it's non-breaking for any other caller), filtering subscriptions/attendance through
+  `students.branch_ids` the same way. `getDashboardStatsAction()` (`src/app/actions/dashboard.ts`)
+  now resolves the caller's own `allowed_branch_ids` (mirroring `students.ts`'s
+  `resolveOwnBranchAccess()`, since this file only supports real Supabase Auth sessions) and
+  rejects a `branchId` outside it, then passes it through to the RPC.
+- Neither of the two `useEffect`s in `dashboard/page.tsx` that recompute these numbers ever
+  listened for `cc_branch_change` (dispatched by `StudioContext.setActiveBranch()`), so switching
+  branches didn't even trigger a recompute until some unrelated event happened to fire next. Both
+  now listen for it; the server-overlay effect also re-subscribes whenever `activeBranchId` changes
+  so its closure always calls the RPC with the currently active branch.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing. `next lint` on the touched files: no new
+  errors introduced (pre-existing `no-explicit-any` errors throughout `student-store.ts`,
+  `group-store.ts`, and `dashboard/page.tsx` predate this change and are untouched).
+- Known, explicitly-documented remaining gap: shop sales and expenses still aren't branch-scoped
+  anywhere (client or server) — they have no student/branch attribution mechanism today. Giving
+  them their own `branch_id`, stamped at creation, is the original Phase 2 roadmap item and is
+  still open.
+- Halls (`hall-store.ts`'s `getHalls()`) also don't branch-filter client-side yet, same gap pattern
+  as groups had — not fixed here since halls aren't part of the dashboard's stat cards and weren't
+  part of what was reported; worth the same treatment in a follow-up if it turns out to matter.
