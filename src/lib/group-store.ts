@@ -28,9 +28,8 @@ export interface Group {
     color?: string;
     org_id?: string;
     // Which branch this group belongs to — see src/app/actions/groups.ts's
-    // branch-isolation header. Local-cache reads (group-store.ts's own
-    // getGroups()) don't filter by this; only the Server-Action-backed
-    // /groups page does.
+    // branch-isolation header. getGroups() below filters by this too now
+    // (fixes the dashboard's schedule cards showing every branch's groups).
     branch_id?: string;
 }
 
@@ -105,7 +104,18 @@ export function getGroups(): Group[] {
             return isMainBranch ? INITIAL_GROUPS : [];
         }
         const list = Array.isArray(parsed) ? (parsed as Group[]) : INITIAL_GROUPS;
-        return list.filter(g => !deletedIds.has(g.id));
+        const nonDeleted = list.filter(g => !deletedIds.has(g.id));
+
+        // 🛠️ FIX: `branch_id` (real column, 20260921_branch_isolation_phase1.sql)
+        // was tracked on every Group but never actually filtered here — this
+        // store feeds the dashboard's "Today's Groups"/schedule cards, which
+        // is why they showed the exact same groups no matter which branch
+        // was active. Legacy groups with no branch_id yet default to 'main',
+        // matching how student-store.ts's getStudents() treats untagged rows
+        // (and, unlike that store's old behavior, without falling back to
+        // "show everyone" when a branch genuinely has zero groups).
+        if (activeBranch === 'all') return nonDeleted;
+        return nonDeleted.filter(g => (g.branch_id || 'main') === activeBranch);
     } catch {
         return INITIAL_GROUPS;
     }

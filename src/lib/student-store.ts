@@ -223,23 +223,31 @@ export function getStudents(): Student[] {
 
         // 🚨 Filter by Active Branch
         // If activeBranch is 'all' (Manager view), show everyone.
-        // Otherwise, show students belonging to this branch OR students with NO branch (Main fallback)
-        // OR students marked as 'all' (Shared students)
+        // `branch_ids` (real array column, backfilled by the branch-isolation
+        // migration) is the authoritative membership list; a student is
+        // visible in a branch whenever that branch is in their list, or the
+        // list contains the legacy 'all' sentinel. Students hydrated before
+        // that column existed (or with a still-empty array) fall back to the
+        // legacy singular `branch_id`, matching how this store already
+        // wrote/read that field before Phase 1.
         if (activeBranch === 'all') return nonDeleted;
-        
-        const filtered = nonDeleted.filter(s => {
+
+        return nonDeleted.filter(s => {
+            if (Array.isArray(s.branch_ids) && s.branch_ids.length > 0) {
+                return s.branch_ids.includes(activeBranch) || s.branch_ids.includes('all');
+            }
             const bId = s.branch_id || 'main'; // Fallback for legacy data
             return bId === activeBranch || bId === 'all';
         });
-
-        // 🚨 RESILIENCE: If branch filtering results in zero students, but we have students available,
-        // show everyone as a safety measure.
-        if (filtered.length === 0 && nonDeleted.length > 0) {
-            console.warn('⚠️ [StudentStore] Branch filter returned 0. Bypassing filter to prevent empty state.');
-            return nonDeleted;
-        }
-
-        return filtered;
+        // 🛑 No longer bypasses the filter when it returns zero rows. That
+        // "resilience" used to silently show every student in the org on
+        // ANY branch with no members yet — which is exactly the bug behind
+        // "switching branches doesn't change anything": every newly created
+        // branch legitimately starts with zero students, and that must
+        // render as zero, not as the whole org's roster. The new /students
+        // Server Action path (searchStudents, students.ts) already gets
+        // this right; this client-side legacy store (still read by
+        // dashboard/page.tsx) now matches it.
     } catch {
         return INITIAL_STUDENTS;
     }
