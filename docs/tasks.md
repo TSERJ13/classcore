@@ -1871,3 +1871,40 @@ Notes:
 - Halls (`hall-store.ts`'s `getHalls()`) also don't branch-filter client-side yet, same gap pattern
   as groups had — not fixed here since halls aren't part of the dashboard's stat cards and weren't
   part of what was reported; worth the same treatment in a follow-up if it turns out to matter.
+
+### Fix: 'main' branch disappeared from the switcher and Settings once a real branch existed
+
+Immediate follow-up to the dashboard branch-scoping fix above — after creating a second branch to
+test isolation, the owner got stuck: the BranchSwitcher and Settings -> Branch Management both
+listed only the branches they'd explicitly created, with no entry for the branch all their
+existing (pre-isolation) data actually lives on, and no way to switch back to it.
+
+Root cause: `'main'` is the implicit default every legacy student/group/hall/staff row belongs to
+(`student-store.ts`, `group-store.ts`, `server-actions-auth.ts`'s `applyBranchFilter`, the Phase 1
+migration's own backfill) — but it has never been a real row in the `branches` table; it only ever
+existed as `settings-store.ts`'s local `DEFAULT_SETTINGS.branches` seed (`[{id:'main', name:
+'მთავარი ფილიალი', ...}]`), used purely as a placeholder before any real data loads.
+`StudioContext.tsx`'s hydration merge replaces `settings.branches` outright with whatever
+`state.branches` (the `branches` table) returns the moment that table has any rows at all — which
+it now does, once the owner used "Add Branch" — and since `main` was never actually inserted
+there, it vanished from both the switcher and the Settings list along with it. Before this
+session's branch isolation work this was harmless (nothing actually filtered by branch, so which
+one "looked" selected didn't matter); now that filtering is real, it silently locked the owner out
+of their own `branch_id='main'` data with no UI path back.
+
+**Fix**: new `ensureMainBranch()` helper in `StudioContext.tsx`, applied everywhere `settings.branches`
+gets assigned — the initial `useState` (cold load from `loadSettings()`, which has the exact same
+gap once anything's been persisted to localStorage post-hydration) and the hydration merge. Prepends
+a synthetic `{id: 'main', name: 'მთავარი ფილიალი', is_active: true}` entry whenever the resolved list
+doesn't already contain one, so it's always selectable, everywhere `settings.branches` is read
+(BranchSwitcher, Settings' Branch Management list, and anywhere else that iterates it).
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- Not something this session introduced — `main` never had a DB row before branch isolation either
+  — but it went from a harmless gap to an active lockout the moment branch filtering became real,
+  so it's fixed as part of the same follow-up rather than filed separately.
+- Renaming/deleting the synthetic `main` entry through the existing Settings UI isn't specifically
+  hardened here (Settings' Branch Management already only shows a delete button for `branch.id !==
+  'main'`, so deletion was already blocked) — renaming it goes through the same `updateBranchAction`
+  path as any other branch and was out of scope for this specific fix.
