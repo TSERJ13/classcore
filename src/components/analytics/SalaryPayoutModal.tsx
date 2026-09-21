@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Banknote, CheckCircle2, Clock, RotateCcw, AlertCircle } from 'lucide-react';
+import { X, Banknote, CheckCircle2, Clock, RotateCcw } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { getTeacherSalaryPayment, updateTeacherSalaryPayment } from '@/lib/salary-status-store';
 
@@ -55,7 +55,6 @@ export function SalaryPayoutModal({
     const currentRemaining = Math.max(0, total - currentPaid);
 
     const numAmount = Math.max(0, Number(amount) || 0);
-    const simulatedRemaining = Math.max(0, total - numAmount);
 
     const handleSave = () => {
         setIsSaving(true);

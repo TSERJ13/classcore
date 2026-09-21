@@ -8,12 +8,9 @@ import {
     Users,
     MousePointer2,
     Ticket,
-    ExternalLink,
-    Clock,
-    Filter
+    Clock
 } from 'lucide-react';
 import { getActionLogs, type ActionLog } from '@/lib/analytics';
-import { formatCurrency } from '@/lib/utils';
 
 export default function InsightsPage() {
     const { t } = useT();

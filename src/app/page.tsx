@@ -7,16 +7,12 @@ import {
     ArrowRight,
     Check,
     Users,
-    Calendar,
-    Zap,
     BarChart3,
     Shield,
     MessageSquare,
-    Laptop,
     Sparkles,
     Mail,
     Phone,
-    ArrowUpRight,
     TrendingUp,
     TrendingDown,
     ChevronLeft,
@@ -179,9 +175,9 @@ function ContactForm({ l }: { l: any }) {
 }
 
 export default function LandingPage() {
-    const { t, l } = useLanguage();
+    const { l } = useLanguage();
     const [scrolled, setScrolled] = useState(false);
-    const [mounted, setMounted] = useState(false);
+    const [, setMounted] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     useEffect(() => {

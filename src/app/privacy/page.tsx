@@ -3,7 +3,7 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AppLogo } from "@/components/ui/Logo";
 import Link from "next/link";
-import { ArrowLeft, Shield, Lock, Eye, FileText, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Shield, Lock, CheckCircle2 } from "lucide-react";
 
 export default function PrivacyPage() {
     const { l } = useLanguage();

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { Mail, Lock, ShieldCheck } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { useT } from '@/contexts/LanguageContext';

@@ -1,6 +1,5 @@
 
 import { createClient } from '@/lib/supabase/client';
-import { type StaffMember, type Branch, type StudioSettings } from '@/types';
 
 /**
  * MASTER SYNC BRIDGE v3.5 (EXTREME DIAGNOSTICS)
@@ -197,7 +196,6 @@ export async function pushFullStudioMetadata(slug: string, name: string, metadat
 }
 
 export async function pushCollectionToCloud(table: string, items: any[], orgId: string, slug?: string) {
-    const supabase = createClient();
     if (!orgId || !items || items.length === 0) return false;
 
     console.log(`📡 [MasterSync] Bulk Pushing ${items.length} records to ${table}...`);

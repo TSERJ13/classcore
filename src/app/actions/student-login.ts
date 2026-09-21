@@ -106,6 +106,7 @@ export async function revokeStudentLoginAction(rawInput: unknown): Promise<void>
 
     await admin.auth.admin.deleteUser(authUserId).catch(() => {});
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { authUserId: _drop, ...rest } = existingData;
     const { error: updateErr } = await admin.from('students')
         .update({ data: rest })

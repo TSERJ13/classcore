@@ -5,16 +5,15 @@ import {
     TrendingUp, Users, CreditCard,
     CalendarCheck, ArrowUpRight, ArrowDownRight,
     Download, X, Lightbulb, BarChart3,
-    Banknote, Clock, Wallet, CheckCircle2, Eye, EyeOff,
+    Banknote, Clock, CheckCircle2, Eye, EyeOff,
     Edit2, ChevronLeft, ChevronRight, Calculator,
-    LayoutGrid, GraduationCap, ShoppingBag, Receipt, Settings2,
+    Receipt, Settings2,
     Sparkles, AlertCircle
 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { translations, type Lang } from '@/lib/i18n';
 import { cn, getLocalISODate, formatCurrency } from '@/lib/utils';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
 import { getStudents } from '@/lib/student-store';
 import { getSales } from '@/lib/sales-store';
@@ -22,8 +21,8 @@ import { getSubscriptions, getUniqueSubscriptions } from '@/lib/subscription-sto
 import { getTeachers, updateTeacher } from '@/lib/teacher-store';
 import { getEvents } from '@/lib/event-store';
 import { getPlans } from '@/lib/plan-store';
-import { getMonthlyBonuses, getTeacherBonusForMonth, setTeacherBonus } from '@/lib/bonus-store';
-import { getSalaryStatuses, toggleSalaryStatus, getStatusForTeacher, getTeacherSalaryPayment } from '@/lib/salary-status-store';
+import { getTeacherBonusForMonth, setTeacherBonus } from '@/lib/bonus-store';
+import { getStatusForTeacher, getTeacherSalaryPayment } from '@/lib/salary-status-store';
 import { SalaryPayoutModal } from '@/components/analytics/SalaryPayoutModal';
 import { TeacherModal } from '@/components/teachers/TeacherModal';
 import { getGroups } from '@/lib/group-store';
@@ -31,7 +30,6 @@ import { PieChart, GaugeChart } from '@/components/ui/PieChart';
 import { getScopedKey } from '@/lib/settings-store';
 import { getExpenses, saveExpenses, MonthlyExpenses } from '@/lib/expense-store';
 import { saveExpensesAction } from '@/app/actions/expenses';
-import { getStudentCheckins } from '@/lib/checkin-store';
 import { buildPlanPrices, subRevenue as calcSubRevenue, pctChange, generateInsights, isSubInMonth, isSubOnDay } from '@/lib/studio-stats';
 
 // ─── Month Navigator ─────────────────────────────────────────────────────────
@@ -181,39 +179,6 @@ function ExpenseModal({ open, onClose, selectedMonth, branchId, t, l, settings }
     );
 }
 
-// ─── Stat Card ───────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, change, trend, icon: Icon, color }: any) {
-    const { t } = useT();
-    const isUp = trend === 'up';
-
-    return (
-        <div className="bg-card border border-border-subtle rounded-[2rem] p-6 shadow-sm hover:shadow-xl hover:shadow-black/5 transition-all group">
-            <div className="flex items-center justify-between mb-4">
-                <div className={cn(
-                    "w-12 h-12 rounded-2xl border flex items-center justify-center transition-transform group-hover:scale-110",
-                    color === 'indigo' && "bg-indigo-500/10 border-indigo-500/20 text-indigo-600",
-                    color === 'emerald' && "bg-emerald-500/10 border-emerald-500/20 text-emerald-600",
-                    color === 'violet' && "bg-violet-500/10 border-violet-500/20 text-violet-600",
-                    color === 'amber' && "bg-amber-500/10 border-amber-500/20 text-amber-600",
-                    color === 'rose' && "bg-rose-500/10 border-rose-500/20 text-rose-600",
-                )}>
-                    <Icon className="w-6 h-6" />
-                </div>
-                <div className={cn(
-                    "flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider border",
-                    isUp ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-red-500/10 text-red-600 border-red-500/20"
-                )}>
-                    {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                    {change}
-                </div>
-            </div>
-            <p className="text-2xl font-black text-primary tabular-nums tracking-tighter mb-1">{value}</p>
-            <p className="text-[11px] font-black text-muted tracking-[0.15em] opacity-40">{(t[label as keyof typeof t] as string) || label}</p>
-        </div>
-    );
-}
-
 // ─── Bar Chart ───────────────────────────────────────────────────────────────
 
 function SimpleBarChart({ data, maxValue, colorClass }: { data: { label: string, value: number, isPercent?: boolean }[], maxValue: number, colorClass: string }) {
@@ -224,11 +189,10 @@ function SimpleBarChart({ data, maxValue, colorClass }: { data: { label: string,
                 // Get the base color from colorClass
                 const isEmerald = colorClass.includes('emerald');
                 const isViolet = colorClass.includes('violet');
-                const isIndigo = colorClass.includes('indigo');
 
-                let barBg = colorClass;
-                let hoverBg = isEmerald ? 'bg-emerald-600' : isViolet ? 'bg-violet-600' : 'bg-indigo-600';
-                let shadowColor = isEmerald ? 'rgba(16,185,129,0.3)' : isViolet ? 'rgba(139,92,246,0.3)' : 'rgba(79,70,229,0.3)';
+                const barBg = colorClass;
+                const hoverBg = isEmerald ? 'bg-emerald-600' : isViolet ? 'bg-violet-600' : 'bg-indigo-600';
+                const shadowColor = isEmerald ? 'rgba(16,185,129,0.3)' : isViolet ? 'rgba(139,92,246,0.3)' : 'rgba(79,70,229,0.3)';
 
                 return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-3 group/bar animate-fade-up h-full" style={{ animationDelay: `${i * 100}ms` }}>
@@ -380,7 +344,6 @@ function AIInsightModal({ open, onClose, currentStats, prevStats, selectedMonth,
 export default function AnalyticsPage() {
     const { t, lang } = useT();
     const { settings } = useStudio();
-    const { user, profile } = useUser();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
 
     const [stats, setStats] = useState<any[]>([]);
@@ -397,9 +360,7 @@ export default function AnalyticsPage() {
     const [payoutTeacher, setPayoutTeacher] = useState<any | null>(null);
     const [showInsightsModal, setShowInsightsModal] = useState(false);
     const [showExpenseModal, setShowExpenseModal] = useState(false);
-    const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpenses>(getExpenses(selectedMonth, settings.activeBranchId || 'default'));
     const [showDetailed, setShowDetailed] = useState(false);
-    const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
     const [extraStats, setExtraStats] = useState<any>({
         inactiveSubs: 0,
         newStudents3m: 0,
@@ -693,7 +654,7 @@ export default function AnalyticsPage() {
                         totalCheckins += recs.length;
                         daysWithCheckins++;
                     }
-                } catch (e) { }
+                } catch { }
             }
             const avgDailyCheckins = daysWithCheckins > 0 ? totalCheckins / daysWithCheckins : 0;
             const denominator = activeSubCount > 0 ? activeSubCount : (students.length > 0 ? students.length : 1);
@@ -719,7 +680,7 @@ export default function AnalyticsPage() {
                             rangeCheckins += dayCheckins;
                             checkinDays++;
                         }
-                    } catch (e) {}
+                    } catch {}
                 }
                 daysData.push({ label: String(d).padStart(2, '0'), value: rangeValue });
                 const avgRangeCheckins = checkinDays > 0 ? rangeCheckins / checkinDays : 0;
@@ -868,12 +829,6 @@ export default function AnalyticsPage() {
                 // paid 50% × 50% = 25% of their groups' revenue. Add the
                 // already-computed commission directly — no second
                 // multiplication.
-                const hasConfiguredSalary = (
-                    (t.salary_percentage !== undefined && t.salary_percentage !== null && Number(t.salary_percentage) > 0) ||
-                    (t.rate_per_month !== undefined && t.rate_per_month !== null && Number(t.rate_per_month) > 0) ||
-                    (t.rate_per_hour !== undefined && t.rate_per_hour !== null && Number(t.rate_per_hour) > 0)
-                );
-
                 if (t.salary_percentage !== undefined && Number(t.salary_percentage) > 0) {
                     percentageComponent = percentageEarned;
                     usesPercentage = true;
@@ -982,7 +937,7 @@ export default function AnalyticsPage() {
                     try { 
                         const dayRecs = JSON.parse(localStorage.getItem(getScopedKey(`cc_checkins_${dStr}`)) || '[]');
                         if (dayRecs.length > 0) { checkins += dayRecs.length; checkinDays++; }
-                    } catch (e) {}
+                    } catch {}
                 }
                 const avg = checkinDays > 0 ? checkins / checkinDays : 0;
                 return denominator > 0 ? (avg / denominator) * 100 : 0;
@@ -1011,7 +966,7 @@ export default function AnalyticsPage() {
                    try { JSON.parse(localStorage.getItem(key) || '[]').forEach((c: any) => {
                        const hour = c.time?.split(':')[0] || '00';
                        hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-                   }); } catch(e) {}
+                   }); } catch {}
                 }
             });
             const peakHours = Object.entries(hourCounts).map(([hour, count]) => ({ hour: `${hour}:00`, count })).sort((a,b) => b.count - a.count).slice(0, 3);
@@ -1068,7 +1023,6 @@ export default function AnalyticsPage() {
                 expiringSoon,
                 formatCurrency: (n: number) => formatCurrency(n, settings.currency),
             }, l);
-            const rDiff = totalRevenue - prevMonthRevenue;
 
             const totalGrossRevenue = subRevenue + prodRevenue;
 

@@ -51,20 +51,15 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url);
         const slug = searchParams.get('slug');
         const orgId = searchParams.get('orgId');
-        const studentId = searchParams.get('studentId');
         const isClientPortal = searchParams.get('isClientPortal') === 'true';
 
         // 1. Auth Logic (Strict for Admins, Lenient for Portals)
-        let callerOrgId: string | null = null;
-        let callerEmail: string | undefined = undefined;
         let auth: any = null;
         if (!isClientPortal) {
             auth = await getAuthenticatedOrgId(req);
             if (!auth) {
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
             }
-            callerOrgId = auth.orgId;
-            callerEmail = auth.email;
         }
 
         // 2. Resolve target OrgID
@@ -139,8 +134,6 @@ export async function POST(req: Request) {
         const { slug, orgId, isClientPortal, studentId, chunk } = await req.json();
 
         // 1. Verify User Session (Bypass for Portals)
-        let callerOrgId: string | null = null;
-        let callerEmail: string | undefined = undefined;
         let auth: any = null;
         if (!isClientPortal) {
             auth = await getAuthenticatedOrgId(req);
@@ -148,8 +141,6 @@ export async function POST(req: Request) {
                 console.error('❌ [SyncAPI] Unauthorized: No valid token or session.');
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
             }
-            callerOrgId = auth.orgId;
-            callerEmail = auth.email;
         }
 
         // 2. Resolve target OrgID

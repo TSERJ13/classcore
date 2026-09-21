@@ -86,6 +86,7 @@ function StudentsPageInner() {
     const filterParams: StudentsFilterParams = {
         search, status: statusFilter, gender: genderFilter,
         groupId: groupFilter || undefined, visibleGroupIds, sortBy,
+        branchId: settings.activeBranchId || undefined,
     };
 
     const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useStudentsListQuery(filterParams);

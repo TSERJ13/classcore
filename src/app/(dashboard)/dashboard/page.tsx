@@ -231,7 +231,7 @@ export default function DashboardPage() {
     const { t, lang } = useT();
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const { settings, isLoaded } = useStudio();
-    const { profile, user, loading } = useUser();
+    const { profile, loading } = useUser();
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [revenueRange, setRevenueRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [liveStats, setLiveStats] = useState({
@@ -264,20 +264,13 @@ export default function DashboardPage() {
     const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
     const [allEvents, setAllEvents] = useState<any[]>([]);
-    
+
     // Cloud Sync State
-    const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
-    const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
+    const [syncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
+    const [lastSyncTime] = useState<number | null>(null);
 
     const [showAddStudent, setShowAddStudent] = useState(false);
     const [showIssueSub, setShowIssueSub] = useState(false);
-
-    const parseTemplate = (template: string, studentName: string, planName?: string) => {
-        let msg = template.replace(/{name}/g, studentName);
-        msg = msg.replace(/{studio}/g, settings.studioName);
-        if (planName) msg = msg.replace(/{plan}/g, planName);
-        return msg;
-    };
 
     const refreshFullDashboard = useCallback(() => {
         // 1. Refresh Stats
@@ -316,7 +309,7 @@ export default function DashboardPage() {
         }
 
         const todayStr = getLocalISODate(new Date());
-        let activeSubStudentIds = new Set<string>();
+        const activeSubStudentIds = new Set<string>();
         studentsList.forEach(s => {
             let isActive = false;
             const subsList = allSubsList.filter(sub => {
@@ -643,6 +636,7 @@ export default function DashboardPage() {
     // docs/architecture-migration.md §8 for why this pass stops there).
     useEffect(() => {
         let cancelled = false;
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
         const loadServerStats = () => {
             getDashboardStatsAction().then(stats => {
                 if (cancelled) return;
@@ -655,10 +649,23 @@ export default function DashboardPage() {
                 }));
             }).catch(err => console.error('❌ [Dashboard] get_dashboard_stats failed:', err));
         };
+        // 🛡️ A single hydration cycle (StudioContext) dispatches several of
+        // the events below together in one burst — without this, each one
+        // fired its own separate getDashboardStatsAction() call, showing up
+        // as several duplicate POST /dashboard requests per page load.
+        // Debounce so a burst collapses into one real call.
+        const loadServerStatsDebounced = () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(loadServerStats, 300);
+        };
         loadServerStats();
         const events = ['cc_subscription_update', 'cc_attendance_update', 'cc_sale_update', 'cc_student_update'];
-        events.forEach(e => window.addEventListener(e, loadServerStats));
-        return () => { cancelled = true; events.forEach(e => window.removeEventListener(e, loadServerStats)); };
+        events.forEach(e => window.addEventListener(e, loadServerStatsDebounced));
+        return () => {
+            cancelled = true;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            events.forEach(e => window.removeEventListener(e, loadServerStatsDebounced));
+        };
     }, []);
 
     // No longer using isDemo hardcoded overrides
@@ -699,7 +706,7 @@ export default function DashboardPage() {
                 try {
                     const { getBillingState } = require('@/lib/saas-billing');
                     setBilling(getBillingState(settings.studioSlug));
-                } catch (err) { }
+                } catch { }
             }
         };
         refreshBilling();

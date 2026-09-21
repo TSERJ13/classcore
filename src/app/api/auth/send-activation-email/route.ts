@@ -3,7 +3,7 @@ import { sendEmail } from '@/lib/smtp';
 
 export async function POST(request: Request) {
     try {
-        const { email, firstName, activationLink } = await request.json();
+        const { email, activationLink } = await request.json();
 
         if (!email || !activationLink) {
             return NextResponse.json({ error: 'Email and link are required' }, { status: 400 });

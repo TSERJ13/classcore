@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Fragment } from 'react';
-import { 
-    X, User, Users, Phone, Mail, Camera, Trash2, AlertTriangle, Check, 
-    Plus, Upload, Globe, Search, ArrowRight, Save, Image as ImageIcon, AlertCircle,
+import {
+    X, User, Users, Phone, Mail, Camera, Trash2, AlertTriangle, Check,
+    Plus, Globe,
     BookOpen, Eye, EyeOff, Layout, Percent, Calendar,
     CreditCard, CalendarDays, Edit2, GraduationCap, DoorOpen, ShoppingBag, BarChart2, MessageSquare, Zap
 } from 'lucide-react';
@@ -68,7 +68,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
     const [form, setForm] = useState<Partial<Teacher>>({ ...EMPTY });
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [activeRateType, setActiveRateType] = useState<RateType>('hourly');
+    const [, setActiveRateType] = useState<RateType>('hourly');
     const [showPassword, setShowPassword] = useState(false);
     const [saving, setSaving] = useState(false);
     const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
@@ -212,7 +212,7 @@ export function TeacherModal({ open, teacher, groups, onClose, onSave, onDelete 
                                     try {
                                         const optimizedBase64 = await processProfileImage(file);
                                         setF('photo_url', optimizedBase64);
-                                    } catch (err) {
+                                    } catch {
                                         addNotification({
                                             type: 'error',
                                             title: t.imageError || 'Error',

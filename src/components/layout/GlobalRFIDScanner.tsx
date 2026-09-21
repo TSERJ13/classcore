@@ -3,17 +3,17 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { getStudents, lookupByUid } from '@/lib/student-store';
-import { getSubscriptions, getSubscription, incrementSessionsUsed } from '@/lib/subscription-store';
-import { recordCheckin, getCheckinCountToday, getSessionsRemaining } from '@/lib/checkin-store';
+import { getSubscriptions } from '@/lib/subscription-store';
+import { recordCheckin } from '@/lib/checkin-store';
 import { getLocalISODate } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
-import { X, CheckCircle, AlertTriangle, Info, CalendarCheck, MapPin } from 'lucide-react';
+import { X, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { useStudio } from '@/contexts/StudioContext';
 
 export function GlobalRFIDScanner() {
     const pathname = usePathname();
-    const { t, lang } = useT();
-    const { settings } = useStudio();
+    const { lang } = useT();
+    useStudio();
     
     const rfidBuffer = useRef('');
     const rfidTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

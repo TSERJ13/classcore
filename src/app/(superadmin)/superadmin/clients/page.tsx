@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useT } from '@/contexts/LanguageContext';
-import { Users, Search, Building2, Phone, Mail, Globe, Zap, Shield, CreditCard, ExternalLink, Calendar } from 'lucide-react';
-import { getStudioRegistry, loadSettings } from '@/lib/settings-store';
-import { getBillingState } from '@/lib/saas-billing';
-import { cn, formatCurrency } from '@/lib/utils';
+import { Search, Building2, Phone, Mail, Globe, Zap, Calendar } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { syncGlobalAdminRegistry } from '@/lib/admin-sync';
 
 interface StudioClient {

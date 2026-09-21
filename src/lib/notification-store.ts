@@ -14,7 +14,7 @@ export interface Notification {
     created_at: string;
 }
 
-import { getScopedKey, getActiveSlug, markLocalUpdate } from './utils';
+import { getScopedKey, getActiveSlug } from './utils';
 import { pushStudioStateToCloud } from './sync-store';
 
 const BASE_NOTIFS_KEY = 'cc_notifications';

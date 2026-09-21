@@ -2,7 +2,7 @@
 // v2.2 - Stabilized Individual Workflow
 
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Plus, UserPlus, CreditCard, User, Building2, ChevronRight, ArrowLeft, Percent, Wallet, Banknote, Calendar, Clock, Undo2, X, Tag, ArrowRight, Check, Palette } from 'lucide-react';
+import { UserPlus, CreditCard, Building2, Percent, Wallet, Banknote, Calendar, X, Tag, Check, Palette } from 'lucide-react';
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import type { SubscriptionInfo } from '@/lib/subscription-store';
@@ -11,7 +11,7 @@ import { getPlans } from '@/lib/plan-store';
 import { getGroups } from '@/lib/group-store';
 import { getHalls } from '@/lib/hall-store';
 import { isFeatureEnabled } from '@/lib/settings-store';
-import { getLocalISODate, cn, formatDate, formatCurrency } from '@/lib/utils';
+import { getLocalISODate, cn, formatCurrency } from '@/lib/utils';
 import { generateTimeOptions } from '@/lib/date-utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
@@ -40,7 +40,7 @@ function addOneHour(timeStr: string): string {
     }
 }
 
-export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentId, defaultType, centered = false }: IssueSubscriptionModalProps) {
+export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentId, defaultType }: IssueSubscriptionModalProps) {
     const { t, lang } = useT();
     const { settings, logSubscription } = useStudio();
     const { user, profile } = useUser();
@@ -133,7 +133,6 @@ export function IssueSubscriptionModal({ open, onClose, onIssue, initialStudentI
     const newBalance = Math.round((sBalance - appliedBalance + overpayment) * 100) / 100;
 
     const activeHalls = useMemo(() => getHalls(), [open]);
-    const hallOptions = activeHalls.map(h => ({ value: h.id, label: h.name, color: h.color }));
 
     // Reset when opened
     useEffect(() => {

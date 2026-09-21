@@ -18,7 +18,7 @@ export function LanguageProvider({ children, defaultLang }: { children: React.Re
     const [persistentLang, setPersistentLangState] = useState<Lang>(defaultLang || 'ka');
     // Session state (resets on tab close/new session)
     const [sessionLang, setSessionLangState] = useState<Lang | null>(null);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [, setIsLoaded] = useState(false);
 
     useEffect(() => {
         setIsLoaded(true);

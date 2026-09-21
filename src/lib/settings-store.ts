@@ -480,7 +480,7 @@ export function loadSettings(slug?: string): StudioSettings {
     try {
         const finalSlug = slug || getActiveSlug();
         const scopedKey = getScopedKey(STORAGE_KEY, finalSlug);
-        let raw = localStorage.getItem(scopedKey);
+        const raw = localStorage.getItem(scopedKey);
 
         if (!raw) {
             const defaults = { ...DEFAULT_SETTINGS };
@@ -548,7 +548,6 @@ export function saveSettings(s: Partial<StudioSettings>, current?: StudioSetting
             }
             
             if (finalSlug && finalSlug !== 'demo.classcore.ge') {
-                const isVitalUpdate = s.staff || s.security || s.branches || s.studioName || s.logoDataUrl;
                 triggerInstantSync();
                 
                 // 🚀 ATOMIC CLOUD SYNC: If we have an orgId, push the full state to ensure persistence
@@ -623,7 +622,7 @@ export function convertFinancialData(from: string, to: string) {
             const plans = JSON.parse(plansRaw);
             const updated = plans.map((p: any) => ({ ...p, price: Math.round(p.price * rate) }));
             localStorage.setItem(plansKey, JSON.stringify(updated));
-        } catch (e) { }
+        } catch { }
     }
 
     // 2. Convert Sales
@@ -634,7 +633,7 @@ export function convertFinancialData(from: string, to: string) {
             const sales = JSON.parse(salesRaw);
             const updated = sales.map((s: any) => ({ ...s, price: Math.round(s.price * rate) }));
             localStorage.setItem(salesKey, JSON.stringify(updated));
-        } catch (e) { }
+        } catch { }
     }
 
     // 3. Convert Active Subscriptions
@@ -650,7 +649,7 @@ export function convertFinancialData(from: string, to: string) {
                 }));
             });
             localStorage.setItem(subsKey, JSON.stringify(subs));
-        } catch (e) { }
+        } catch { }
     }
 
     // 4. Convert Teachers (Rates)
@@ -665,7 +664,7 @@ export function convertFinancialData(from: string, to: string) {
                 rate_per_month: t.rate_per_month ? Math.round(t.rate_per_month * rate) : t.rate_per_month,
             }));
             localStorage.setItem(teachersKey, JSON.stringify(updated));
-        } catch (e) { }
+        } catch { }
     }
 
     // 5. Convert Student Balance (if any)
@@ -680,7 +679,7 @@ export function convertFinancialData(from: string, to: string) {
                 }
             });
             localStorage.setItem(studentDataKey, JSON.stringify(students));
-        } catch (e) { }
+        } catch { }
     }
 
     // 6. Convert Shop Products
@@ -691,7 +690,7 @@ export function convertFinancialData(from: string, to: string) {
             const products = JSON.parse(productsRaw);
             const updated = products.map((p: any) => ({ ...p, price: Math.round(p.price * rate) }));
             localStorage.setItem(productsKey, JSON.stringify(updated));
-        } catch (e) { }
+        } catch { }
     }
 
     // Trigger updates
@@ -913,7 +912,6 @@ export async function resetStudioData(slug: string, options?: ResetCategories) {
     const orgId = settings.orgId;
 
     const keys = Object.keys(localStorage);
-    let count = 0;
 
     keys.forEach(k => {
         // Key is for this studio if it contains slug OR orgId (standard scoping)
@@ -926,7 +924,6 @@ export async function resetStudioData(slug: string, options?: ResetCategories) {
                 // Wildcard cleanup for date-based keys (like cc_checkins_YYYY-MM-DD)
                 if (k.startsWith('cc_checkins_')) {
                     localStorage.removeItem(k);
-                    count++;
                     return;
                 }
 
@@ -934,9 +931,8 @@ export async function resetStudioData(slug: string, options?: ResetCategories) {
                 // ONLY specific structured records are Maps ({}), everything else is an Array ([])
                 const mapPrefixes = ['cc_student_data', 'cc_student_subscriptions', 'cc_attendance_archive', 'cc_uid_registry'];
                 const isMap = mapPrefixes.some(p => k.startsWith(p));
-                
+
                 localStorage.setItem(k, isMap ? '{}' : '[]');
-                count++;
             }
         });
     });

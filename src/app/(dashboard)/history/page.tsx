@@ -4,9 +4,8 @@ import { useState, useEffect } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { getHistory, AuditEntry } from '@/lib/audit-store';
 import { getTrash, removeFromTrash, clearTrash, TrashItem } from '@/lib/trash-store';
-import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
-import { Receipt, Search, Download, Trash2, RotateCcw, AlertCircle, Building2, History as HistoryIcon, Clock, CheckCircle2, CreditCard, UserMinus, ShieldAlert, Zap, RefreshCw, CalendarDays, User, Users, RefreshCcw } from 'lucide-react';
+import { Receipt, Search, Download, Trash2, RotateCcw, AlertCircle, Building2, History as HistoryIcon, Clock, CreditCard, ShieldAlert, Zap, RefreshCw, CalendarDays } from 'lucide-react';
 import { cn, getScopedKey } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -35,8 +34,6 @@ export default function UnifiedHistoryPage() {
     const [auditHistory, setAuditHistory] = useState<AuditEntry[]>([]);
     const [trashItems, setTrashItems] = useState<TrashItem[]>([]);
     const [search, setSearch] = useState('');
-
-    const formatDate = (date: any) => new Date(date).toLocaleDateString(lang === 'ka' ? 'ka-GE' : 'en-US', { day: '2-digit', month: 'short' });
 
     useEffect(() => {
         setAuditHistory(getHistory());

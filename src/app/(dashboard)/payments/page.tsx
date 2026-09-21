@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { 
-    Banknote, Plus, Search, CheckCircle2, RotateCcw, 
-    CreditCard, ArrowDownLeft, Building, Wallet, X
+import {
+    Banknote, Plus, Search, CheckCircle2, RotateCcw, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -16,7 +15,7 @@ import { getStudents } from '@/lib/student-store';
 import type { Student } from '@/types';
 
 export default function PaymentsPage() {
-    const { t, lang } = useT();
+    const { lang } = useT();
     const { settings } = useStudio();
     const confirm = useConfirm();
 
@@ -31,9 +30,9 @@ export default function PaymentsPage() {
     const [formCustomName, setFormCustomName] = useState('');
     const [formAmount, setFormAmount] = useState<number | ''>('');
     const [formMethod, setFormMethod] = useState<'cash' | 'card' | 'transfer'>('card');
-    const [formItemType, setFormItemType] = useState<'subscription' | 'lesson' | 'rental' | 'shop' | 'other'>('subscription');
+    const [formItemType] = useState<'subscription' | 'lesson' | 'rental' | 'shop' | 'other'>('subscription');
     const [formDesc, setFormDesc] = useState('');
-    const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
+    const [formDate] = useState(new Date().toISOString().split('T')[0]);
 
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
 

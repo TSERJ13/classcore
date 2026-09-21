@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { BookOpen, Clock, Users, ChevronRight, Plus, GraduationCap, CalendarDays, Search, Pencil } from 'lucide-react';
+import { BookOpen, Users, Plus, GraduationCap, Pencil } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { GroupModal } from '@/components/groups/GroupModal';
 import { useState, useEffect } from 'react';
@@ -18,17 +17,9 @@ import { cn } from '@/lib/utils';
 import { MobileFAB } from '@/components/ui/MobileFAB';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
-const typeColor: Record<string, string> = {
-    Dance: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
-    Sports: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-    Yoga: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-    Fitness: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-};
-
 export default function GroupsPage() {
     const { t, lang } = useT();
-    const { user, profile } = useUser();
-    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
+    const { profile } = useUser();
 
     const [groups, setGroups] = useState<Group[]>([]);
     const [uniqueSubs, setUniqueSubs] = useState<SubscriptionRow[]>([]);
@@ -36,7 +27,7 @@ export default function GroupsPage() {
     const { settings, updateStaff } = useStudio();
     useEffect(() => {
         function load() {
-            getGroupsAction().then(rows => setGroups(rows as unknown as Group[])).catch(err => console.error('❌ [Groups] Failed to load:', err));
+            getGroupsAction(settings.activeBranchId || undefined).then(rows => setGroups(rows as unknown as Group[])).catch(err => console.error('❌ [Groups] Failed to load:', err));
             getSubscriptionsAction().then(setUniqueSubs).catch(err => console.error('❌ [Groups] Failed to load subscriptions:', err));
         }
         load();
@@ -87,6 +78,7 @@ export default function GroupsPage() {
                 type: data.type || 'Dance',
                 difficulty: data.difficulty || null,
                 hall_id: data.hall_id || '',
+                branch_id: data.branch_id || settings.activeBranchId || 'main',
                 color: data.color || '#6366f1',
             };
             updated = [...groups, newGroup];

@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
-import Link from 'next/link';
 import {
-    UserPlus, Search, Phone, Mail, Users, User, BookOpen,
-    ChevronRight, Edit2, Zap, CalendarDays, BarChart2, Trash2, MessageSquare,
+    UserPlus, Phone, Users, User, BookOpen,
+    Edit2, Zap, MessageSquare,
     Send, Clock, Check, X as XIcon
 } from 'lucide-react';
 import { cn, getInitials, formatCurrency } from '@/lib/utils';
@@ -16,19 +15,12 @@ import { ConfirmInviteModal } from '@/components/teachers/ConfirmInviteModal';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
 import type { Teacher } from '@/types';
-import type { StaffMember } from '@/lib/settings-store';
 import { getGroups, saveGroups } from '@/lib/group-store';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { getPendingStaffInvitesAction, revokeStaffInviteAction, type StaffInviteRow } from '@/app/actions/staff-invites';
 import { addNotification } from '@/lib/notification-store';
 
 
-
-const STATUS_STYLE: Record<string, string> = {
-    active: 'badge-active',
-    on_leave: 'badge-warning',
-    inactive: 'bg-surface text-muted border border-border-subtle',
-};
 
 export default function TeachersPage() {
     const { t, lang } = useT();
@@ -49,7 +41,7 @@ export default function TeachersPage() {
 
     const teachers = (settings.staff || []) as unknown as Teacher[];
 
-    const [search, setSearch] = useState('');
+    const [search] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Teacher | null>(null);
 
@@ -72,12 +64,6 @@ export default function TeachersPage() {
             addNotification(err?.message || 'Error', 'bg-rose-500');
         }
     }
-
-    const STATUS_LABEL: Record<string, string> = {
-        active: t.active,
-        on_leave: t.onLeave,
-        inactive: t.inactive,
-    };
 
     const filtered = teachers.filter(t => {
         const fullName = `${t.first_name || ''} ${t.last_name || t.full_name || ''}`.trim().toLowerCase();
@@ -193,7 +179,6 @@ export default function TeachersPage() {
     }
 
 
-    const activeCount = teachers.filter(t => t.status === 'active').length;
     const individualCount = teachers.filter(t => t.assigned_individual).length;
 
     return (

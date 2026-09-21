@@ -4,16 +4,13 @@ import { useState, useEffect } from 'react';
 import { useT } from '@/contexts/LanguageContext';
 import { getTrash, removeFromTrash, TrashItem } from '@/lib/trash-store';
 import { Header } from '@/components/layout/Header';
-import { Card } from '@/components/ui/Card';
 import { Trash2, Search, RotateCcw, AlertCircle, Building2, User, Users, CreditCard, Mail, Phone, Calendar as CalendarIcon, Clock } from 'lucide-react';
-import { cn, getScopedKey, removeLocallyDeletedId } from '@/lib/utils';
-import { useStudio } from '@/contexts/StudioContext';
+import { getScopedKey, removeLocallyDeletedId } from '@/lib/utils';
 import { useConfirm } from '@/contexts/ConfirmContext';
 
 export default function TrashPage() {
     const { t, lang } = useT();
-    const { settings } = useStudio();
-    const { confirm, alert } = useConfirm();
+    const { alert } = useConfirm();
     const [trash, setTrash] = useState<TrashItem[]>([]);
     const [search, setSearch] = useState('');
 

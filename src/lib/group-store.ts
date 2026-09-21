@@ -27,6 +27,11 @@ export interface Group {
     hall_id?: string; // linked hall
     color?: string;
     org_id?: string;
+    // Which branch this group belongs to — see src/app/actions/groups.ts's
+    // branch-isolation header. Local-cache reads (group-store.ts's own
+    // getGroups()) don't filter by this; only the Server-Action-backed
+    // /groups page does.
+    branch_id?: string;
 }
 
 import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, getLocallyDeletedIds, addLocallyDeletedId } from './utils';
@@ -167,7 +172,7 @@ export function createGroup(group: Omit<Group, 'id' | 'enrolled' | 'schedule'>):
 }
 
 /** Called when a calendar event with group_id is created: adds the slot to group.schedule_slots */
-export function addSlotToGroup(groupId: string, slot: ScheduleSlot, groupTitle?: string): void {
+export function addSlotToGroup(groupId: string, slot: ScheduleSlot): void {
     const groups = getGroups();
     const idx = groups.findIndex(g => g.id === groupId);
     if (idx === -1) return;

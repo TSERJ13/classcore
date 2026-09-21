@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { 
-    TrendingUp, TrendingDown, DollarSign, Plus, Trash2, Calendar, 
-    ArrowUpRight, ArrowDownRight, Wallet, PieChart, Tag, X, Building2
+import {
+    Plus, Trash2,
+    ArrowUpRight, ArrowDownRight, Wallet, PieChart, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -21,7 +21,6 @@ export default function FinancePage() {
     const confirm = useConfirm();
 
     const [expenses, setExpenses] = useState<Expense[]>([]);
-    const [period, setPeriod] = useState<'month' | 'prev_month' | 'year' | 'all'>('month');
     const [modalOpen, setModalOpen] = useState(false);
 
     // Expense modal form

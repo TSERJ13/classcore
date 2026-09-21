@@ -21,7 +21,7 @@ interface NotesDrawerProps {
 }
 
 export function NotesDrawer({ open, onClose }: NotesDrawerProps) {
-    const { t, lang } = useT();
+    const { lang } = useT();
     const { settings } = useStudio();
     const theme = THEMES[settings.themeKey];
 

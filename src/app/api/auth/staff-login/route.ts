@@ -46,7 +46,9 @@ function rehashIfPlaintext(staffId: string, storedPassword: string, plainPasswor
 
 function safeStaff(row: any) {
     const dataObj = (row.data && typeof row.data === 'object') ? row.data : {};
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, data, ...rest } = row || {};
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _p, ...cleanData } = dataObj;
     return { ...cleanData, ...rest };
 }

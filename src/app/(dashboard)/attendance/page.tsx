@@ -4,20 +4,20 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
     Search, Scan, CalendarCheck, Check, AlertTriangle, CheckCircle2,
     ChevronLeft, ChevronRight, Calendar, Clock, X, Plus, Edit2,
-    Instagram, Facebook, Send, MessageCircle, Phone, MessageSquare, Info, ShieldAlert,
-    ShoppingCart, PlusCircle, Package, ArrowRight, TrendingUp, Trash2,
+    Phone, MessageSquare, Info,
+    ShoppingCart, PlusCircle, Package, Trash2,
     GraduationCap
 } from 'lucide-react';
-import { cn, getInitials, isExpiringSoon, getLocalISODate, formatCurrency, calculateAge, formatDate } from '@/lib/utils';
-import { useT, useLanguage } from '@/contexts/LanguageContext';
+import { cn, getInitials, getLocalISODate, formatDate } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { getSessionsRemaining } from '@/lib/checkin-store';
 import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, getCheckinsForDate, recordCompanionCheckin, deleteCompanionCheckin, refundCheckin, deleteCheckin } from '@/lib/checkin-client';
-import { getStudents, updateStudent, lookupByUid, getStudentPatches } from '@/lib/student-store';
+import { getStudents, updateStudent, lookupByUid } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
 import { useStudio } from '@/contexts/StudioContext';
-import { getSubscriptions, getSubscription, getStudentSubscriptions, saveSubscription, pauseActiveSubscription, deleteSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
-import { getEventsByDate, getEvents, updateEvent } from '@/lib/event-store';
+import { getSubscriptions, getSubscription, getStudentSubscriptions, deleteSubscription, type SubscriptionInfo } from '@/lib/subscription-store';
+import { getEvents, updateEvent } from '@/lib/event-store';
 import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getGroups } from '@/lib/group-store';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
@@ -25,15 +25,10 @@ import { loadSettings, getScopedKey, DEFAULT_SETTINGS } from '@/lib/settings-sto
 import { formatSmsTemplate, sendSms } from '@/lib/sms-service';
 import type { Student, CalendarEvent } from '@/types';
 import StudentModal from '@/components/students/StudentModal';
-import { ArrowLeftRight } from 'lucide-react';
-import { getPlans } from '@/lib/plan-store';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { ManualSmsModal } from '@/components/ui/ManualSmsModal';
 import { type ShopSale } from '@/lib/sales-store';
-import { getStudentSalesAction, recordSaleAction, deleteSaleAction } from '@/app/actions/sales';
-import { getProductsAction, saveProductsAction } from '@/app/actions/products';
-import type { Product } from '@/types';
-import { SearchSelect } from '@/components/ui/SearchSelect';
+import { getStudentSalesAction, deleteSaleAction } from '@/app/actions/sales';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
@@ -41,18 +36,6 @@ import { PermissionGuard } from '@/components/auth/PermissionGuard';
 let _renderStartTime = 0;
 
 type State = 'present' | 'absent' | 'none';
-
-import { getStudentsByClass } from '@/lib/student-data';
-
-const THEME_CLASSES: Record<string, string> = {
-    indigo: 'border-[#6d28d9] text-[#6d28d9] hover:bg-[#6d28d9]/10',
-    violet: 'border-violet-500 text-violet-500 hover:bg-violet-500/10',
-    emerald: 'border-emerald-500 text-emerald-500 hover:bg-emerald-500/10',
-    rose: 'border-rose-500 text-rose-500 hover:bg-rose-500/10',
-    amber: 'border-amber-500 text-amber-500 hover:bg-amber-500/10',
-    cyan: 'border-cyan-500 text-cyan-500 hover:bg-cyan-500/10',
-    fuchsia: 'border-fuchsia-500 text-fuchsia-500 hover:bg-fuchsia-500/10',
-};
 
 const SCAN_MAP: Record<string, string> = {
     'ID4A3B': '1', 'ID7X9C': '2', 'ID2M5K': '3', 'ID8R1N': '4',
@@ -215,9 +198,8 @@ export default function AttendancePage() {
     const confirm = useConfirm();
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
-    const { user, profile } = useUser();
+    const { profile } = useUser();
     const { settings } = useStudio();
-    const isDemo = !user || profile?.studio_name === 'Demo Dance Studio' || !profile?.studio_name;
 
     const [groups, setGroups] = useState(getGroups());
     const [events, setEvents] = useState(() => getEvents());
@@ -325,7 +307,7 @@ export default function AttendancePage() {
         });
 
         // 4. Merge all! Regular groups, concrete events, and individual lessons appear together seamlessly
-        let targetSchedule = [...concreteEvents, ...virtualGroupClasses, ...virtualIndLessons];
+        const targetSchedule = [...concreteEvents, ...virtualGroupClasses, ...virtualIndLessons];
 
         // Staff IDs for the current teacher
         const staffMe = (settings.staff || []).find(s => {
@@ -666,9 +648,7 @@ export default function AttendancePage() {
 
     // Modals & Forms
     const [editModal, setEditModal] = useState(false);
-    const [freezeModal, setFreezeModal] = useState(false);
     const [manualSmsOpen, setManualSmsOpen] = useState(false);
-    const [freezeDays, setFreezeDays] = useState('7');
     const [issueModalOpen, setIssueModalOpen] = useState(false);
     const [timeEditOpen, setTimeEditOpen] = useState(false);
     const [timeEditStart, setTimeEditStart] = useState('');
@@ -676,9 +656,6 @@ export default function AttendancePage() {
     
     // Shop state in drawer
     const [studentSales, setStudentSales] = useState<ShopSale[]>([]);
-    const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
-    const [sellSearch, setSellSearch] = useState('');
-    const [quickSellQty, setQuickSellQty] = useState(1);
 
     const [studentPatches, setStudentPatches] = useState<Record<string, any>>({});
     const [studentCheckinsHistory, setStudentCheckinsHistory] = useState<Awaited<ReturnType<typeof getStudentCheckins>>>([]);
@@ -690,7 +667,6 @@ export default function AttendancePage() {
     useEffect(() => {
         if (selectedStudent) {
             getStudentSalesAction({ studentId: selectedStudent }).then(setStudentSales).catch(err => console.error('❌ [Attendance] Failed to load student sales:', err));
-            getProductsAction().then(rows => setAvailableProducts(rows as unknown as Product[])).catch(err => console.error('❌ [Attendance] Failed to load products:', err));
 
             import('@/lib/student-store').then(mod => {
                 setStudentPatches(mod.getStudentPatches());
@@ -884,47 +860,6 @@ export default function AttendancePage() {
         if (cls.type === 'individual' || isCoupleClass || cls.student_id) return 'individual';
         return 'group';
     }, [cls, isCoupleClass]);
-
-    const handleQuickSell = async (productId: string) => {
-        const product = availableProducts.find(p => p.id === productId);
-        if (!product || !selectedStudent) return;
-
-        if (product.quantity < quickSellQty) {
-            alert(t.insufficientStock);
-            return;
-        }
-
-        const selStudent = students.find(s => s.id === selectedStudent);
-        if (!selStudent) return;
-
-        // Update inventory optimistically, persist both writes.
-        const newProducts = availableProducts.map(p =>
-            p.id === productId ? { ...p, quantity: p.quantity - quickSellQty } : p
-        );
-        setAvailableProducts(newProducts);
-
-        try {
-            await Promise.all([
-                recordSaleAction({
-                    studentId: selectedStudent,
-                    studentName: selStudent.full_name,
-                    productId: product.id,
-                    productName: product.name,
-                    quantity: quickSellQty,
-                    price: product.price * quickSellQty
-                }),
-                saveProductsAction(newProducts),
-            ]);
-        } catch (err) {
-            console.error('❌ [Attendance] Quick sell failed:', err);
-        }
-        window.dispatchEvent(new Event('cc_product_update'));
-        window.dispatchEvent(new Event('cc_sale_update'));
-
-        getStudentSalesAction({ studentId: selectedStudent }).then(setStudentSales).catch(() => {});
-        setQuickSellQty(1);
-    };
-
 
     // Merge patches into selected student data
     const selStudentRaw = selectedStudent ? students.find(s => s.id === selectedStudent) : null;
@@ -1309,13 +1244,6 @@ export default function AttendancePage() {
             saveAttendance(nextAtt);
         }
     }, [getSubStatus, att, selectedClass, selClass, cls, dateKey, t.subscriptionExpired, subs, saveAttendance, currentPlanType, patchSubAfterCheckin]);
-
-    const days = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
-    const months = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
-
-    const day = days[selectedDate.getDay()];
-    const month = months[selectedDate.getMonth()];
-    const dateStr = `${day}, ${selectedDate.getDate()} ${month}`;
 
     function isCurrentClass(start?: string) {
         if (!start) return false;
@@ -1841,7 +1769,7 @@ export default function AttendancePage() {
                                         (() => {
                                             const primary = coupleStudents[0];
                                             const sInf = studentStatuses[primary.id] || { score: 3, label: null, isExpired: true, activeSub: null, color: 'red' };
-                                            const { label, isExpired, activeSub, remaining } = sInf;
+                                            const { label, isExpired, activeSub } = sInf;
                                             const isAllPresent = coupleStudents.every(s => (att[s.id] ?? 'none') === 'present');
                                             const isAllAbsent = coupleStudents.every(s => (att[s.id] ?? 'none') === 'absent');
                                             const isFl = coupleStudents.some(s => flash === s.id);
@@ -2008,7 +1936,7 @@ export default function AttendancePage() {
                                     const isFl = flash === st.id;
 
                                     const sInf = studentStatuses[st.id] || { score: 3, label: null, isExpired: true, activeSub: null, color: 'red' };
-                                    const { label, isExpired, activeSub, color: statusColor, remaining } = sInf;
+                                    const { label, isExpired, activeSub, remaining } = sInf;
 
                                     return (
                                         <div key={st.id}

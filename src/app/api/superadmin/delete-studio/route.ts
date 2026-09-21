@@ -61,7 +61,7 @@ export async function POST(req: Request) {
                     const found = users.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
                     if (found) finalTargetId = found.id;
                 }
-            } catch (e) {}
+            } catch {}
         }
 
         // 3. Execute Auth Purge
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
                 const { error: authErr } = await supabase.auth.admin.deleteUser(finalTargetId);
                 diag.authPurge = authErr ? `failed: ${authErr.message}` : 'success';
                 console.log(`👤 Auth user deleted: ${finalTargetId}`);
-            } catch (authCatch) {
+            } catch {
                 diag.authPurge = 'catch-error';
             }
         }

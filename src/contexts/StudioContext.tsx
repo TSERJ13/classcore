@@ -4,7 +4,7 @@ import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { setMemoryStudentsCache } from '@/lib/student-store';
 import { setSubscriptionsMemoryCache } from '@/lib/subscription-store';
 import { useUser } from '@/hooks/useUser';
-import { getActiveSlug, getScopedKey, safeSetItem, getLocallyDeletedIds, getEffectiveOrgId } from '@/lib/utils';
+import { getActiveSlug, getScopedKey, safeSetItem, getLocallyDeletedIds } from '@/lib/utils';
 import type { StudioSettings, Branch, SubscriptionLog } from '@/types';
 import { createStaffAction, updateStaffAction, deleteStaffAction } from '@/app/actions/staff';
 import { createBranchAction, updateBranchAction, deleteBranchAction } from '@/app/actions/branches';
@@ -63,7 +63,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState('main');
 
-    const lastSyncedSlugRef = useRef<string | null>(null);
     const isHydratingRef = useRef(false);
     const hydrate = useCallback(async (isAuto = false) => {
         if (isHydratingRef.current && !isAuto) return;
@@ -151,7 +150,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     
                     // Update Registry
                     const registryRaw = localStorage.getItem('cc_studios_list');
-                    let registry = registryRaw ? JSON.parse(registryRaw) : [];
+                    const registry = registryRaw ? JSON.parse(registryRaw) : [];
                     if (!registry.includes(activeSlug)) {
                         registry.push(activeSlug);
                         await safeSetItem('cc_studios_list', JSON.stringify(registry), activeSlug);
@@ -250,7 +249,6 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 setLoadingStep('ინტერფეისის მომზადება...');
 
                 setSettings(prev => {
-                    const name = updates.studio_name || cloudSettings.studioName || prev.studioName;
                     const next = {
                         ...prev, ...cloudSettings,
                         orgId: resolvedOrgId, studioName: finalName, logoDataUrl: finalLogo,
@@ -422,11 +420,30 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                             return !isEmpty(JSON.parse(raw));
                         } catch { return false; }
                     };
+                    // This Core fetch (`fetchFullStudioState(..., 'core')`) deliberately
+                    // never requests these collections — /api/sync/state's `isHeavy`
+                    // gating always resolves them to `Promise.resolve({ data: [] })`
+                    // for a 'core' chunk. They're real data, but they arrive moments
+                    // later via the separate Heavy background sync below (which has
+                    // its own per-collection query-failure guard, not this one) — so
+                    // an "empty" mapping value here is guaranteed and expected, not a
+                    // signal of anything wrong. Silencing just the warning for these
+                    // specific keys (guardedWrite's actual skip-the-write behavior is
+                    // unchanged) so it stops reading as a cloud-data-loss bug that
+                    // fires on literally every hydration.
+                    // Keep this in sync with /api/sync/state's `isHeavy`-gated indices
+                    // (students, subscriptions, attendance, sales, expenses, trash,
+                    // calendar_events, products) — every one of them is a guaranteed
+                    // `[]` in a 'core' chunk. `cc_attendance_data` isn't in `mapping`
+                    // (attendance has its own write path), so it's not listed here.
+                    const HEAVY_ONLY_CORE_KEYS = new Set(['cc_student_data', 'cc_student_subscriptions', 'cc_calendar_events', 'cc_expenses', 'cc_shop_products', 'cc_shop_sales', 'cc_global_trash']);
                     const guardedWrite = async (key: string, data: any) => {
                         if (data === null || data === undefined) return;
                         const scoped = getScopedKey(key, activeSlug || 'default');
                         if (isEmpty(data) && localHasData(scoped)) {
-                            console.warn(`🛡️ [Hydration] Empty cloud result for ${key} — preserving local data.`);
+                            if (!HEAVY_ONLY_CORE_KEYS.has(key)) {
+                                console.warn(`🛡️ [Hydration] Empty cloud result for ${key} — preserving local data.`);
+                            }
                             return;
                         }
                         // 🛡️ Race-condition guard: don't overwrite local array with shorter cloud
@@ -527,18 +544,17 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         await safeSetItem(dayKey, JSON.stringify(merged), activeSlug);
                     }
 
-                    window.dispatchEvent(new Event('cc_data_hydrated'));
-                    window.dispatchEvent(new Event('cc_settings_update'));
-                    window.dispatchEvent(new Event('cc_sa_meta_update'));
-                    window.dispatchEvent(new Event('cc_calendar_events_update'));
-                    window.dispatchEvent(new Event('cc_student_update'));
-                    window.dispatchEvent(new Event('cc_teacher_update'));
-                    window.dispatchEvent(new Event('cc_groups_update'));
-                    window.dispatchEvent(new Event('cc_halls_update'));
-                    
-                    ['cc_groups_update', 'cc_halls_update', 'cc_student_update', 'cc_teacher_update', 
+                    // 🛡️ Was two separate dispatch passes with 5 events listed in
+                    // both — every listener bound to cc_student_update/
+                    // cc_teacher_update/cc_groups_update/cc_halls_update/
+                    // cc_calendar_events_update fired twice per hydration cycle
+                    // (e.g. dashboard/page.tsx's getDashboardStatsAction() effect,
+                    // showing up as duplicate POST /dashboard calls). One deduped
+                    // pass — each event fires exactly once per cycle.
+                    ['cc_data_hydrated', 'cc_settings_update', 'cc_sa_meta_update', 'cc_calendar_events_update',
+                     'cc_student_update', 'cc_teacher_update', 'cc_groups_update', 'cc_halls_update',
                      'cc_subscription_update', 'cc_checkin_update', 'cc_sales_update', 'cc_expense_update', 'cc_trash_update',
-                     'cc_subscription_plans_update', 'cc_calendar_events_update', 'cc_attendance_update']
+                     'cc_subscription_plans_update', 'cc_attendance_update']
                         .forEach(e => window.dispatchEvent(new Event(e)));
 
                     // 📡 GO LIVE: subscribe to realtime changes for this org so a
@@ -1026,15 +1042,71 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
             throw err;
         }
     };
+    // Shared by addBranch/updateBranch/removeBranch below — each is an
+    // optimistic local update + a Server Action that used to swallow
+    // whatever came back (`.catch(() => {})`) after the optimistic update
+    // had already committed, so a permission/validation/DB failure (a
+    // silent ActionResult error, or a thrown auth error from
+    // requireStudioManager) left a branch looking saved in this browser
+    // when the server never actually persisted it — zero visible signal
+    // anything went wrong. Runs the action, and on either failure shape,
+    // notifies and rolls back via the caller's own `rollback`, which
+    // receives the latest state (not a closed-over snapshot) so it can
+    // guard against clobbering a newer, already-successful edit to the
+    // same branch if this call was the slow one out of two overlapping edits.
+    const runBranchAction = (
+        action: Promise<{ error: { message: string } | null }>,
+        failureLabel: string,
+        rollback: (prev: StudioSettings) => StudioSettings
+    ) => {
+        const onFailure = (message: string) => {
+            addNotification(`${failureLabel}: ${message}`, 'bg-rose-500');
+            // 🛡️ The optimistic update this is undoing didn't just call
+            // setSettings — it went through updateSettings(), which also
+            // persisted the bad state to localStorage (saveSettings) and
+            // the cloud settings blob (pushFullStudioMetadata). Reverting
+            // only React state here would leave that persisted copy
+            // uncorrected, and the next hydration cycle would read it back
+            // in — silently undoing this rollback and reintroducing the
+            // exact bug this function exists to fix, just delayed.
+            setSettings(prev => {
+                const next = rollback(prev);
+                if (next === prev) return prev;
+                saveSettings({ branches: next.branches }, prev, prev.studioSlug);
+                if (prev.studioSlug && prev.orgId) {
+                    import('@/lib/master-sync').then(mod => {
+                        mod.pushFullStudioMetadata(prev.studioSlug, prev.studioName, { ...next, settings: next });
+                    });
+                }
+                return next;
+            });
+        };
+        action
+            .then(result => { if (result.error) onFailure(result.error.message); })
+            .catch((err: any) => onFailure(err?.message || 'Unknown error'));
+    };
     const removeBranch = (id: string) => {
+        const removedIndex = settings.branches.findIndex(b => b.id === id);
+        const removed = removedIndex !== -1 ? settings.branches[removedIndex] : undefined;
         updateSettings({ branches: settings.branches.filter(b => b.id !== id) });
-        deleteBranchAction({ id }).catch(() => {});
+        runBranchAction(deleteBranchAction({ id }), 'Failed to delete branch', prev => {
+            if (!removed || prev.branches.some(b => b.id === removed.id)) return prev;
+            const branches = [...prev.branches];
+            branches.splice(Math.min(removedIndex, branches.length), 0, removed);
+            return { ...prev, branches };
+        });
     };
     const updateBranch = (id: string, data: any) => {
+        const previous = settings.branches.find(b => b.id === id);
         const next = settings.branches.map(b => b.id === id ? { ...b, ...data } : b);
         updateSettings({ branches: next });
         const updated = next.find(b => b.id === id);
-        if (updated) updateBranchAction(updated).catch(() => {});
+        if (!updated) return;
+        runBranchAction(updateBranchAction(updated), 'Failed to update branch', prev => {
+            const current = prev.branches.find(b => b.id === id);
+            if (!previous || !current || JSON.stringify(current) !== JSON.stringify(updated)) return prev;
+            return { ...prev, branches: prev.branches.map(b => b.id === id ? previous : b) };
+        });
     };
     const setCustomRoles = (roles: any) => updateSettings({ customRoles: roles });
     const setOwnerInfo = (info: any) => updateSettings({ owner_info: info });
@@ -1061,12 +1133,25 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
     }, []);
 
     const addBranch = useCallback((name: string, address?: string) => {
+        const newBranch: Branch = { id: `br_${Date.now()}`, name, address, is_active: true };
         setSettings(prev => {
-            const newBranch: Branch = { id: `br_${Date.now()}`, name, address, is_active: true };
             const next = { ...prev, branches: [...prev.branches, newBranch] };
             saveSettings({ branches: next.branches }, prev, prev.studioSlug);
-            createBranchAction(newBranch).catch(() => {});
+            // Match updateBranch/removeBranch (both go through updateSettings,
+            // which pushes to the cloud settings blob on every edit) — without
+            // this, a branch created on one device only ever lands in that
+            // device's localStorage; every other device/session still reads
+            // the stale cloud blob and never sees it.
+            if (prev.studioSlug && prev.orgId) {
+                import('@/lib/master-sync').then(mod => {
+                    mod.pushFullStudioMetadata(prev.studioSlug, prev.studioName, { ...next, settings: next });
+                });
+            }
             return next;
+        });
+        runBranchAction(createBranchAction(newBranch), 'Failed to add branch', prev => {
+            if (!prev.branches.some(b => b.id === newBranch.id)) return prev;
+            return { ...prev, branches: prev.branches.filter(b => b.id !== newBranch.id) };
         });
     }, []);
 

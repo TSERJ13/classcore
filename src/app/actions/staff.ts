@@ -49,22 +49,61 @@
  * instead of the legacy password-hash column.
  *
  * SCHEMA: id, org_id, full_name, first_name, last_name, email, phone,
- * role, salary_percentage, rate_per_hour, rate_per_month, password, data —
- * confirmed by settings-store.ts's existing syncRecordToCloud('staff', ...)
- * payload shape and staff-login's `select('*')` + direct `.password`
- * access. Everything else (permissions, photo_url, assigned_group_ids,
- * specialty, bio, allowedBranchIds, status, preferred_language, authType,
- * ...) rides in `data`, same pattern as every other table in this
- * migration.
+ * role, salary_percentage, rate_per_hour, rate_per_month, password,
+ * allowed_branch_ids, data — confirmed by settings-store.ts's existing
+ * syncRecordToCloud('staff', ...) payload shape and staff-login's
+ * `select('*')` + direct `.password` access. Everything else (permissions,
+ * photo_url, assigned_group_ids, specialty, bio, status,
+ * preferred_language, authType, ...) rides in `data`, same pattern as
+ * every other table in this migration.
+ *
+ * BRANCH ISOLATION (Phase 1, docs/tasks.md): `allowedBranchIds` already
+ * existed as a UI concept (the branch-switcher/sidebar dropdown filter) —
+ * 20260921_branch_isolation_phase1.sql promotes it to a real
+ * `allowed_branch_ids` column (backfilled from `data.allowedBranchIds`) so
+ * it can actually be filtered/validated against server-side, not just read
+ * back client-side. Empty array keeps its existing meaning: unrestricted.
+ * A branch-restricted caller (Administrator scoped to one branch, say)
+ * must not be able to grant a staff member wider branch access than their
+ * own — assertCanGrantBranches() below enforces that on create/update,
+ * whenever `allowedBranchIds` is the field actually being changed.
+ *
+ * Deliberately NOT enforced (Phase 1 scope): whether the caller has any
+ * branch overlap with the row they're editing/deleting in the first place.
+ * A first attempt at this rejected almost every ordinary edit — the
+ * migration backfills allowed_branch_ids to '{}' (unrestricted) for nearly
+ * every existing staff row, so "the target's scope must be a subset of the
+ * caller's own" failed for routine changes (name, phone, assigned groups)
+ * that have nothing to do with branches. Properly scoping "can a
+ * branch-restricted Administrator manage a colleague outside their branch
+ * at all" is a real RBAC question (overlap vs. subset, does role tier
+ * matter, ...) that deserves its own explicit decision, not a side effect
+ * of this migration — left open.
  */
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { requireEffectivePermission } from '@/lib/permissions/enforce';
+import { requireEffectivePermission, resolveCallerBranchIds } from '@/lib/permissions/enforce';
+import { assertBranchAccess } from '@/lib/server-actions-auth';
 import { hashPassword } from '@/lib/password-hash';
 import { validatePasswordPolicy } from '@/lib/password-policy';
 import { ROLE_DEFAULT_PERMISSIONS, resolveRoleTier } from '@/lib/permissions/role-defaults';
+
+/**
+ * A restricted caller can only grant OTHER staff a branch scope that's a
+ * non-empty subset of their own — never wider (an empty/unrestricted
+ * target list would mean "all branches", broader than what the caller
+ * themselves can see) and never a branch outside their own list.
+ * Unrestricted callers (empty own list) can grant anything.
+ */
+function assertCanGrantBranches(callerAllowedBranchIds: string[], targetAllowedBranchIds: string[] | undefined): void {
+    if (callerAllowedBranchIds.length === 0) return;
+    if (!targetAllowedBranchIds || targetAllowedBranchIds.length === 0) {
+        throw new Error('You can only assign branches you yourself have access to');
+    }
+    assertBranchAccess(callerAllowedBranchIds, targetAllowedBranchIds);
+}
 
 function adminAuthClient() {
     return createAdminClient(
@@ -98,6 +137,7 @@ const staffSchema = z.object({
     rate_per_hour: z.number().optional(),
     rate_per_month: z.number().optional(),
     password: z.string().optional(),
+    allowedBranchIds: z.array(z.string()).optional(),
 }).passthrough();
 
 function resolveFullName(input: { full_name?: string; first_name?: string; last_name?: string }): string {
@@ -106,7 +146,15 @@ function resolveFullName(input: { full_name?: string; first_name?: string; last_
 
 export async function createStaffAction(rawInput: unknown): Promise<{ id: string }> {
     const input = staffSchema.parse(rawInput);
-    const { orgId, client: supabase } = await requireEffectivePermission('canViewTeachers');
+    const ctx = await requireEffectivePermission('canViewTeachers');
+    const { orgId, client: supabase } = ctx;
+    const callerAllowedBranchIds = await resolveCallerBranchIds(ctx);
+    // Not specified at all -> default to the caller's own scope rather than
+    // rejecting outright; a restricted caller who forgets to set this
+    // shouldn't be blocked, but their new staff member shouldn't silently
+    // end up broader (unrestricted) than the person who created them either.
+    const allowedBranchIds = input.allowedBranchIds !== undefined ? input.allowedBranchIds : callerAllowedBranchIds;
+    assertCanGrantBranches(callerAllowedBranchIds, allowedBranchIds);
 
     const fullName = resolveFullName(input);
     assertPasswordPolicy(input.password);
@@ -159,6 +207,7 @@ export async function createStaffAction(rawInput: unknown): Promise<{ id: string
         password: hashedPassword ?? undefined,
         ...(permissions ? { permissions } : {}),
         ...(authType ? { authType } : {}),
+        allowedBranchIds,
     };
 
     const { error } = await supabase.from('staff').insert({
@@ -166,6 +215,7 @@ export async function createStaffAction(rawInput: unknown): Promise<{ id: string
         email: input.email || null, phone: input.phone || null, role: input.role,
         salary_percentage: input.salary_percentage ?? null, rate_per_hour: input.rate_per_hour ?? null,
         rate_per_month: input.rate_per_month ?? null, password: hashedPassword,
+        allowed_branch_ids: allowedBranchIds,
         data: fullRecord,
     });
     if (error) throw new Error(error.message);
@@ -180,7 +230,9 @@ const updateStaffSchema = staffSchema.extend({ id: z.string().min(1) });
 
 export async function updateStaffAction(rawInput: unknown): Promise<void> {
     const input = updateStaffSchema.parse(rawInput);
-    const { orgId, client: supabase } = await requireEffectivePermission('canViewTeachers');
+    const ctx = await requireEffectivePermission('canViewTeachers');
+    const { orgId, client: supabase } = ctx;
+    const callerAllowedBranchIds = await resolveCallerBranchIds(ctx);
 
     const fullName = resolveFullName(input);
     const update: Record<string, unknown> = {
@@ -189,6 +241,15 @@ export async function updateStaffAction(rawInput: unknown): Promise<void> {
         salary_percentage: input.salary_percentage, rate_per_hour: input.rate_per_hour,
         rate_per_month: input.rate_per_month, data: { ...input, full_name: fullName || input.full_name },
     };
+
+    // Only touch the real column when this edit actually mentions branch
+    // access — same "don't null out what wasn't sent" care taken for
+    // password below — and never let a restricted caller grant broader
+    // branch access than their own.
+    if (input.allowedBranchIds !== undefined) {
+        assertCanGrantBranches(callerAllowedBranchIds, input.allowedBranchIds);
+        update.allowed_branch_ids = input.allowedBranchIds;
+    }
 
     if (input.password !== undefined) {
         assertPasswordPolicy(input.password || undefined);

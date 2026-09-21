@@ -6,10 +6,7 @@ import { useT } from '@/contexts/LanguageContext';
 
 const SESSION_FLAG = 'cc_splash_shown';
 
-let _moduleFlag = false;
-
 function markSplashShown() {
-    _moduleFlag = true;
     if (typeof window !== 'undefined') {
         try { sessionStorage.setItem(SESSION_FLAG, 'true'); } catch {}
     }
@@ -50,7 +47,7 @@ export const DashboardHydrationGuard: React.FC<{ children: React.ReactNode }> = 
                     try {
                         const parsed = JSON.parse(s);
                         if (parsed.logoDataUrl) setStudioLogo(parsed.logoDataUrl);
-                    } catch (e) {}
+                    } catch {}
                 }
             }
         }

@@ -170,6 +170,11 @@ export interface StudioSettings {
         // GOSMS balance (Phase 8's getSmsBalanceAction) drops below this.
         // No extra contact-channel config, per the PRD's own scoping.
         lowBalanceThreshold?: number;
+        // PRD §10/§9's log retention — deliberately opt-in only. Unset (the
+        // default) means the daily cron (src/app/api/cron/sms-log-retention)
+        // skips this org entirely; a studio's SMS history is never deleted
+        // without an admin explicitly choosing a number here first.
+        logRetentionDays?: number;
     };
     // Registration Flow PRD (v1.1) §3-5 — captured once at signup, purely
     // informational (does not auto-create real groups/halls/branches).
@@ -274,6 +279,8 @@ export interface Hall {
     description?: string;
     is_active: boolean;
     created_at: string;
+    // Which branch this hall is physically in — see src/app/actions/halls.ts's branch-isolation header.
+    branch_id?: string;
 }
 
 // ─── Calendar Event ─────────────────────────────────────────────
@@ -368,8 +375,12 @@ export interface Student {
     balance?: number;
     // notifications
     sms_reminders?: boolean;
-    // branch
+    // branch — branch_id is the legacy single-branch field student-store.ts's
+    // local cache still reads/writes; branch_ids (plural) is the real,
+    // multi-branch column the /students Server Actions use (see
+    // src/app/actions/students.ts) — a student can belong to more than one.
     branch_id?: string;
+    branch_ids?: string[];
     gender?: 'male' | 'female';
     contact_person?: string;
     discount_type?: 'fixed' | 'percent';

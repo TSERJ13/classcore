@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, User, Shield, CheckCheck, Loader2 } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2 } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
-import { useUser } from '@/hooks/useUser';
 import { cn } from '@/lib/utils';
 
 export function SupportChat() {
-    const { t, lang } = useT();
-    const { profile, user } = useUser();
+    const { lang } = useT();
     const [isOpen, setIsOpen] = useState(false);
     const [message, setMessage] = useState('');
     const [messages, setMessages] = useState<Array<{ id: string; text: string; sender: 'user' | 'admin'; time: string }>>([]);

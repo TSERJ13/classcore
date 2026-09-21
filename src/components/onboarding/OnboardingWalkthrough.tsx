@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 
 export function OnboardingWalkthrough() {
-    const { t, lang } = useT();
+    const { lang } = useT();
     const [isOpen, setIsOpen] = useState(false);
     const [step, setStep] = useState(0);
 

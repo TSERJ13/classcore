@@ -1284,3 +1284,534 @@ Notes:
 own dedicated design pass: reconcile the two conflict-check implementations, resolve the schema
 disagreement against the live DB, and decide whether recurring "weekly" events materialize
 server-side or keep the current client-side ±4-week virtual expansion).
+
+### Calendar/Events migration — scoping pass (planning only, no code changed)
+
+Status: scoping complete — migration itself not started
+
+Per the user's explicit choice ("do whichever you think is best" on whether to scope now or stay
+fully deferred): this is a **plan**, not an implementation. Nothing in `event-store.ts` or
+`calendar/page.tsx` changed in this pass — deliberately, since the risk analysis above is exactly
+why a blind start was ruled out. Laying out the open decisions and a phasing strategy now, so
+whoever picks this up next (me in a future pass, or someone else) has a concrete plan instead of
+re-deriving the same investigation.
+
+**Decision 1 — resolve the schema disagreement, before writing a single Server Action.**
+`master_schema.sql` and the live `/api/sync/bulk` code disagree on `calendar_events`'s shape. This
+cannot be resolved by reading the repo further — it needs one read-only query against the actual
+Supabase project: `select column_name, data_type from information_schema.columns where table_name
+= 'calendar_events'`. Until that's run, don't trust either source. (This also settles whether
+`start_time`/`end_time` are really `TIME` or `TIMESTAMPTZ` server-side — the bare-`HH:MM`-vs-ISO
+conversion currently in `master-sync.ts` is fragile either way and should get a round-trip test
+once the real column type is known.)
+
+**Decision 2 — pick one conflict-check implementation, retire the other.** Recommendation:
+`event-store.hasIndividualSlotConflict` (the store's version) over `calendar/page.tsx`'s local
+`checkConflicts` — it already accounts for `hall.max_parallel_individual`, which the page's local
+copy doesn't. Whoever migrates `addEvents`/the drag-drop path should call the store's version (or
+its future Server Action equivalent) and delete the page-local one, rather than porting both.
+
+**Decision 3 — recurring "weekly" events: keep client-side expansion, don't materialize server-side.**
+Materializing N weeks of real rows server-side would need something to run on a schedule (generate
+the next window before it's needed) — this app has no scheduler anywhere (same constraint raised
+for SMS log retention, task #37). Recommend keeping `calendar/page.tsx`'s existing ±4-week virtual
+expansion (computed client-side over the Server Action's *base* recurring row) rather than taking
+on a second "introduce our first cron job" decision inside this migration. Revisit only if a
+scheduler gets built for another reason first.
+
+**Suggested phasing** (mirrors how Attendance/Students were migrated — dual-write before cutover,
+not a big-bang swap):
+1. Build `src/app/actions/calendar.ts` (+ `src/lib/logic/calendar.ts` per the API-contract
+   convention) covering the CRUD `event-store.ts` exposes today, once Decision 1 is settled.
+2. Cut over the **read-only** consumers first — lowest risk, no write-path coupling to untangle:
+   the public student portal, analytics, dashboard's `getTodayEvents()`. These can move
+   independently of `calendar/page.tsx` itself.
+3. Cut over `calendar/page.tsx`'s reads, keeping its writes on `event-store.ts` a little longer
+   (dual-write: write to both the new Server Action and the local store) to catch discrepancies
+   before trusting the new path alone.
+4. Migrate the cross-module writers one at a time, in order of how contained they are:
+   `individual-availability` (open slots — no group/subscription coupling) → `BookIndividualLessonModal`
+   (booking — touches subscriptions) → `GroupModal`/`groups/page.tsx`'s `syncGroupScheduleToCalendar`
+   call → `calendar/page.tsx`'s own group-editing paths (`updateEventSeries`, `deleteAllGroupOccurrences`)
+   last, since they're the most tangled with Groups' `schedule_slots`.
+5. Only then remove `event-store.ts`'s write paths (keep `getEvents()` reading from the new source
+   until every writer is confirmed migrated, to avoid a window where some data only exists in one
+   place).
+6. `Header.tsx`'s AI-chat quick-booking (`addIndividualLesson`) and the SMS confirmation flow
+   should be re-pointed at whichever step first replaces the function they call, not treated as a
+   separate phase — cheaper to fix in place than to schedule around.
+
+**Not done**: the migration itself. This is a plan to execute against, not a completed task —
+re-verify Decision 1 against the live DB before writing any code, since everything else here
+assumes its answer.
+
+**Update — Decision 1 partially resolved, and a new scope finding**: `supabase/SUBSCRIPTION_PERSISTENCE_FIX.sql`
+(a manually-run fix script, not in `migrations/`) does
+`ALTER TABLE public.calendar_events ADD COLUMN IF NOT EXISTS data JSONB DEFAULT '{}'::jsonb;` —
+confirms the live table really does have the `data` JSONB column the sync code assumes (the
+`master_schema.sql` normalized-columns-only version is the outdated one). This is enough to safely
+read events (`select('data')` returns the exact same object shape `event-store.ts` already works
+with — `start_time`/`end_time` as plain `"HH:MM"` strings inside the JSON, sidestepping the
+TIME-vs-timestamp ambiguity entirely for reads). Started building the read-only Server Action on
+this basis, per the phasing plan's step 2 (cut over read-only consumers first).
+
+Got as far as reading the two intended first consumers' actual code before writing it, and found a
+scope-changing fact: `dashboard/page.tsx`'s `getTodayEvents()` call and `analytics/page.tsx`'s
+`getEvents()` call are each one line inside a much larger **synchronous** stats-computation
+function that also calls `getStudents()`, `getSales()`, `getSubscriptions()`, etc. — all
+synchronous, local-store reads, computed together in one pass. Swapping just the calendar read to
+an async Server Action isn't a data-source swap, it's a sync→async restructure of that whole
+function (dashboard's touches attendance-rate/expected-today stats; analytics' touches
+teacher-payroll/bonus stats) — real, non-trivial code that I can't visually or functionally verify
+in this environment (no Supabase credentials here — see the SMS log-retention phase for the same
+limitation). Rather than restructure a payroll-adjacent computation blind and unverified, stopped
+here rather than push through it.
+
+**Not done**: the Server Action itself was not committed (kept out of the tree rather than half-
+build it) — this note exists so the next attempt starts from "read-only is 90% blocked on a
+sync→async restructure of two stats functions," not from scratch. The `data`-JSONB read approach
+above is still the right one to use once that restructure is scoped and someone can verify the
+result against the running app.
+
+### REST API foundation — Phase 0: `branches` logic-layer extraction pilot
+
+Status: completed
+
+First concrete step of the REST-API-foundation initiative discussed earlier (mobile/desktop apps
+need real React Native, not a WebView — Server Actions are unreachable from that runtime). Per the
+narrowed scope agreed after review (extract the shared logic layer now; defer REST routes and
+bearer-auth entirely until native work actually starts, since building them speculatively risks
+guessing wrong about what the native client actually needs) — this pass did **only** the
+extraction, nothing else.
+
+**Built**: `src/lib/logic/branches.ts` — `createBranch`/`updateBranch`/`deleteBranch`, plain
+functions taking an already-authenticated `{ client, orgId }` plus the raw input, with the Zod
+validation and Supabase calls moved out of `src/app/actions/branches.ts` verbatim. The Server
+Action file is now a thin wrapper: `requireStudioManager()` for auth, call the logic function,
+`revalidatePath`. Chose `branches` as the pilot because it was already the smallest/simplest
+migrated module (3 actions, no cross-module side effects) — a good template to point at when this
+pattern gets applied to a real entity later, with the least risk of the extraction itself
+introducing a regression.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new warnings on either file.
+- No REST route, bearer-auth, or access/refresh-token work was built — that remains explicitly
+  deferred per the agreed scope, to be picked back up only once native app work actually starts.
+- **Self-review correction**: the first version of this pilot still threw raw `Error`s instead of
+  returning `ActionResult<T>` — missing the point, since `api-contract.md` uses this exact entity
+  (`createBranch`/`listBranches`) as its own worked example of the convention. Fixed:
+  `src/lib/logic/branches.ts`'s three functions now return `ActionResult<void>` via `ok()`/`fail()`
+  for validation/query failures; `requireStudioManager()`'s auth check still throws (shared infra,
+  out of scope here). Existing callers (`StudioContext.tsx`) were already fire-and-forget
+  (`.catch(() => {})`) so this needed no caller changes. Also factored the tombstone/cloud-delete
+  block this pass's other fix (`deleteAllGroupOccurrences`) had just duplicated a 5th time in
+  `event-store.ts` into one `tombstoneAndDeleteFromCloud(ids)` helper, traced against all 4 prior
+  call sites to confirm it's behavior-preserving.
+
+### SMS log retention enforcement — the app's first scheduled job
+
+Status: completed
+
+The SMS PRD's "log retention" setting was never built at all (see Phase 9's note) because this app
+had no scheduler anywhere. User chose Vercel Cron to fix that ("Vercel is active again, do
+whichever you think is right on the mechanism") — this introduces the app's first ever scheduled
+job.
+
+**Built**:
+- `types/index.ts`: `StudioSettings.smsManager.logRetentionDays?: number` — **opt-in only**. An org
+  that never sets this is never touched by the cron; a studio's SMS history is never deleted
+  without an admin explicitly choosing a number first.
+- `sms-manager/page.tsx`: a "ლოგების ავტომატური წაშლა" panel in Settings (days input, 1-3650 range,
+  save button) — same pattern as the existing low-balance-threshold panel.
+- `vercel.json`: a daily cron (03:00 UTC) hitting the new route.
+- `src/app/api/cron/sms-log-retention/route.ts`: for each studio with `logRetentionDays` set,
+  deletes `sms_logs` rows older than that many days for that org. Auth via
+  `Authorization: Bearer $CRON_SECRET` (Vercel's own documented convention — refuses to run if
+  `CRON_SECRET` isn't set on the project).
+- `supabase/migrations/20260920_sms_logs_retention_index.sql`: composite `(org_id, timestamp)`
+  index on `sms_logs` (the cron's delete filters on both), dropping the now-redundant
+  org_id-only index.
+
+Notes:
+- `tsc --noEmit`: clean. Lint: no new warnings on any touched file.
+- **Self-review corrections (multiple rounds)**: the schema path for reading `logRetentionDays`
+  server-side was wrong on the first *two* attempts before being traced end-to-end through the real
+  write path (`updateSettings` → `pushFullStudioMetadata` → `/api/sync/metadata`) and fixed to the
+  correct one (`studio_settings.staff_data.smsManager`, not `studio_settings.settings` — that
+  column doesn't exist — and not `staff_data._operations.cc_studio_settings`, which is a *different*
+  blob only the superadmin panel writes). Also fixed after review: added pagination with a stable
+  `.order()` (a plain select caps at 1000 rows), added `maxDuration = 300`, made the route return a
+  failing HTTP status if every org's delete errored (so cron-monitoring alerting isn't blind to a
+  total failure), clamped `logRetentionDays` to a sane range both client- and server-side (an
+  extreme value would otherwise throw an uncaught `Invalid Date` mid-loop), wrapped each org's
+  delete in its own try/catch (one org's failure no longer aborts every org after it), and switched
+  the settings read to PostgREST's `staff_data->smsManager` JSON-path selection instead of pulling
+  the whole `staff_data` blob (which can carry a full base64 studio logo) once a day for every
+  studio just to read one nested number.
+- **Known limitation, not fixed**: each org's delete is one unbounded statement — an org enabling
+  retention for the first time after years of unpurged history could delete a very large number of
+  rows in one call, risking the time budget and holding a write lock against the live
+  `/api/sms/send` logging path. Not batched (chunked deletes with a loop) because that needs
+  verifying against a live Supabase/PostgREST instance this environment doesn't have; documented in
+  the route's own comment as something to revisit if ever observed running long.
+- No live Supabase call was made or possible to verify this against in this environment (no DB
+  credentials here) — every claim about the real schema/write path was verified by reading the
+  actual server code that performs those writes, not by testing against a live database.
+
+### Test infrastructure + repo-wide no-unused-vars cleanup
+
+Status: completed
+
+Requested directly ("do 1 and 2 as well" — add tests, clean up the lint debt). Scope corrected
+mid-task: the initial estimate ("563 errors, 33 files") was wrong — a `head_limit`-truncated grep —
+the real number was ~572 `no-unused-vars` errors across 90+ files, told to the user before
+proceeding rather than silently doing a fraction of what was agreed.
+
+**Built**:
+- `vitest.config.ts` + `package.json`'s `test` script — this project had zero test tooling.
+  Pinned to Vitest v2 (v5 wanted `@types/node` ^22, this project has ^20 — v2 avoids bumping an
+  unrelated dependency for no reason).
+- `src/lib/action-result.test.ts`, `src/lib/logic/branches.test.ts` — unit tests for the two
+  purest pieces of this session's own earlier work (the `ok`/`fail`/`clampPagination` helpers, and
+  the branches logic module against a small fake chainable Supabase client, since there's no live
+  DB here to test against for real).
+- Eliminated every `no-unused-vars` error repo-wide. Split the mechanical bulk across 4 parallel
+  Agent batches (unused imports/destructured vars/dead functions/`catch(e)`→`catch{}`), each
+  required to verify its own `tsc --noEmit` + a filtered lint re-run before reporting back — this
+  was genuinely parallelizable (independent file sets, mechanical, easily verified per-batch) so
+  four batches ran concurrently rather than one at a time.
+
+**Self-review found and fixed after the batches finished** (own mistake + a final full-diff pass):
+- I gave the batches an incorrect blanket instruction — "removing a trailing unused parameter is
+  always safe since JS/TS lets callers pass more args than declared." True for plain JS, false for
+  this typed codebase: `tsc` errors the moment a call site still passes the old arg count. Two
+  batches independently caught this via their own mandatory `tsc` step and self-corrected (reverted
+  the signature, used an `eslint-disable-next-line` instead). Two others still left 2 call sites
+  broken (passing an extra arg to a function whose signature had lost that param) — found via a
+  cross-batch `tsc --noEmit` and fixed directly (dropped the now-ignored argument at the call site
+  in both cases, since neither function actually used that parameter internally either).
+- ~26 more `no-unused-vars` instances turned up in files outside the original 90-file list — the
+  same `head_limit` truncation that caused the original miscount also missed files whose *first*
+  lint error was something other than `no-unused-vars`. Fixed these myself: mostly `catch(e)` →
+  `catch{}` and dead locals, plus one genuinely security-relevant case in
+  `src/app/api/auth/staff-login/route.ts` (`const { password, data, ...rest } = row` — a
+  deliberate exclusion idiom to strip password fields before returning staff data; silenced with
+  `eslint-disable-next-line` rather than "fixed" by removing the destructuring, which would have
+  put the password back into `rest`).
+- A final full-diff code-review (separate from each batch's own self-check) found 3 real leftover
+  cases where a batch removed the *consumer* of a value but left the now-pointless computation
+  running: `attendance/page.tsx` fetched every shop product on every drawer-open with the result
+  now written to a setter nothing reads (its only consumer, quick-sell, was the dead code removed);
+  `analytics/page.tsx` had a bare `getExpenses(...)` call left directly in the render body,
+  re-reading localStorage every render for a discarded value; `master-sync.ts`'s
+  `pushCollectionToCloud` kept a `createClient()` call under the assumption it had a needed side
+  effect, but that function never uses any Supabase client — it calls `fetch()` directly. All three
+  deleted (not just the flagged unused variable — the whole now-pointless computation).
+- Found and fixed one real, unrelated bug while going through calendar/page.tsx by hand:
+  `EventChip` received an `onTouchStart` handler from both its callers but never wired it to the
+  rendered `<button>` — mobile touch-drag was silently non-functional. Added the one missing prop,
+  mirroring the sibling `onMouseDown` that was already wired correctly.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing. Full `next lint`: 0 `no-unused-vars`
+  errors remaining anywhere in the repo.
+- Deliberately NOT touched: `no-explicit-any` (~690 instances), `react-hooks/exhaustive-deps`
+  (~38), `no-img-element` (~48) — each needs a real per-site type or behavior decision, not a
+  mechanical fix, and was explicitly out of scope for this pass.
+
+### Production diagnostic follow-up (relayed by a colleague, "Niko") — hydration noise + duplicate POSTs
+
+Status: completed (the 2 items verified as real); the rest still open, needs live-app access
+
+A colleague's network/console audit of the live app (dashboard/students/groups pages) reported:
+duplicate POST requests per page (dashboard 4x, students 2x, groups 2x), ~10 sidebar links
+prefetched on every load, base64 avatars inline in payloads, MasterSync's background hydration
+firing on every nav + ~5min, and — flagged as the most serious finding — 4 console warnings
+("Empty cloud result for cc_student_data/cc_student_subscriptions/cc_calendar_events/cc_expenses,
+preserving local data") appearing on literally every hydration cycle, read as evidence Supabase
+never returns real data for these 4 collections and the app silently runs on stale local copies.
+
+**Investigated each claim against the actual code before acting on any of it** (no live DB/Vercel
+logs access in this environment, so verification was via reading the real hydration/API code, not
+via reproducing the network trace):
+
+- **"Empty cloud result" — a false alarm, not a data-loss bug.** `StudioContext.tsx`'s hydrate()
+  runs two phases: Core (immediate) and Heavy (a `setTimeout` right after, separate API call).
+  `/api/sync/state/route.ts`'s `isHeavy` gating means students/subscriptions/calendar_events/
+  expenses/sales/products/trash are *always* `Promise.resolve({ data: [] })` in a `'core'`-chunk
+  response — by design, not by failure. The warning (`guardedWrite`, only ever called from the Core
+  block) is therefore guaranteed to fire for exactly these keys on every single cycle, regardless
+  of whether Supabase is healthy. Traced each of the 4 (and 3 more the colleague didn't list —
+  `cc_shop_products`/`cc_shop_sales`/`cc_global_trash`, also `isHeavy`-gated) through to the
+  *separate* Heavy-phase write path and confirmed each one has its own real write with its own
+  `queryFailed` guard (e.g. `calendar_events` at what's now line ~726) — real data does arrive,
+  just a beat later than the misleading warning suggests.
+- **Duplicate POST /dashboard and /groups — real, and root-caused.** The hydrate() function used to
+  dispatch `cc_groups_update`/`cc_halls_update`/`cc_student_update`/`cc_teacher_update`/
+  `cc_calendar_events_update` individually *and again* inside a second `forEach` dispatch pass —
+  every listener bound to any of those 5 events fired twice per hydration cycle. `dashboard/page.tsx`
+  listens to 4 of the events this affects (`cc_subscription_update`/`cc_attendance_update`/
+  `cc_sale_update`/`cc_student_update`) to re-run `getDashboardStatsAction()` (a Server Action —
+  shows up as `POST /dashboard`); `groups/page.tsx` listens to `cc_groups_update` for
+  `getGroupsAction()`. This fully explains the observed duplicate/quadruple POSTs.
+- **/students' "one 200, one 503"** is most likely React Query's default automatic retry-on-error
+  (`useStudentsListQuery`, `@tanstack/react-query`) reacting to an occasional real 503 — not a
+  separate bug of its own. Not fixed directly; should become less frequent as a side effect of the
+  fix below (fewer simultaneous requests during a hydration burst → less contention).
+- **Sidebar prefetching ~10 links unclicked** — confirmed as plain Next.js `<Link>` default
+  behavior (no `prefetch={false}` set anywhere in `Sidebar.tsx`), not a custom bug. Real, and worth
+  tuning, but a deliberate scope decision (which links matter enough to prefetch) rather than a
+  one-line fix — left open.
+
+**Built**:
+- `StudioContext.tsx`: merged the two duplicate-event-dispatch passes into one deduped list (each
+  event now fires exactly once per hydration cycle).
+- `StudioContext.tsx`: added `HEAVY_ONLY_CORE_KEYS` — `guardedWrite` still skips the write exactly
+  as before (unchanged behavior), it just no longer logs the misleading warning for the 7 keys that
+  are guaranteed-empty-by-design in a Core-only chunk. Self-review caught that the first pass at
+  this list only had 4 of the 7 actual `isHeavy` keys (missed `cc_shop_products`/`cc_shop_sales`/
+  `cc_global_trash`) — completed against `/api/sync/state`'s actual gating before committing.
+- `dashboard/page.tsx`: debounced the `getDashboardStatsAction()` reload (300ms) so several of its
+  4 listened-for events firing together in one hydration burst collapse into one real network call
+  instead of one each.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- **Not done (still open, needs the colleague's or someone's live-app/Vercel access to verify or
+  finish)**: whether the 503s stop once the request-flood is reduced (can't reproduce/measure
+  without a live environment); sidebar prefetch tuning (a product decision on which links are
+  worth it, not just a technical fix); moving avatars from base64-in-payload to Storage URLs
+  (larger, separate piece of work); `groups/page.tsx`'s own duplicate-listener pattern beyond what
+  the StudioContext dedup already fixes wasn't otherwise touched. The broader "two architectures
+  coexisting" observation is accurate as a description of the codebase's history (documented
+  repeatedly elsewhere in this file) but isn't itself an actionable line item.
+
+### Branches silently failing to save (relayed by a colleague, "Niko") — swallowed-error fix
+
+**Report**: a second, short relayed message — Niko said branches aren't being created, no other
+detail.
+
+**Root cause found by reading the code** (no live DB/Vercel access, so verified via the actual
+call chain rather than reproduction): `addBranch`/`updateBranch`/`removeBranch` in
+`StudioContext.tsx` all followed the same shape — optimistically commit the change to local state
+(and localStorage) *first*, then fire the corresponding Server Action
+(`createBranchAction`/`updateBranchAction`/`deleteBranchAction`) with `.catch(() => {})`. That
+swallows two different failure shapes: a thrown error (e.g. `requireStudioManager()` rejecting an
+unauthorized caller) *and*, since this session's earlier `branches` logic-layer extraction, a
+resolved `ActionResult` with `error` set (a validation or DB failure that doesn't throw). Either
+way the UI had already shown the branch as saved before the Server Action ran, and nothing ever
+told it the server rejected the write — so a branch could look present in the browser indefinitely
+while never existing server-side, which matches "branches aren't being created" from a user who
+only sees the client.
+
+Ruled out an owner-role-assignment bug first (`register-studio/route.ts` correctly sets
+`role: 'owner'` in `user_metadata` at creation) before concluding this was the cause. Also found,
+but explicitly did not act on: `supabase/FINAL_PERMISSIONS_FIX.sql`, a legacy, not-in-`migrations/`
+script that disables RLS and grants broad `anon`/`authenticated` privileges on `branches` and
+several other tables — unclear whether/when it actually ran against the live DB relative to later
+RLS-enabling migrations, and both confirming and reverting it need live DB access this environment
+doesn't have. Flagging it here as an open risk rather than guessing.
+
+**Built**: a shared `runBranchAction(action, failureLabel, rollback)` helper used by all three
+functions — checks both failure shapes, shows a failure notification, and rolls back via the
+caller's `rollback(prev)`. Two rounds of self-review (`code-review` skill) each found real issues,
+fixed before committing:
+- **Round 1** — `updateBranch`'s first rollback attempt closed over a stale snapshot captured
+  before the async call started, which could clobber a second, already-successful overlapping
+  edit to the same branch. Fixed by having `rollback` receive the *latest* state and compare
+  against it (`JSON.stringify(current) !== JSON.stringify(updated)` before reverting) instead of
+  trusting the snapshot; this is also why `rollback` takes `prev => next` rather than a plain
+  object.
+- **Round 2** — the rollback only called `setSettings`, never re-persisting through
+  `saveSettings`/`pushFullStudioMetadata` the way the original optimistic write had — so the
+  *correction* itself didn't survive a hydration cycle, and the bad state would silently reappear.
+  Fixed by having `onFailure` persist the rolled-back branches array the same way, gated on
+  `orgId` exactly like `updateSettings()` does. Also found in this pass: `addBranch`'s optimistic
+  write never pushed to the cloud settings blob at all (only `saveSettings` to localStorage) —
+  unlike `updateBranch`/`removeBranch`, which both go through `updateSettings()` and therefore
+  push on every edit — so a branch created on one device/session was invisible to any other until
+  something else happened to push settings again. Fixed by adding the same conditional
+  `pushFullStudioMetadata` call to `addBranch`'s success path. Two smaller bugs from the same pass:
+  `addBranch`'s rollback always returned a new spread object even when nothing needed reverting
+  (defeating the `next === prev` no-op check other two functions rely on) — fixed with an explicit
+  membership check; `removeBranch`'s rollback re-inserted a restored branch at the *end* of the
+  array instead of its original index — fixed by capturing the index before the optimistic removal
+  and splicing it back in on rollback.
+- Toast text for all three (previously Georgian: `ფილიალის დამატება/განახლება/წაშლა ვერ მოხერხდა`,
+  `უცნობი შეცდომა`) switched to English to match this file's own established convention for
+  sibling staff error messages (`'Failed to save staff changes'`, etc.) — this file has no other
+  Georgian-language strings in code, only in user-facing content.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing, both before and after every round of
+  fixes above.
+- **Not done**: `runBranchAction`'s `onFailure` duplicates the same `saveSettings` +
+  `pushFullStudioMetadata` sequence that `updateSettings()` already implements, instead of sharing
+  one persistence path — flagged by the final review pass as a maintainability risk (the two
+  copies can drift if one is changed without the other) but not refactored, since giving
+  `updateSettings()` a functional-updater form to share the logic safely would touch a
+  widely-called function with many existing callsites — larger, riskier scope than this fix
+  warranted. Also still open, unchanged from the prior entry: whether `FINAL_PERMISSIONS_FIX.sql`
+  was ever run against the live DB, and what `branches`' actual current RLS state is — needs live
+  DB access to answer.
+
+### Calendar/Events — minimal Server Actions port (docs/architecture-migration.md §12)
+
+Picked up the one item on the board still genuinely blocked on a scope decision. §12 already had a
+detailed writeup of why this was deliberately deferred: no real per-occurrence identity for
+recurring events (editing/deleting a future week or an individual lesson today either silently
+no-ops or wrongly mutates the whole series), pervasive teacher self-service writes across the
+module (not just the calendar page — booking their own lessons, publishing their own
+availability), and a timestamp-vs-HH:MM schema mismatch. Asked which of 3 scopes to take (leave the
+occurrence bug alone and do a minimal port / fix the bug as part of this migration / fix the bug
+without touching Server Actions at all) — told to use judgment, picked the minimal port: doesn't
+require inventing a per-occurrence exception model as a side effect of what should be an
+architecture-only pass.
+
+**Built**: `src/app/actions/calendar.ts` — `createCalendarEventAction`/`updateCalendarEventAction`/
+`deleteCalendarEventAction`/`deleteCalendarEventsAction`, `requireEffectivePermission('canEditCalendar')`
+-gated, zod-validated, matching the real `calendar_events` schema (`id, org_id, hall_id, group_id,
+title, start_time, end_time` as timestamptz + `data` JSONB — confirmed via `/api/sync/bulk`'s
+`MINIMAL_COLUMNS`/`sanitizeRow`). Scoped to exactly the 4 operations `calendar/page.tsx` performs on
+a REAL, addressable row (create, update, delete-one, delete-a-batch for its own
+`deleteAllGroupOccurrences`) — wired in `calendar/page.tsx` to run ADDITIONALLY alongside the
+existing `event-store.ts` write, which is completely unchanged. Every read-only consumer (the
+calendar page's own reads, attendance's schedule display, dashboard's schedule widget,
+individual-availability, `BookIndividualLessonModal`, the public student portal) is unaffected.
+What's new: a permission denial or DB error, previously swallowed by the best-effort
+service-role `/api/sync/bulk` push (no server-side `canEditCalendar` check at all, no round-trip
+confirmation), now surfaces a toast — previously it was 100% silent either way.
+
+**Three review rounds, three real findings, the last one serious**:
+- Round 1 caught `updateEvent()` retargeting a recurring occurrence's expanded `_wN` id to the real
+  base row (mirroring `deleteEvent()`'s existing suffix-strip) — safe for delete, but for update it
+  would have silently overwritten that real row with the occurrence's shifted date/time. Fixed by
+  only firing the new action when `updated.id` matched a real row *unchanged* (gated on the same
+  `prev` lookup that already decides whether the local store call no-ops), otherwise skipping it —
+  same outcome as the pre-existing local no-op, no corruption risk. Also added a `NOT_FOUND` check
+  on zero-row-matched update/delete... which round 3 then found was itself wrong (below).
+- Round 2 confirmed `deleteAllGroupOccurrences` could call the batch-delete action with an empty
+  `ids` array (nothing to delete), which zod rejected as a validation error — fixed with a
+  length-guard before the call — and that the create schema's `title.trim().min(1)` was stricter
+  than the edit UI actually enforces, so clearing a title (which saves fine locally) would surface a
+  spurious server error; fixed to match `sanitizeRow`'s own `row.title || 'Event'` fallback instead
+  of rejecting.
+- **Round 3, the serious one**: this Server Action runs *alongside* `event-store.ts`'s own
+  fire-and-forget write of the same id, which has far fewer round trips (no permission checks) and
+  usually lands first — so a plain `.insert()` on create almost always hit a duplicate-key conflict
+  on an event that was, in fact, saved, surfacing a false failure on ordinary use. First fix was
+  `upsert()` — which turned out to be a real security regression: `requireOrgIdDualAuth()` hands
+  staff-token (teacher) sessions a service-role client with **no RLS**, and an `upsert`'s
+  `ON CONFLICT DO UPDATE` has no way to be scoped by `org_id` — any org's caller with
+  `canEditCalendar` could have overwritten another org's event by supplying its id, a genuine
+  tenant-isolation hole. Fixed with insert-then-verify-ownership-on-conflict instead: insert; on a
+  `23505` conflict, look up the existing row's `org_id`; treat it as the benign same-org race only
+  if it matches, otherwise reject. Two follow-on issues in that same fix, both closed: the lookup's
+  own error was being swallowed (a transient DB error on the ownership check would have produced a
+  misleading `ID_CONFLICT` instead of `DB_ERROR`); and the rejection message named which org the
+  conflicting id belonged to, which would have let any caller enumerate other orgs' event ids by id
+  — genericized to not confirm existence either way. This same round also concluded the
+  earlier-added `NOT_FOUND` checks on update/delete (round 1) were wrong for the identical reason as
+  the upsert bug — they're raced by the same legacy fire-and-forget path and would misfire on a
+  benign race — so those were reverted back to plain error-only checks; correctness here now leans
+  on the caller-side `prev`/`baseEv` gates instead of a server-side existence check.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing. `next lint` on both touched files: clean
+  (pre-existing `no-explicit-any` warnings elsewhere in the 3000-line calendar page are untouched,
+  not introduced by this change).
+- **Not done, deliberately**: everything §12 already listed as deferred (per-occurrence identity,
+  teacher self-service booking/open-slot writes, the timestamp/HH:MM schema split) is exactly as
+  unfixed as before — this pass never touches occurrence semantics. Also not done: batching
+  (`addEvents()` fires one `createCalendarEventAction` round trip per event in a multi-day recurring
+  create instead of one batched insert) — accepted as a background, fire-and-forget cost rather than
+  building a 5th Server Action for it now.
+
+### Branch data isolation, Phase 1 (students/staff/groups/halls)
+
+Follow-up to the branches-silent-failure fix: the owner reported branch-switching "does nothing,"
+and investigation (3 parallel research passes — schema/stores, Server Actions layer, UI/permissions)
+confirmed there was no real branch isolation anywhere in the app — `org_id` was the only enforced
+boundary, `activeBranchId` filtered almost nothing, and `staff.allowedBranchIds` only ever gated the
+branch-switcher dropdown, never a query. The actual requirement (clarified with the owner): branches
+must be genuinely independent, but a student or teacher can belong to more than one at once, with
+stats/payments kept separate per branch, enforced through permissions, not just the UI. This is a
+large, multi-phase feature — planned via plan mode, with a written plan covering Phase 1 in full
+(students/staff/groups/halls — the "identity/location" layer) and Phases 2/3 (subscriptions/
+attendance/sales/expenses, then calendar_events) scoped at roadmap level for later.
+
+**Built** (`supabase/migrations/20260921_branch_isolation_phase1.sql` + touched Server Actions):
+- Real columns, backfilled so no existing row goes invisible: `students.branch_ids` (`TEXT[]` — a
+  student can now belong to multiple branches, replacing the old single `data.branch_id` string that
+  was silently overwritten on every edit), `staff.allowed_branch_ids` (`TEXT[]`, promoted from
+  `data.allowedBranchIds`), `groups.branch_id` and `halls.branch_id` (`TEXT`, new — neither had any
+  branch concept before, defaulted to `'main'`).
+- `search_students` RPC gained `p_branch_id` (narrow to one branch — this is what makes switching
+  branches actually filter something) and `p_visible_branch_ids` (the security boundary), same dual-
+  param shape as the RPC's existing group-visibility params. Had to `DROP FUNCTION` first since
+  adding parameters changes a Postgres function's identity — a plain `CREATE OR REPLACE` would have
+  left the old signature as a separate, still-callable overload.
+- `resolveCallerBranchIds()` (`src/lib/permissions/enforce.ts`) and `applyBranchFilter()`/
+  `assertBranchAccess()` (`src/lib/server-actions-auth.ts`) — shared helpers every entity's Server
+  Actions use: reads filter by the caller's own permitted branches (empty = unrestricted, matching
+  the existing convention) AND by an optional explicit `branchId` param (wired to
+  `settings.activeBranchId` from each page); writes validate the caller may actually target the
+  branch(es) they're setting. `students.ts` can't reuse these directly (it only supports real
+  Supabase Auth sessions via its own `requireOrgId()`, not the dual-auth `DualAuthContext` staff-token
+  sessions need) — it has an equivalent local `resolveOwnBranchAccess()`/`assertBranchAccess()` pair.
+- UI: `StudentModal` gained a multi-select branch picker (new — none existed before), `GroupModal`
+  and the halls create/edit modal gained single-select branch pickers next to their existing hall/
+  name fields. All three only render when a studio actually has more than the default one branch.
+  `students/groups/halls` pages now pass `settings.activeBranchId` into their read calls and default
+  new records to it.
+
+**Four review rounds, each catching something real before it shipped** — this touches
+auth/permission logic directly, so it got the same scrutiny as the Calendar Server Actions work:
+- Round 1: `updateStaffAction`/`deleteStaffAction` never checked the caller had access to the
+  *target* row's branch before mutating it (only `createStaffAction`'s `allowedBranchIds` field was
+  guarded) — a branch-A-only Administrator could edit/delete any staff member org-wide. `updateGroupAction`/
+  `deleteGroupAction` relied on `applyBranchFilter` silently narrowing the WHERE clause instead of
+  erroring on a 0-row match — an out-of-scope edit/delete would silently no-op with no error, the
+  exact bug class task #44 (branches) already fixed once this session. `saveHallsAction`'s new
+  `halls.length === 0` early-return broke its own documented "empty array deletes everything"
+  whole-array-replace contract.
+- Round 1 fixes: added `.select('id')` + a real error on 0 rows affected to `updateGroupAction`/
+  `deleteGroupAction`/`deleteHallAction` (safe here, unlike Calendar's actions — nothing else writes
+  these specific rows concurrently, so a 0-row result is never a benign race). Replaced halls' empty-
+  array no-op with a real branch-scoped "delete everything I can see" (org-wide for an unrestricted
+  caller, matching the pre-branch-isolation behavior exactly). Added a target-branch check to
+  `updateStaffAction`/`deleteStaffAction`, mirroring `assertCanGrantBranches`.
+- Round 2 (self-review of round 1's own fix): the new staff target-branch check was itself wrong —
+  the migration backfills `allowed_branch_ids` to `[]` (unrestricted) for nearly every existing staff
+  row, so "the target's scope must be a subset of the caller's own" rejected almost any ordinary edit
+  (renaming someone, changing `assigned_group_ids`) that had nothing to do with branches. **Reverted**
+  rather than patched further — properly scoping "can a branch-restricted Administrator manage a
+  colleague outside their branch at all" (overlap vs. subset? does role tier matter?) is a real RBAC
+  question that deserves its own decision, not a side effect of this migration. Documented as an
+  open gap in `staff.ts`'s header instead.
+- Also caught: a comment on `updateGroupAction`'s new 0-row check overclaimed safety ("group-store.ts's
+  legacy path is used by other pages, not this one") — true for the narrow race-safety point it was
+  making, but read as if it meant branch enforcement couldn't be bypassed at all, which isn't true
+  (see below). Corrected the comment and added an explicit gap disclosure to the file header instead.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing. `next lint` on every touched file: clean
+  (pre-existing `no-explicit-any`/`no-img-element` warnings elsewhere in these files are untouched).
+- **Deliberately NOT done, Phase 1 scope**: Phases 2 (subscriptions/attendance/sales/expenses get
+  their own `branch_id`, stamped at creation) and 3 (calendar_events, derived from its hall) per the
+  written plan — roadmap only, not built. `group-store.ts`'s and `hall-store.ts`'s legacy write paths
+  (calendar/page.tsx's `createGroup`/`addSlotToGroup`/`removeSlotFromGroup`, onboarding's
+  `SetupWizard`) still write to the same tables with no branch check and no `branch_id` at all —
+  inherits the exact same gap this file already had for org_id/permission enforcement before this
+  pass (documented in `groups.ts`'s own header both times). Staff management (update/delete) isn't
+  branch-scoped at all per Round 2 above — deliberately deferred, not silently missed.
+  `resolveCallerBranchIds()` re-runs a full caller resolution (a `staff` table query, sometimes a
+  Supabase Auth call too) that `requireEffectivePermission()`/`requireStudioManager()` already just
+  did and discarded — every branch-aware write now costs 2 caller-resolution round trips instead of
+  1; a real inefficiency, not fixed here since it would mean reshaping `DualAuthContext` across every
+  caller, wider scope than this pass. New expected-failure paths (`assertBranchAccess`,
+  `assertCanGrantBranches`, the new 0-row "not found" errors) `throw` rather than returning
+  `ActionResult` — consistent with these specific files' own pre-existing convention (they already
+  threw before this pass), but not the `docs/agents/api-contract.md` convention newer code is meant
+  to follow; a full retrofit of `students.ts`/`staff.ts`/`groups.ts`/`halls.ts` to `ActionResult` is
+  out of proportion to a branch-isolation pass and left for its own turn.

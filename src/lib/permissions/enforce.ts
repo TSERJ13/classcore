@@ -32,23 +32,32 @@ interface CallerInfo {
     /** The `staff` row id to resolve stored permissions/target-staff Locks against — for a real-Auth Teacher/Administrator (Unified Auth) this is their Supabase Auth user id, since that's what their `staff` row is now keyed by; for staff-token it's the token's own staffId. */
     staffId: string | null;
     storedPermissions: Partial<StaffPermissions> | null;
+    /** This caller's own branch restriction (`staff.allowed_branch_ids`) — empty array means unrestricted (all branches), matching the existing BranchSwitcher/Sidebar convention. Always empty for an owner. */
+    allowedBranchIds: string[];
 }
 
 async function resolveCaller(ctx: DualAuthContext): Promise<CallerInfo> {
     if (!ctx.isStaffToken) {
         const { data: userData } = await ctx.client.auth.getUser();
         const meta = userData?.user?.user_metadata ?? {};
-        return {
-            role: (meta.role as string) ?? null,
-            staffId: userData?.user?.id ?? null,
-            storedPermissions: (meta.permissions as Partial<StaffPermissions>) ?? null,
-        };
+        const role = (meta.role as string) ?? null;
+        const staffId = userData?.user?.id ?? null;
+        const storedPermissions = (meta.permissions as Partial<StaffPermissions>) ?? null;
+        if (role === 'owner' || !staffId) {
+            return { role, staffId, storedPermissions, allowedBranchIds: [] };
+        }
+        // Unified Auth: a real-Auth Administrator/Teacher's own branch
+        // restriction lives on their `staff` row, same place a
+        // staff-token session's does — no user_metadata equivalent exists.
+        const { data: staffRow } = await ctx.client
+            .from('staff').select('allowed_branch_ids').eq('id', staffId).eq('org_id', ctx.orgId).maybeSingle();
+        return { role, staffId, storedPermissions, allowedBranchIds: staffRow?.allowed_branch_ids ?? [] };
     }
 
-    if (!ctx.staffId) return { role: null, staffId: null, storedPermissions: null };
+    if (!ctx.staffId) return { role: null, staffId: null, storedPermissions: null, allowedBranchIds: [] };
     const { data: staffRow, error } = await ctx.client
         .from('staff')
-        .select('role, data')
+        .select('role, data, allowed_branch_ids')
         .eq('id', ctx.staffId)
         .eq('org_id', ctx.orgId)
         .maybeSingle();
@@ -58,7 +67,24 @@ async function resolveCaller(ctx: DualAuthContext): Promise<CallerInfo> {
         role: staffRow.role,
         staffId: ctx.staffId,
         storedPermissions: (staffRow.data as Record<string, unknown> | null)?.permissions as Partial<StaffPermissions> | undefined ?? null,
+        allowedBranchIds: staffRow.role === 'owner' ? [] : (staffRow.allowed_branch_ids ?? []),
     };
+}
+
+/**
+ * Resolves the caller's own branch restriction — empty array means
+ * unrestricted. Separate from requireEffectivePermission()/
+ * requireStudioManager() (which callers already use for their permission
+ * gate) so entities that don't need a permission check at all (plain reads)
+ * can still resolve branch access without paying for a permission
+ * resolution they don't need; entities that already call one of those two
+ * can call this afterward with the same `ctx` — resolveCaller() itself does
+ * one extra staff-row query, so this is meant to be called once per action,
+ * not per row.
+ */
+export async function resolveCallerBranchIds(ctx: DualAuthContext): Promise<string[]> {
+    const caller = await resolveCaller(ctx);
+    return caller.allowedBranchIds;
 }
 
 async function loadLocks(ctx: DualAuthContext): Promise<PermissionLock[]> {

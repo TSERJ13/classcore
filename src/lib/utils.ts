@@ -247,7 +247,7 @@ export function getActiveSlug(): string | null {
             localStorage.setItem(ACTIVE_SLUG_KEY, cookieSlug);
             return cookieSlug;
         }
-    } catch (e) {
+    } catch {
         // ignore
     }
 
@@ -330,7 +330,7 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
     const finalSlug = slug || getActiveSlug();
     if (!finalSlug) return base;
 
-    let scopeId = getEffectiveOrgId(finalSlug) || finalSlug;
+    const scopeId = getEffectiveOrgId(finalSlug) || finalSlug;
 
     const bId = branchId || (typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${finalSlug}`) || 'main') : 'main');
 
@@ -356,6 +356,7 @@ export function getScopedKey(base: string, slug?: string, branchId?: string) {
     return `${base}_${scopeId}`;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function consolidateStudioKeys(slug: string, activeOrgId?: string) {
     // DEPRECATED DUE TO SABOTAGE: NOW A NO-OP
     // MasterSync handles all migration safely.
@@ -485,6 +486,7 @@ let isCleaning = false;
  * If localStorage fills up, we DO NOT WIPE DATA — we just skip the local write.
  * Cloud (Supabase) remains the source of truth. Next page load will re-hydrate from cloud.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function safeSetItem(key: string, value: string, activeSlug?: string) {
     if (typeof window === 'undefined') return;
     
@@ -493,7 +495,7 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
         try {
             localStorage.setItem(key, value);
             return;
-        } catch (e) {
+        } catch {
             // fall through
         }
     }
@@ -539,7 +541,7 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
                     const thinnedObj = await compressRecursive(parsed);
                     thinnedValue = JSON.stringify(thinnedObj);
                     console.log(`📉 [Storage] Compressed: ${Math.round(value.length/1024)}KB -> ${Math.round(thinnedValue.length/1024)}KB`);
-                } catch (e) {
+                } catch {
                     // Fallback to simple regex if JSON parse fails
                     thinnedValue = value.replace(/"(photo_url|logo_url|logoDataUrl)":"data:image\/[^"]+"/g, '"$1":null');
                 }
@@ -547,7 +549,7 @@ export async function safeSetItem(key: string, value: string, activeSlug?: strin
                 try {
                     localStorage.setItem(key, thinnedValue);
                     console.log('✅ [Storage] Wrote compressed version successfully');
-                } catch (retryErr) {
+                } catch {
                     // 🛡️ NEVER WIPE DATA. Just skip this write.
                     // Cloud has the data — next page reload will hydrate it back.
                     console.warn('⚠️ [Storage] Cannot fit in cache. Skipping local save (cloud has the data).');

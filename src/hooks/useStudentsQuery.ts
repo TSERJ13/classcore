@@ -15,6 +15,7 @@ export type StudentsFilterParams = {
     groupId?: string;
     visibleGroupIds?: string[];
     sortBy: 'none' | 'first_name' | 'last_name' | 'gender';
+    branchId?: string;
 };
 
 /**

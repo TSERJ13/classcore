@@ -1,5 +1,4 @@
 import { incrementSessionsUsed, getSubscription, refundSessionsUsed } from './subscription-store';
-import { pushStudioStateToCloud } from './sync-store';
 import { getScopedKey, markLocalUpdate, getEffectiveOrgId } from './utils';
 import { getStaffSession, getActiveSlug, loadSettings } from './settings-store';
 import { recordAuditAction } from './audit-store';
@@ -60,7 +59,7 @@ export function getTodayCheckins(): CheckinRecord[] {
     if (typeof window === 'undefined') return [];
     try {
         const key = dayKey();
-        let saved = localStorage.getItem(key);
+        const saved = localStorage.getItem(key);
 
         const parsed = JSON.parse(saved ?? '[]');
         return Array.isArray(parsed) ? parsed : [] as CheckinRecord[];
@@ -181,7 +180,7 @@ export function refundCheckin(
                 localStorage.setItem(attDataKey, JSON.stringify(attData));
             }
         }
-    } catch (e) {}
+    } catch {}
 
     if (rToDeleteId || cloudFound || idx > -1) {
         const recSubId = subId || foundRec?.subId;
@@ -243,7 +242,7 @@ function _persistCheckinRecord(record: CheckinRecord, via: 'nfc' | 'qr' | 'manua
             if (!attData[record.studentId]) attData[record.studentId] = [];
             attData[record.studentId].push(cloudRecord);
             localStorage.setItem(attDataKey, JSON.stringify(attData));
-        } catch (e) {}
+        } catch {}
     }
 }
 
@@ -388,7 +387,7 @@ function _writeCheckin(
             if (!attData[studentId]) attData[studentId] = [];
             attData[studentId].push(cloudRecord);
             localStorage.setItem(attDataKey, JSON.stringify(attData));
-        } catch (e) {}
+        } catch {}
     }
 
     // Legacy sync trigger removed (Native SYNC prioritized)
@@ -496,7 +495,7 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
                 });
             }
         }
-    } catch (e) {}
+    } catch {}
 
     // 3. Look in cc_attendance_archive (flat array - common in portal)
     try {
@@ -522,7 +521,7 @@ export function getStudentCheckins(studentId: string): CheckinRecord[] {
                 }
             });
         }
-    } catch (e) {}
+    } catch {}
 
     // Sort by date and time descending
     return history.sort((a, b) => {
@@ -565,7 +564,7 @@ export function deleteCheckin(studentId: string, date: string, time: string, for
                 else localStorage.setItem(key, JSON.stringify(updated));
             }
         }
-    } catch (e) {
+    } catch {
         // Ignore
     }
 
@@ -602,7 +601,7 @@ export function deleteCheckin(studentId: string, date: string, time: string, for
                 }
             }
         }
-    } catch (e) {
+    } catch {
         // Silent
     }
 

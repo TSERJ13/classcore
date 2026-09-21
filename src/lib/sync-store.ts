@@ -133,9 +133,6 @@ export async function pushStudioStateToCloud(slug: string, staff: any[], data: a
             return false;
         }
 
-        // 2. Extract staff emails for global discovery
-        const staffEmails = Array.isArray(staff) ? staff.map(s => s.email?.toLowerCase().trim()).filter(Boolean) : [];
-
         // 3. Upsert to studio_settings table via Admin API to bypass RLS
         const { pushFullStudioMetadata } = await import('./master-sync');
         await pushFullStudioMetadata(slug, data.studioName || 'Studio', {
@@ -176,17 +173,17 @@ export async function verifyUserInStudio(slug: string, email: string) {
     }
     
     // 2. Check staff table for direct matching
-    const { data: staff, error: staffError } = await supabase
+    const { data: staff } = await supabase
         .from('staff')
         .select('id')
         .eq('org_id', studio.org_id)
         .eq('email', cleanEmail)
         .maybeSingle();
-        
+
     if (staff) return true;
-    
+
     // 3. Robust Fallback: Check studio_settings staff_emails array (normalized source of truth)
-    const { data: settings, error: settingsError } = await supabase
+    const { data: settings } = await supabase
         .from('studio_settings')
         .select('org_id')
         .eq('org_id', studio.org_id)

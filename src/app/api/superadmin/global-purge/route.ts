@@ -67,7 +67,7 @@ export async function POST(request: Request) {
                     console.error(`❌ Failed to delete Auth User ${uid}:`, authErr.message);
                     authResults.failed++;
                 }
-            } catch (e) { authResults.failed++; }
+            } catch { authResults.failed++; }
         }
 
         // 3. NUCLEAR TABLE PURGE: Clean all relational and setting tables for these slugs/orgs

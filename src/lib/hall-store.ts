@@ -22,7 +22,7 @@ import { loadSettings } from './settings-store';
 
 import { getScopedKey, getActiveSlug, markLocalUpdate, recordGlobalDeletion, getEffectiveOrgId, safeSetItem, getLocallyDeletedIds, addLocallyDeletedId } from './utils';
 import { triggerInstantSync } from './sync-store';
-import { syncRecordToCloud, deleteRecordFromCloud } from './master-sync';
+import { deleteRecordFromCloud } from './master-sync';
 
 const BASE_HALLS_KEY = 'cc_halls';
 const BASE_DELETED_HALLS_KEY = 'cc_deleted_halls';
@@ -56,7 +56,7 @@ export function getHalls(): HallData[] {
             const deletedIds = getLocallyDeletedIds(getDeletedHallsKey());
 
             const key = getHallsKey();
-            let saved = localStorage.getItem(key);
+            const saved = localStorage.getItem(key);
 
             if (saved) {
                 const parsed = JSON.parse(saved);

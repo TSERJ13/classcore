@@ -6,11 +6,10 @@ import { Mail, Lock, ArrowRight, Loader2, Sparkles, Shield, Globe } from 'lucide
 import { AppLogo } from '@/components/ui/Logo';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
-import { cn } from '@/lib/utils';
 import { isSuperAdminEmail } from '@/lib/superadmin-emails';
 
 export default function LoginPage() {
-    const { t, lang } = useT();
+    const { lang } = useT();
     const { user, profile, loading } = useUser();
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,7 +72,7 @@ export default function LoginPage() {
                 setLoginStatus(l('კავშირის დამყარება...', 'Установка соединения...', 'Establishing connection...'));
                 const { createClient } = await import('@/lib/supabase/client');
                 const supabase = createClient();
-                const { setStaffSession, validateStaffLogin, activateStaffSession } = await import('@/lib/settings-store');
+                const { setStaffSession, validateStaffLogin } = await import('@/lib/settings-store');
                 setStaffSession(null);
 
                 const isEmail = email.includes('@');

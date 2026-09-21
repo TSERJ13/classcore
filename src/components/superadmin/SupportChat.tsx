@@ -81,13 +81,13 @@ function loadChats(): ChatEntry[] {
 }
 
 export default function SupportChat({ layout = 'dashboard' }: { layout?: 'dashboard' | 'monitor' }) {
-    const { t, lang } = useT();
+    const { t } = useT();
     const [mounted, setMounted] = useState(false);
     const [chats, setChats] = useState<ChatEntry[]>([]);
     const [openChat, setOpenChat] = useState<ChatEntry | null>(null);
     const [replyInput, setReplyInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [allStudios, setAllStudios] = useState<Array<{ slug: string; name: string }>>([]);
+    const [, setAllStudios] = useState<Array<{ slug: string; name: string }>>([]);
     const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);

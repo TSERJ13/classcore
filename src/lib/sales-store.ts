@@ -27,11 +27,7 @@ export function getSales(): ShopSale[] {
     if (typeof window === 'undefined') return [];
     try {
         const key = getSalesKey();
-        let saved = localStorage.getItem(key);
-
-        const activeSlug = typeof window !== 'undefined' ? localStorage.getItem('cc_active_studio_slug') : 'demo.classcore.ge';
-        const activeBranch = typeof window !== 'undefined' ? (localStorage.getItem(`cc_active_branch_${activeSlug}`) || 'main') : 'main';
-        const isMainBranch = activeBranch === 'main';
+        const saved = localStorage.getItem(key);
 
         const parsed = JSON.parse(saved || '[]');
         return Array.isArray(parsed) ? parsed : [];

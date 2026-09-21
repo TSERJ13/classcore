@@ -53,7 +53,7 @@ const ALL_ITEMS: (NavItem & { color: string })[] = [
 ];
 
 // ── Studio Header Block with Hover Branch Switcher ──
-function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch, t, lang, profile, user, theme, setBranchModalOpen }: any) {
+function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch, t, profile, theme, setBranchModalOpen }: any) {
     const [isHovered, setIsHovered] = useState(false);
 
     const allowedBranches = useMemo(() => {
@@ -300,7 +300,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
 }
 
 // ── Sidebar Content Wrapper ──
-function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, activeBranchId, setActiveBranch, t, lang, profile, user, theme, setBranchModalOpen, pathname, close, defaultRole, logout, toggleExpanded }: any) {
+function SidebarContent({ exp, isMobile, mounted, defaultExpanded, settings, activeBranchId, setActiveBranch, t, lang, profile, user, theme, setBranchModalOpen, pathname, close, defaultRole, logout }: any) {
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
 
     return (

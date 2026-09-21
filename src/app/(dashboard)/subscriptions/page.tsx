@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Users, Zap, Clock, User, Link as LinkIcon, AlertCircle, Pause, CreditCard, Trash2, Edit2, DollarSign, Search, FolderPlus, CalendarClock } from 'lucide-react';
+import { Plus, Users, Zap, Clock, User, AlertCircle, Pause, CreditCard, Edit2, DollarSign, Search, FolderPlus, CalendarClock } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
@@ -115,9 +115,6 @@ export default function SubscriptionsPage() {
         const studentName = matchedStudents.length > 0 
             ? matchedStudents.map(st => st.full_name).join(' & ') 
             : 'უცნობი სტუდენტი';
-        const firstStudent = matchedStudents[0];
-        const initial = studentName.charAt(0);
-
         const getPlanTheme = (plan: string) => {
             const p = (plan || '').toLowerCase();
             if (p.includes('minimum') || p.includes('მინიმუმ')) return { badge: 'bg-slate-500/10 text-slate-600 border-slate-500/20', border: 'border-2 border-slate-500/30 hover:border-slate-500/60 shadow-slate-500/5' };

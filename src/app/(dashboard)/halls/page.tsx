@@ -1,15 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
-import { DoorOpen, Users, Edit2, Calendar, ArrowRight, Plus, Trash2, Layout } from 'lucide-react';
+import { DoorOpen, Users, Edit2, Calendar, Plus, Trash2, Layout } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MobileFAB } from '@/components/ui/MobileFAB';
 import { HallModal } from '@/components/halls/HallModal';
 import { useT } from '@/contexts/LanguageContext';
 import type { Hall } from '@/types';
 import { getHallsAction, saveHallsAction, deleteHallAction } from '@/app/actions/halls';
-import { getGroups } from '@/lib/group-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -26,7 +24,7 @@ export default function HallsPage() {
     const [events, setEvents] = useState<any[]>([]);
 
     useEffect(() => {
-        const refresh = () => { getHallsAction().then(rows => setHalls(rows as unknown as Hall[])).catch(err => console.error('❌ [Halls] Failed to load:', err)); };
+        const refresh = () => { getHallsAction(settings.activeBranchId || undefined).then(rows => setHalls(rows as unknown as Hall[])).catch(err => console.error('❌ [Halls] Failed to load:', err)); };
         refresh();
         import('@/lib/event-store').then(mod => {
             setEvents(mod.getEvents());
@@ -34,7 +32,7 @@ export default function HallsPage() {
 
         window.addEventListener('cc_halls_update', refresh);
         return () => window.removeEventListener('cc_halls_update', refresh);
-    }, []);
+    }, [settings.activeBranchId]);
 
     function openAdd() { setEditing(null); setModalOpen(true); }
     function openEdit(h: Hall) { setEditing(h); setModalOpen(true); }
@@ -59,6 +57,7 @@ export default function HallsPage() {
                 is_active: true,
                 capacity: 0,
                 sq_meters: 0,
+                branch_id: settings.activeBranchId || 'main',
                 ...data,
             }];
         }
