@@ -46,6 +46,26 @@ interface StudioContextType {
 
 const StudioContext = createContext<StudioContextType | undefined>(undefined);
 
+/**
+ * 🛠️ FIX: 'main' is the implicit default branch every legacy student/group/
+ * hall/staff row belongs to (student-store.ts, group-store.ts,
+ * server-actions-auth.ts's applyBranchFilter — everywhere), but it has
+ * never actually been a row in the `branches` table; it only ever existed
+ * as settings-store.ts's local DEFAULT_SETTINGS.branches seed. The moment
+ * an org creates even one *real* branch, this hydration merge (and
+ * loadSettings() on cold load) replaces `branches` outright with whatever
+ * the `branches` table returns — which never includes 'main' — so it
+ * silently disappears from both the BranchSwitcher and Settings' Branch
+ * Management list. Before branch isolation actually filtered anything this
+ * was cosmetic; now it locks the owner out of their own (branch_id='main')
+ * data with no UI path back to it. Guarantee 'main' is always present.
+ */
+function ensureMainBranch(branches: Branch[] | undefined | null): Branch[] {
+    const list = branches || [];
+    if (list.some(b => b.id === 'main')) return list;
+    return [{ id: 'main', name: 'მთავარი ფილიალი', is_active: true }, ...list];
+}
+
 export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?: string | null; defaultStudioName?: string | null }> = ({ children, defaultSlug, defaultStudioName }) => {
     const { user, profile, loading: userLoading } = useUser();
     
@@ -55,6 +75,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         const base = loadSettings(activeSlug);
         if (defaultStudioName && !base.studioName) base.studioName = defaultStudioName;
         if (activeSlug && !base.studioSlug) base.studioSlug = activeSlug;
+        base.branches = ensureMainBranch(base.branches);
         return base;
     });
     const [isLoaded, setIsLoaded] = useState(false);
@@ -253,7 +274,7 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                         ...prev, ...cloudSettings,
                         orgId: resolvedOrgId, studioName: finalName, logoDataUrl: finalLogo,
                         staff: unwrap(finalStaff),
-                        branches: (state.branches && state.branches.length > 0) ? state.branches : (cloudSettings.branches || prev.branches),
+                        branches: ensureMainBranch((state.branches && state.branches.length > 0) ? state.branches : (cloudSettings.branches || prev.branches)),
                         plan: finalPlan,
                         subscription_plans: finalPlans,
                         pausePrices: cloudSettings.pausePrices || prev.pausePrices,
