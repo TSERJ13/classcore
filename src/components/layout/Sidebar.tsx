@@ -65,10 +65,14 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
 
     const activeBranch = settings.branches.find((b: any) => b.id === activeBranchId) || settings.branches[0];
     const rawStudioName = settings?.studioName || profile?.studio_name || '';
-    const studioDisplayName = (rawStudioName && !/^[0-9a-f-]{20,}$/i.test(rawStudioName)) ? rawStudioName : (profile?.studio_name || 'S_T Dance Studio');
+    // 🛠️ FIX: this fallback used to be the literal string 'S_T Dance Studio' —
+    // one specific real customer's own name, hardcoded during development —
+    // for EVERY studio whose name hadn't resolved yet, not just that one's.
+    // Falls back to a neutral placeholder instead.
+    const studioDisplayName = (rawStudioName && !/^[0-9a-f-]{20,}$/i.test(rawStudioName)) ? rawStudioName : (profile?.studio_name || 'Studio');
 
     const getInitial = (name: string) => {
-        if (!name || /^[0-9a-f-]{20,}$/i.test(name)) return 'ST';
+        if (!name || /^[0-9a-f-]{20,}$/i.test(name)) return '';
         if (name === 'S_T Dance Studio' || name.toUpperCase().includes('ST DANCE')) return 'ST';
         return name.trim().charAt(0).toUpperCase();
     };

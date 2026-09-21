@@ -1949,3 +1949,47 @@ Notes:
   hardened here (Settings' Branch Management already only shows a delete button for `branch.id !==
   'main'`, so deletion was already blocked) — renaming it goes through the same `updateBranchAction`
   path as any other branch and was out of scope for this specific fix.
+
+### Fix: another customer's studio name/logo could show up on a different org's dashboard
+
+A customer (Fly Life Ballet) reported that logging into their own account, on their own device,
+showed a completely different studio's name and logo (S_T Dance Studio) in the sidebar — while
+their own actual data (students, etc.) displayed correctly. Not a data leak (the org_id/data
+resolution was correct throughout), but a real, and in one case *persisted*, brand-identity bug.
+
+Root cause: four separate places hardcoded the literal string `'S_T Dance Studio'` (one specific
+real customer's own name, apparently from early development/testing against that studio) as a
+generic "identity not resolved yet" fallback, meant to apply to any studio, not just that one:
+
+- `src/contexts/StudioContext.tsx`'s hydration (`finalName` computation): if a studio's name
+  hadn't resolved at that exact hydration tick (a fresh device, a slow settings-blob fetch), the
+  displayed name fell back to `'S_T Dance Studio'` instead of a neutral placeholder.
+- `src/components/layout/Sidebar.tsx`'s `studioDisplayName` (independently duplicated fallback,
+  same pattern) and its `getInitial()` helper (defaulted a nameless studio's avatar initials to
+  `'ST'`).
+- **`src/app/api/sync/metadata/route.ts` (the serious one — this is server-side and writes to the
+  database):** `studio_name: name === 'Studio' ? 'S_T Dance Studio' : name` and the equivalent for
+  `staff_data.studioName`. Any studio whose pushed name happened to equal the generic onboarding
+  placeholder `'Studio'` (e.g. before finishing setup) got `'S_T Dance Studio'` **persisted** into
+  its own `studios.studio_name` / `studio_settings.staff_data.studioName` row — not a transient
+  display bug, a wrong value actually written to that org's own database record, which is why it
+  kept showing up on a completely fresh device/login rather than clearing on its own.
+
+**Fix**: all four now fall back to that studio's own already-known name/state, or a neutral
+`'Studio'` placeholder — never another specific customer's brand. The `route.ts` fix also now reads
+the existing stored `studio_name` first, so a partial/placeholder push can no longer clobber a
+name that was already correctly set.
+
+**Not yet fully closed — needs one manual step per already-affected org**: this fix stops the bug
+from firing again, but does **not** retroactively repair a `studio_name`/`staff_data.studioName`
+that was already overwritten with `'S_T Dance Studio'` before this fix shipped. For Fly Life
+Ballet specifically (and any other org that may have hit this), that value needs to be corrected
+directly in the DB (`studios.studio_name`, `studio_settings.staff_data.studioName` for that org),
+or the studio owner can simply re-type and re-save their real name in Settings once this fix is
+live — either overwrites the bad stored value with the correct one going forward.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- Separately reported in the same message: the Attendance button didn't work "this morning" — not
+  yet investigated (no error detail given, and it may have been a transient symptom of whichever
+  deploy was in progress at the time); needs its own reproduction detail before diagnosing.

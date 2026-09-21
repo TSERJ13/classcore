@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         // from wiping out admin billing, plan, or suspended settings.
         const { data: existingStudio } = await supabaseAdmin
             .from('studios')
-            .select('settings')
+            .select('settings, studio_name')
             .eq('studio_slug', slug)
             .maybeSingle();
         const existingSettings = existingStudio?.settings || {};
@@ -70,9 +70,18 @@ export async function POST(req: Request) {
         };
 
         // 1. Update Master Studio Record (Discovery)
+        // 🛠️ FIX (real, persisted cross-tenant identity bug): this used to
+        // hardcode 'S_T Dance Studio' — one specific real customer's own
+        // name — into studio_name for literally ANY OTHER studio whose
+        // pushed `name` happened to equal the generic placeholder 'Studio'
+        // (e.g. before they'd finished onboarding). That wasn't a display
+        // glitch — it was WRITTEN into this org's own `studios` row, so it
+        // kept showing on every device/login until corrected. Falls back to
+        // whatever this org already had stored, never another org's brand.
+        const studioNameToSave = name && name !== 'Studio' ? name : (existingStudio?.studio_name || name);
         const masterRes = await supabaseAdmin.from('studios').upsert({
             studio_slug: slug,
-            studio_name: name === 'Studio' ? 'S_T Dance Studio' : name, // Force correct identity if default
+            studio_name: studioNameToSave,
             logo_url: masterLogoUrl,
             org_id: orgIdToUse,
             owner_info: settings.owner_info || undefined,
@@ -99,10 +108,14 @@ export async function POST(req: Request) {
         // to just that one key plus studioName/_operations. Merging onto the
         // existing row means a partial push can only ever add/update keys,
         // never silently delete unrelated ones.
+        // Same fix as studio_name above: never fall back to another org's
+        // real name — only to what this org already had, or the pushed
+        // placeholder itself.
+        const staffDataStudioName = name && name !== 'Studio' ? name : (existingStaffData.studioName || name);
         const finalStaffData = {
             ...existingStaffData,
             ...settings,
-            studioName: name === 'Studio' ? (existingStaffData.studioName || 'S_T Dance Studio') : name,
+            studioName: staffDataStudioName,
             _operations: existingStaffData._operations || undefined
         };
 
