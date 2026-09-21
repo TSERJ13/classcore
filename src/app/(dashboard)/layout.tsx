@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { MobileMenuProvider } from '@/contexts/MobileMenuContext';
 import KillSwitchGate from '@/components/KillSwitchGate';
 import { DashboardHydrationGuard } from '@/components/layout/DashboardHydrationGuard';
+import { QueryProvider } from '@/components/providers/QueryProvider';
 
 import { GlobalRFIDScanner } from '@/components/layout/GlobalRFIDScanner';
 import { ProfileCompletionPopup } from '@/components/ProfileCompletionPopup';
@@ -32,7 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             <Header />
                             <main className="dashboard-main-lock flex-1 relative w-full overflow-y-auto overflow-x-hidden pb-[env(safe-area-inset-bottom,0px)]">
                                 <div className="w-full min-h-full p-2.5 sm:p-4 animate-fade-in pb-28 lg:pb-8">
-                                    {children}
+                                    <QueryProvider>{children}</QueryProvider>
                                 </div>
                             </main>
                         </div>

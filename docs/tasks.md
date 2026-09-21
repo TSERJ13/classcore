@@ -1774,3 +1774,38 @@ Notes:
   threw before this pass), but not the `docs/agents/api-contract.md` convention newer code is meant
   to follow; a full retrofit of `students.ts`/`staff.ts`/`groups.ts`/`halls.ts` to `ActionResult` is
   out of proportion to a branch-isolation pass and left for its own turn.
+
+### Fix: QueryProvider reset its whole cache on every navigation
+
+After deploying, the owner reported that leaving `/students` and coming back always re-fetched from
+scratch, however recently they'd just been there. Root cause: `src/components/providers/QueryProvider.tsx`
+(TanStack Query's provider) was mounted *inside* `/students/page.tsx` itself — its own header comment
+even said so explicitly, calling it a deliberate, temporary scoping ("when a second module migrates,
+hoist this into `(dashboard)/layout.tsx`"). Since then, 5 modules moved to Server Actions (students,
+groups, halls, staff, calendar), but the hoist was never done. Every time `/students` unmounted (i.e.
+every navigation away from it), its `QueryProvider` — and the `QueryClient` instance + cache it
+owns — was destroyed with it. Coming back created a brand-new, empty `QueryClient`, so
+`useStudentsListQuery` always looked like a first-ever page load: real network round trips to
+Supabase every single time, no matter how recently the same data had already been fetched.
+
+**Fix**: moved `QueryProvider` to wrap `{children}` in `src/app/(dashboard)/layout.tsx` — a layout
+that Next.js App Router keeps mounted across every navigation within `/dashboard/*` (only `children`,
+the actual page, swaps). The `QueryClient` and its cache now survive page-to-page navigation. Removed
+the now-redundant wrapper from `/students/page.tsx`. Behavior this restores (per the provider's own
+`staleTime: 30_000` default, already correct, just never actually in effect for more than one page
+load at a time): a return within 30s shows the cached list instantly, no request at all; a return
+after that still shows the last-known list immediately (the page already correctly uses `isLoading`,
+not `isFetching`, to gate its skeleton) while a request quietly re-validates it against the database
+in the background — never a blocking "start over" reload, but never stops being DB-sourced either.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing. `next lint`: clean on all 3 touched files
+  (pre-existing `no-explicit-any` warnings in `students/page.tsx` are untouched). `npm run build`
+  compiled and type-checked successfully; it fails past that step in this sandbox only because no
+  Supabase env vars are configured here — unrelated to this change.
+- Verified directly against the *deployed* `main`/`rebrendig` branches (Antigravity had already
+  merged this session's branch-isolation work into both and shipped it) before making this fix, in
+  a separate git worktree: no merge conflict markers, all branch-isolation Server Action code intact,
+  same clean `tsc`/`vitest` result.
+- Any other page migrated to TanStack Query in the future gets this for free — no per-page provider
+  needed, just import the hooks.

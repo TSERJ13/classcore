@@ -11,7 +11,6 @@ import { ManualSmsModal } from '@/components/ui/ManualSmsModal';
 import StudentModal from '@/components/students/StudentModal';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { QueryProvider } from '@/components/providers/QueryProvider';
 import {
     useStudentsListQuery, useGroupsQuery, useSaveStudentMutation,
     useDeleteStudentMutation, useCheckDuplicateStudent, type StudentsFilterParams,
@@ -493,9 +492,7 @@ function StudentsPageInner() {
 export default function StudentsPage() {
     return (
         <PermissionGuard permKey="canViewStudents">
-            <QueryProvider>
-                <StudentsPageInner />
-            </QueryProvider>
+            <StudentsPageInner />
         </PermissionGuard>
     );
 }
