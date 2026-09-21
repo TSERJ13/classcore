@@ -8,15 +8,28 @@
  * `/api/sync/state` used to use for this data.
  *
  * SCHEMA NOTE: the real `students` table only has a handful of top-level
- * columns — `id, org_id, first_name, last_name, full_name, phone, email` —
- * confirmed by an existing comment in `student-store.ts` describing a real
- * production bug (`PGRST204: Could not find the 'birth_date' column`) from
- * assuming otherwise. Everything else the UI needs (gender, birth_date,
- * dance_style, medical_cert_expires_at, photo_url, social_links, qr_code,
- * nfc_uid, enrolled_group_ids, notes, parent_name, discount info, status,
- * ...) lives in the `data` JSONB column and is passed through mostly
- * untyped here rather than re-declared field by field — `StudentModal`
- * (unchanged by this migration) already owns that shape.
+ * columns — `id, org_id, first_name, last_name, full_name, phone, email,
+ * branch_ids` — confirmed by an existing comment in `student-store.ts`
+ * describing a real production bug (`PGRST204: Could not find the
+ * 'birth_date' column`) from assuming otherwise. Everything else the UI
+ * needs (gender, birth_date, dance_style, medical_cert_expires_at,
+ * photo_url, social_links, qr_code, nfc_uid, enrolled_group_ids, notes,
+ * parent_name, discount info, status, ...) lives in the `data` JSONB column
+ * and is passed through mostly untyped here rather than re-declared field
+ * by field — `StudentModal` (unchanged by this migration) already owns
+ * that shape.
+ *
+ * BRANCH ISOLATION (Phase 1, docs/tasks.md): `branch_ids` (real TEXT[],
+ * 20260921_branch_isolation_phase1.sql) replaces the old single
+ * `data.branch_id` string — a student can now belong to more than one
+ * branch at once, unlike before where every edit silently reassigned them
+ * to whatever branch happened to be active in the editor's session. This
+ * file only supports real Supabase Auth sessions (no staff-token/teacher
+ * access — see the module comment above), so it can't reuse
+ * resolveCallerBranchIds() (src/lib/permissions/enforce.ts), which expects
+ * a DualAuthContext this file's own requireOrgId() doesn't produce;
+ * resolveOwnBranchAccess() below does the equivalent lookup against this
+ * file's own `{orgId, userId}` shape instead.
  */
 
 import { z } from 'zod';
@@ -38,6 +51,27 @@ async function requireOrgId(): Promise<{ orgId: string; userId: string }> {
     return { orgId: profile.org_id, userId: userData.user.id };
 }
 
+/**
+ * This caller's own branch restriction — empty array means unrestricted.
+ * The Main Administrator (the only role this file's requireOrgId() has
+ * ever supported) has no `staff` row at all, so "no row found" also means
+ * unrestricted, same as `role === 'owner'` unconditionally bypassing
+ * everywhere else in the permissions engine.
+ */
+async function resolveOwnBranchAccess(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string, userId: string): Promise<string[]> {
+    const { data: staffRow } = await supabase.from('staff').select('role, allowed_branch_ids').eq('id', userId).eq('org_id', orgId).maybeSingle();
+    if (!staffRow || staffRow.role === 'owner') return [];
+    return staffRow.allowed_branch_ids ?? [];
+}
+
+/** Throws unless every one of `targetBranchIds` is in `allowedBranchIds` — mirrors src/lib/server-actions-auth.ts's assertBranchAccess() for this file's own separate auth shape. */
+function assertBranchAccess(allowedBranchIds: string[], targetBranchIds: string[]): void {
+    if (allowedBranchIds.length === 0) return;
+    if (targetBranchIds.length === 0 || targetBranchIds.some(id => !allowedBranchIds.includes(id))) {
+        throw new Error('You do not have access to this branch');
+    }
+}
+
 // ─── Search / list (search_students RPC — 20260916_search_students_rpc.sql) ───
 
 const searchParamsSchema = z.object({
@@ -49,6 +83,7 @@ const searchParamsSchema = z.object({
     groupId: z.string().optional(),
     visibleGroupIds: z.array(z.string()).optional(),
     sortBy: z.enum(['none', 'first_name', 'last_name', 'gender']).default('none'),
+    branchId: z.string().optional(),
 });
 
 export type StudentSubscriptionSummary = {
@@ -103,9 +138,11 @@ export type SearchStudentsResult = { rows: StudentRow[]; total: number; page: nu
  */
 export async function searchStudents(rawParams: unknown): Promise<SearchStudentsResult> {
     const p = searchParamsSchema.parse(rawParams);
-    await requireOrgId();
-
+    const { orgId, userId } = await requireOrgId();
     const supabase = await createClient();
+    const allowedBranchIds = await resolveOwnBranchAccess(supabase, orgId, userId);
+    if (p.branchId) assertBranchAccess(allowedBranchIds, [p.branchId]);
+
     const { data, error } = await supabase.rpc('search_students', {
         p_search: p.search || null,
         p_status: p.status,
@@ -115,6 +152,8 @@ export async function searchStudents(rawParams: unknown): Promise<SearchStudents
         p_sort_by: p.sortBy,
         p_page: p.page,
         p_page_size: p.pageSize,
+        p_branch_id: p.branchId || null,
+        p_visible_branch_ids: allowedBranchIds.length > 0 ? allowedBranchIds : null,
     });
     if (error) throw new Error(error.message);
 
@@ -153,6 +192,7 @@ const saveStudentSchema = z.object({
     last_name: z.string().optional(),
     phone: z.string().trim().min(3).max(30),
     email: z.string().optional(),
+    branch_ids: z.array(z.string()).optional(),
 }).passthrough(); // everything else (gender, birth_date, photo_url, social_links, ...) rides along into `data`
 
 /**
@@ -163,28 +203,43 @@ const saveStudentSchema = z.object({
  * (edit included) — kept as-is rather than "fixed" silently.
  */
 export async function saveStudentAction(rawInput: unknown): Promise<{ id: string }> {
-    const input = saveStudentSchema.parse(rawInput) as Record<string, unknown> & { id?: string; full_name: string; first_name?: string; last_name?: string; phone: string; email?: string };
-    const { orgId } = await requireOrgId();
+    const input = saveStudentSchema.parse(rawInput) as Record<string, unknown> & { id?: string; full_name: string; first_name?: string; last_name?: string; phone: string; email?: string; branch_ids?: string[] };
+    const { orgId, userId } = await requireOrgId();
     const supabase = await createClient();
+    const allowedBranchIds = await resolveOwnBranchAccess(supabase, orgId, userId);
 
-    const { id: inputId, full_name, first_name, last_name, phone, email, ...rest } = input;
+    const { id: inputId, full_name, first_name, last_name, phone, email, branch_ids, ...rest } = input;
     const resolvedFirst = first_name || full_name.split(' ')[0] || '';
     const resolvedLast = last_name || full_name.split(' ').slice(1).join(' ') || '';
 
     let id = inputId;
     let existingData: Record<string, unknown> = {};
+    let resolvedBranchIds: string[];
     if (id) {
-        const { data: existing } = await supabase.from('students').select('data').eq('id', id).maybeSingle();
+        const { data: existing } = await supabase.from('students').select('data, branch_ids').eq('id', id).maybeSingle();
         existingData = (existing?.data as Record<string, unknown>) || {};
+        const existingBranchIds: string[] = existing?.branch_ids ?? [];
+        // A restricted caller must already have access to whatever branch
+        // this student is currently in before editing them at all — checked
+        // separately from the NEW target below, since those can differ
+        // (e.g. this save doesn't touch branch_ids, only a phone number).
+        assertBranchAccess(allowedBranchIds, existingBranchIds.length > 0 ? existingBranchIds : ['main']);
+        resolvedBranchIds = branch_ids !== undefined ? branch_ids : existingBranchIds;
     } else {
         id = await generateStudentId(supabase, resolvedFirst, resolvedLast);
+        // Not specified on create -> default to the caller's own branch
+        // scope (a restricted caller's new student inherits their creator's
+        // branches) rather than the bare 'main' fallback every other
+        // caller gets.
+        resolvedBranchIds = branch_ids !== undefined ? branch_ids : (allowedBranchIds.length > 0 ? allowedBranchIds : ['main']);
     }
+    assertBranchAccess(allowedBranchIds, resolvedBranchIds.length > 0 ? resolvedBranchIds : ['main']);
 
     const mergedData = { ...existingData, ...rest, status: 'active' };
 
     const { error } = await supabase.from('students').upsert({
         id, org_id: orgId, first_name: resolvedFirst, last_name: resolvedLast,
-        full_name, phone, email: email || null, data: mergedData,
+        full_name, phone, email: email || null, branch_ids: resolvedBranchIds, data: mergedData,
     }, { onConflict: 'id' });
     if (error) throw new Error(error.message);
 
@@ -236,6 +291,10 @@ export async function deleteStudentAction(rawInput: unknown): Promise<{ id: stri
         .eq('id', id)
         .single();
     if (readErr) throw new Error(readErr.message);
+
+    const allowedBranchIds = await resolveOwnBranchAccess(supabase, orgId, userId);
+    const existingBranchIds: string[] = existing?.branch_ids ?? [];
+    assertBranchAccess(allowedBranchIds, existingBranchIds.length > 0 ? existingBranchIds : ['main']);
 
     const { error: trashErr } = await supabase.from('trash').insert({
         id: `trash_${id}_${Date.now()}`,

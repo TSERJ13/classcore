@@ -27,7 +27,7 @@ export default function GroupsPage() {
     const { settings, updateStaff } = useStudio();
     useEffect(() => {
         function load() {
-            getGroupsAction().then(rows => setGroups(rows as unknown as Group[])).catch(err => console.error('❌ [Groups] Failed to load:', err));
+            getGroupsAction(settings.activeBranchId || undefined).then(rows => setGroups(rows as unknown as Group[])).catch(err => console.error('❌ [Groups] Failed to load:', err));
             getSubscriptionsAction().then(setUniqueSubs).catch(err => console.error('❌ [Groups] Failed to load subscriptions:', err));
         }
         load();
@@ -78,6 +78,7 @@ export default function GroupsPage() {
                 type: data.type || 'Dance',
                 difficulty: data.difficulty || null,
                 hall_id: data.hall_id || '',
+                branch_id: data.branch_id || settings.activeBranchId || 'main',
                 color: data.color || '#6366f1',
             };
             updated = [...groups, newGroup];

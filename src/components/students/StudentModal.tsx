@@ -185,6 +185,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
             whatsapp: '',
         },
         enrolled_group_ids: [] as string[],
+        branch_ids: [] as string[],
         gender: undefined as 'male' | 'female' | undefined,
         preferred_language: 'ka' as 'ka' | 'ru' | 'en',
         discount_type: 'percent' as 'percent' | 'fixed',
@@ -245,6 +246,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                         whatsapp: student.social_links?.whatsapp ?? '',
                     },
                     enrolled_group_ids: student.enrolled_group_ids ?? [],
+                    branch_ids: student.branch_ids?.length ? student.branch_ids : (student.branch_id ? [student.branch_id] : ['main']),
                     gender: student.gender,
                     preferred_language: student.preferred_language ?? 'ka',
                     discount_type: student.discount_type ?? 'percent',
@@ -259,6 +261,7 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                     medical_cert_expires_at: '', photo_url: '', qr_code: newCode, nfc_uid: '', passport_url: '', passport_expires_at: '',
                     social_links: { facebook: '', instagram: '', telegram: '', whatsapp: '' },
                     enrolled_group_ids: [],
+                    branch_ids: settings.activeBranchId ? [settings.activeBranchId] : ['main'],
                     gender: undefined,
                     preferred_language: 'ka',
                     discount_type: 'percent',
@@ -849,6 +852,39 @@ export default function StudentModal({ open, student, onClose, onSave, onDelete,
                                     })}
                                 </div>
                             </section>
+
+                            {/* Branches — only worth showing once a studio actually has more than the default one */}
+                            {settings.branches.length > 1 && (
+                                <section className="space-y-4">
+                                    <p className="text-[10px] font-black text-muted tracking-widest opacity-40 flex items-center justify-between">
+                                        <span>{l('ფილიალები', 'Филиалы', 'Branches')}</span>
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {settings.branches.map(b => {
+                                            const selected = form.branch_ids || [];
+                                            const isSelected = selected.includes(b.id);
+                                            return (
+                                                <button key={b.id} onClick={() => {
+                                                    if (isSelected) {
+                                                        // Never let this go empty — a student always belongs to at least one branch.
+                                                        if (selected.length > 1) set('branch_ids', selected.filter(id => id !== b.id));
+                                                    } else {
+                                                        set('branch_ids', [...selected, b.id]);
+                                                    }
+                                                }}
+                                                    className={cn(
+                                                        'px-3 py-2 text-[11px] font-bold rounded-xl border transition-all shadow-sm',
+                                                        isSelected
+                                                            ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 scale-105'
+                                                            : 'bg-surface border-border-subtle text-muted hover:text-primary'
+                                                    )}>
+                                                    {b.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            )}
 
                             {/* Social Links */}
                             <section className="space-y-4">

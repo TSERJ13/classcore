@@ -5,6 +5,7 @@ import { X, Users, Trash2, AlertTriangle, Check, Calendar, BookOpen, GraduationC
 import MainPortal from '@/components/ui/MainPortal';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
+import { useStudio } from '@/contexts/StudioContext';
 import { cn } from '@/lib/utils';
 import { getTeachers } from '@/lib/teacher-store';
 import { getHalls, type HallData } from '@/lib/hall-store';
@@ -27,6 +28,7 @@ interface GroupModalProps {
         type?: string;
         difficulty?: string | null;
         hall_id?: string;
+        branch_id?: string;
         secondaryTeacherId?: string;
         secondaryTeacherName?: string;
         primaryTeacherPercentage?: number;
@@ -37,6 +39,7 @@ interface GroupModalProps {
         id: string; name: string; coach: string; teacherId: string;
         schedule: string; schedule_slots: ScheduleSlot[];
         capacity: number; type: string; difficulty: string | null; hall_id: string;
+        branch_id: string;
         color: string;
         secondaryTeacherId: string; secondaryTeacherName: string;
         primaryTeacherPercentage: number; secondaryTeacherPercentage: number;
@@ -58,6 +61,7 @@ const DEFAULT_SLOT: ScheduleSlot = { dayOfWeek: 0, startTime: '13:00', endTime: 
 export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModalProps) {
     const { t, lang } = useT();
     const { profile } = useUser();
+    const { settings } = useStudio();
     const isEdit = !!group;
     const isTeacher = profile?.role === 'teacher';
 
@@ -70,6 +74,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
         type: 'Dance',
         difficulty: '' as string | null,
         hall_id: 'h1',
+        branch_id: 'main',
         color: '#6366f1',
         secondaryTeacherId: '',
         secondaryTeacherName: '',
@@ -117,6 +122,7 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                 type: group.type ?? 'Dance',
                 difficulty: group.difficulty ?? null,
                 hall_id: group.hall_id ?? (halls[0]?.id || ''),
+                branch_id: group.branch_id ?? (settings.activeBranchId || 'main'),
                 color: (group as any).color ?? '#6366f1',
                 secondaryTeacherId: group.secondaryTeacherId ?? '',
                 secondaryTeacherName: group.secondaryTeacherName ?? '',
@@ -126,9 +132,10 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
             setSlots(group.schedule_slots?.length ? group.schedule_slots : [{ ...DEFAULT_SLOT }]);
             setShowDelete(false);
         } else if (open) {
-            setForm({ 
-                id: '', name: '', coach: '', teacherId: '', capacity: 15, type: 'Dance', difficulty: '', hall_id: halls[0]?.id || '', color: '#6366f1',
-                secondaryTeacherId: '', secondaryTeacherName: '', primaryTeacherPercentage: 0, secondaryTeacherPercentage: 0 
+            setForm({
+                id: '', name: '', coach: '', teacherId: '', capacity: 15, type: 'Dance', difficulty: '', hall_id: halls[0]?.id || '',
+                branch_id: settings.activeBranchId || 'main', color: '#6366f1',
+                secondaryTeacherId: '', secondaryTeacherName: '', primaryTeacherPercentage: 0, secondaryTeacherPercentage: 0
             });
             setSlots([{ ...DEFAULT_SLOT }]);
             setShowDelete(false);
@@ -435,6 +442,22 @@ export function GroupModal({ open, group, onClose, onSave, onDelete }: GroupModa
                             className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4"
                         />
                     </div>
+
+                    {/* Branch — only worth showing once a studio actually has more than the default one */}
+                    {settings.branches.length > 1 && (
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 flex items-center gap-2 uppercase">
+                                {lang === 'ka' ? 'ფილიალი' : 'Branch'}
+                            </label>
+                            <SearchSelect
+                                options={settings.branches.map(b => ({ value: b.id, label: b.name }))}
+                                value={form.branch_id || 'main'}
+                                onChange={val => setForm({ ...form, branch_id: val })}
+                                placeholder={lang === 'ka' ? 'აირჩიეთ ფილიალი' : 'Select Branch'}
+                                className="!border-border-subtle hover:!border-indigo-500/40 [&>div]:py-3.5 [&>div]:px-4"
+                            />
+                        </div>
+                    )}
 
                     {/* Capacity & Type */}
                     <div className="grid grid-cols-2 gap-4">

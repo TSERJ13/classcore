@@ -38,16 +38,37 @@
  * auth.uid()-only requireOrgId() rejected every staff-token session, so a
  * teacher clicking "Add Group" always failed server-side even though the
  * button was visible to them.
+ *
+ * BRANCH ISOLATION (Phase 1, docs/tasks.md): a group happens in one hall in
+ * one branch, so it gets a single `branch_id` (20260921_branch_isolation_
+ * phase1.sql — no prior branch data existed for groups, every row defaults
+ * to 'main'). getGroupsAction() also picked up the missing `org_id` filter
+ * it never had (relied on RLS alone, which doesn't apply to the
+ * service-role client staff-token sessions use — a real pre-existing gap,
+ * fixed here since the branch filter needed the same `orgId` anyway).
+ *
+ * Inherits the same gap this file already had for org_id/permission
+ * enforcement (see the paragraph above): `group-store.ts`'s legacy write
+ * path (calendar/page.tsx's createGroup/addSlotToGroup/removeSlotFromGroup,
+ * onboarding's SetupWizard) writes to this SAME `groups` table with no
+ * branch check and no `branch_id` at all — a branch-restricted caller
+ * using those surfaces isn't stopped from creating/editing a group in a
+ * branch they can't otherwise reach. Not fixed here for the same reason it
+ * wasn't fixed for org_id/permissions originally: folding Calendar's own
+ * group-writing side effects into this migration is scope creep this pass
+ * isn't taking on — only `/groups` page's own CRUD (this file) is actually
+ * branch-enforced in Phase 1.
  */
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { requireOrgIdDualAuth } from '@/lib/server-actions-auth';
-import { requireEffectivePermission } from '@/lib/permissions/enforce';
+import { requireOrgIdDualAuth, applyBranchFilter, assertBranchAccess } from '@/lib/server-actions-auth';
+import { requireEffectivePermission, resolveCallerBranchIds } from '@/lib/permissions/enforce';
 
 export type GroupRow = {
     id: string;
     name: string;
+    branch_id: string;
     teacherId?: string;
     secondaryTeacherId?: string;
     enrolled?: number;
@@ -55,11 +76,19 @@ export type GroupRow = {
 };
 
 /** Same query shape as students.ts's getGroupsForOrg() — kept independent (not imported cross-file) so each Server Action module owns its own reads, matching this migration's established style. */
-export async function getGroupsAction(): Promise<GroupRow[]> {
-    const { client: supabase } = await requireOrgIdDualAuth();
-    const { data, error } = await supabase.from('groups').select('id, name, data').order('name');
+export async function getGroupsAction(branchId?: string): Promise<GroupRow[]> {
+    const ctx = await requireOrgIdDualAuth();
+    const { orgId, client: supabase } = ctx;
+    const allowedBranchIds = await resolveCallerBranchIds(ctx);
+    if (branchId) assertBranchAccess(allowedBranchIds, branchId);
+
+    let query = supabase.from('groups').select('id, name, branch_id, data').eq('org_id', orgId).order('name');
+    query = applyBranchFilter(query, allowedBranchIds, 'branch_id');
+    if (branchId) query = query.eq('branch_id', branchId);
+
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
-    return (data ?? []).map(g => ({ ...(g.data as Record<string, unknown> || {}), id: g.id, name: g.name }));
+    return (data ?? []).map(g => ({ ...(g.data as Record<string, unknown> || {}), id: g.id, name: g.name, branch_id: g.branch_id }));
 }
 
 const groupSchema = z.object({
@@ -67,6 +96,7 @@ const groupSchema = z.object({
     name: z.string().trim().min(1),
     capacity: z.number().int().min(1).default(15),
     type: z.string().default('Dance'),
+    branch_id: z.string().min(1).default('main'),
 }).passthrough();
 
 /**
@@ -81,12 +111,14 @@ const groupSchema = z.object({
  */
 export async function createGroupAction(rawInput: unknown): Promise<{ id: string }> {
     const input = groupSchema.parse(rawInput);
-    const { orgId, client: supabase } = await requireEffectivePermission('canViewGroups');
+    const ctx = await requireEffectivePermission('canViewGroups');
+    const { orgId, client: supabase } = ctx;
+    assertBranchAccess(await resolveCallerBranchIds(ctx), input.branch_id);
 
     const id = input.id || `g_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const fullRecord = { ...input, id, enrolled: 0 };
 
-    const { error } = await supabase.from('groups').insert({ id, org_id: orgId, name: input.name, data: fullRecord });
+    const { error } = await supabase.from('groups').insert({ id, org_id: orgId, name: input.name, branch_id: input.branch_id, data: fullRecord });
     if (error) throw new Error(error.message);
 
     revalidatePath('/groups');
@@ -96,16 +128,36 @@ export async function createGroupAction(rawInput: unknown): Promise<{ id: string
 const updateGroupSchema = z.object({
     id: z.string().min(1),
     name: z.string().trim().min(1),
+    branch_id: z.string().min(1).default('main'),
 }).passthrough();
 
 export async function updateGroupAction(rawInput: unknown): Promise<void> {
     const input = updateGroupSchema.parse(rawInput);
-    const { orgId, client: supabase } = await requireEffectivePermission('canViewGroups');
+    const ctx = await requireEffectivePermission('canViewGroups');
+    const { orgId, client: supabase } = ctx;
+    const allowedBranchIds = await resolveCallerBranchIds(ctx);
+    // Checks BOTH directions: can the caller set this branch (the target),
+    // and — via the filtered query below — do they have access to whatever
+    // branch this row is CURRENTLY in (a restricted caller shouldn't be
+    // able to edit a row sitting in a branch they can't see, even if the
+    // branch_id they're setting it to is one they're allowed into).
+    assertBranchAccess(allowedBranchIds, input.branch_id);
 
-    const { error } = await supabase.from('groups')
-        .update({ name: input.name, data: input })
+    let query = supabase.from('groups')
+        .update({ name: input.name, branch_id: input.branch_id, data: input })
         .eq('id', input.id).eq('org_id', orgId);
+    query = applyBranchFilter(query, allowedBranchIds, 'branch_id');
+    // .select('id') so a 0-row match (row exists but in a branch the
+    // caller can't reach) is distinguishable from success — without it,
+    // Supabase reports no error for a filtered-out update, and the caller
+    // (and the page's own optimistic UI) would believe an edit persisted
+    // that never actually touched the database. Safe to check here (unlike
+    // calendar_events' actions): no OTHER caller of updateGroupAction
+    // itself races this specific call with the same logical write, so a
+    // 0-row result here is never a benign race, always a real access denial.
+    const { data, error } = await query.select('id');
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) throw new Error('Group not found or you do not have access to its branch');
 
     revalidatePath('/groups');
 }
@@ -114,10 +166,15 @@ const deleteGroupSchema = z.object({ id: z.string().min(1) });
 
 export async function deleteGroupAction(rawInput: unknown): Promise<void> {
     const { id } = deleteGroupSchema.parse(rawInput);
-    const { orgId, client: supabase } = await requireEffectivePermission('canViewGroups');
+    const ctx = await requireEffectivePermission('canViewGroups');
+    const { orgId, client: supabase } = ctx;
+    const allowedBranchIds = await resolveCallerBranchIds(ctx);
 
-    const { error } = await supabase.from('groups').delete().eq('id', id).eq('org_id', orgId);
+    let query = supabase.from('groups').delete().eq('id', id).eq('org_id', orgId);
+    query = applyBranchFilter(query, allowedBranchIds, 'branch_id');
+    const { data, error } = await query.select('id');
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) throw new Error('Group not found or you do not have access to its branch');
 
     revalidatePath('/groups');
 }

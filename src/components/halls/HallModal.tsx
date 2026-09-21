@@ -6,6 +6,7 @@ import MainPortal from '@/components/ui/MainPortal';
 import { cn } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
+import { useStudio } from '@/contexts/StudioContext';
 import type { Hall } from '@/types';
 
 interface HallModalProps {
@@ -20,20 +21,24 @@ interface HallModalProps {
 
 const EMPTY: Partial<Hall> = {
     name: '', capacity: undefined, color: '#6366f1', description: '', is_active: true,
-    photo_url: '', sq_meters: undefined,
+    photo_url: '', sq_meters: undefined, branch_id: 'main',
 };
 
 export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalProps) {
-    const { t } = useT();
+    const { t, lang } = useT();
     const { profile } = useUser();
+    const { settings } = useStudio();
     const [form, setForm] = useState<Partial<Hall>>({ ...EMPTY });
     const [showDelete, setShowDelete] = useState(false);
     const isEdit = !!hall;
     const isTeacher = profile?.role === 'teacher';
 
     useEffect(() => {
-        if (open) { setForm(hall ? { ...hall } : { ...EMPTY }); setShowDelete(false); }
-    }, [open, hall]);
+        if (open) {
+            setForm(hall ? { ...hall } : { ...EMPTY, branch_id: settings.activeBranchId || 'main' });
+            setShowDelete(false);
+        }
+    }, [open, hall, settings.activeBranchId]);
 
     function setF(k: keyof Hall, v: unknown) { setForm(p => ({ ...p, [k]: v })); }
 
@@ -142,6 +147,16 @@ export function HallModal({ open, hall, onClose, onSave, onDelete }: HallModalPr
                                     className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[12px] sm:text-sm text-primary placeholder:text-muted/30 outline-none transition-all shadow-sm" />
                             </div>
                         </div>
+
+                        {settings.branches.length > 1 && (
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 uppercase">{lang === 'ka' ? 'ფილიალი' : 'Branch'}</label>
+                                <select value={form.branch_id || 'main'} onChange={e => setF('branch_id', e.target.value)}
+                                    className="w-full bg-surface border border-border-subtle focus:border-indigo-500/60 rounded-2xl px-4 py-3 text-[12px] sm:text-sm text-primary outline-none transition-all shadow-sm">
+                                    {settings.branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                            </div>
+                        )}
 
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-muted tracking-widest opacity-40 px-1 uppercase">{t.hallStatus}</label>

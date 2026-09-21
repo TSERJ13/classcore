@@ -24,7 +24,7 @@ export default function HallsPage() {
     const [events, setEvents] = useState<any[]>([]);
 
     useEffect(() => {
-        const refresh = () => { getHallsAction().then(rows => setHalls(rows as unknown as Hall[])).catch(err => console.error('❌ [Halls] Failed to load:', err)); };
+        const refresh = () => { getHallsAction(settings.activeBranchId || undefined).then(rows => setHalls(rows as unknown as Hall[])).catch(err => console.error('❌ [Halls] Failed to load:', err)); };
         refresh();
         import('@/lib/event-store').then(mod => {
             setEvents(mod.getEvents());
@@ -32,7 +32,7 @@ export default function HallsPage() {
 
         window.addEventListener('cc_halls_update', refresh);
         return () => window.removeEventListener('cc_halls_update', refresh);
-    }, []);
+    }, [settings.activeBranchId]);
 
     function openAdd() { setEditing(null); setModalOpen(true); }
     function openEdit(h: Hall) { setEditing(h); setModalOpen(true); }
@@ -57,6 +57,7 @@ export default function HallsPage() {
                 is_active: true,
                 capacity: 0,
                 sq_meters: 0,
+                branch_id: settings.activeBranchId || 'main',
                 ...data,
             }];
         }

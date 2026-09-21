@@ -1685,3 +1685,92 @@ Notes:
   (`addEvents()` fires one `createCalendarEventAction` round trip per event in a multi-day recurring
   create instead of one batched insert) — accepted as a background, fire-and-forget cost rather than
   building a 5th Server Action for it now.
+
+### Branch data isolation, Phase 1 (students/staff/groups/halls)
+
+Follow-up to the branches-silent-failure fix: the owner reported branch-switching "does nothing,"
+and investigation (3 parallel research passes — schema/stores, Server Actions layer, UI/permissions)
+confirmed there was no real branch isolation anywhere in the app — `org_id` was the only enforced
+boundary, `activeBranchId` filtered almost nothing, and `staff.allowedBranchIds` only ever gated the
+branch-switcher dropdown, never a query. The actual requirement (clarified with the owner): branches
+must be genuinely independent, but a student or teacher can belong to more than one at once, with
+stats/payments kept separate per branch, enforced through permissions, not just the UI. This is a
+large, multi-phase feature — planned via plan mode, with a written plan covering Phase 1 in full
+(students/staff/groups/halls — the "identity/location" layer) and Phases 2/3 (subscriptions/
+attendance/sales/expenses, then calendar_events) scoped at roadmap level for later.
+
+**Built** (`supabase/migrations/20260921_branch_isolation_phase1.sql` + touched Server Actions):
+- Real columns, backfilled so no existing row goes invisible: `students.branch_ids` (`TEXT[]` — a
+  student can now belong to multiple branches, replacing the old single `data.branch_id` string that
+  was silently overwritten on every edit), `staff.allowed_branch_ids` (`TEXT[]`, promoted from
+  `data.allowedBranchIds`), `groups.branch_id` and `halls.branch_id` (`TEXT`, new — neither had any
+  branch concept before, defaulted to `'main'`).
+- `search_students` RPC gained `p_branch_id` (narrow to one branch — this is what makes switching
+  branches actually filter something) and `p_visible_branch_ids` (the security boundary), same dual-
+  param shape as the RPC's existing group-visibility params. Had to `DROP FUNCTION` first since
+  adding parameters changes a Postgres function's identity — a plain `CREATE OR REPLACE` would have
+  left the old signature as a separate, still-callable overload.
+- `resolveCallerBranchIds()` (`src/lib/permissions/enforce.ts`) and `applyBranchFilter()`/
+  `assertBranchAccess()` (`src/lib/server-actions-auth.ts`) — shared helpers every entity's Server
+  Actions use: reads filter by the caller's own permitted branches (empty = unrestricted, matching
+  the existing convention) AND by an optional explicit `branchId` param (wired to
+  `settings.activeBranchId` from each page); writes validate the caller may actually target the
+  branch(es) they're setting. `students.ts` can't reuse these directly (it only supports real
+  Supabase Auth sessions via its own `requireOrgId()`, not the dual-auth `DualAuthContext` staff-token
+  sessions need) — it has an equivalent local `resolveOwnBranchAccess()`/`assertBranchAccess()` pair.
+- UI: `StudentModal` gained a multi-select branch picker (new — none existed before), `GroupModal`
+  and the halls create/edit modal gained single-select branch pickers next to their existing hall/
+  name fields. All three only render when a studio actually has more than the default one branch.
+  `students/groups/halls` pages now pass `settings.activeBranchId` into their read calls and default
+  new records to it.
+
+**Four review rounds, each catching something real before it shipped** — this touches
+auth/permission logic directly, so it got the same scrutiny as the Calendar Server Actions work:
+- Round 1: `updateStaffAction`/`deleteStaffAction` never checked the caller had access to the
+  *target* row's branch before mutating it (only `createStaffAction`'s `allowedBranchIds` field was
+  guarded) — a branch-A-only Administrator could edit/delete any staff member org-wide. `updateGroupAction`/
+  `deleteGroupAction` relied on `applyBranchFilter` silently narrowing the WHERE clause instead of
+  erroring on a 0-row match — an out-of-scope edit/delete would silently no-op with no error, the
+  exact bug class task #44 (branches) already fixed once this session. `saveHallsAction`'s new
+  `halls.length === 0` early-return broke its own documented "empty array deletes everything"
+  whole-array-replace contract.
+- Round 1 fixes: added `.select('id')` + a real error on 0 rows affected to `updateGroupAction`/
+  `deleteGroupAction`/`deleteHallAction` (safe here, unlike Calendar's actions — nothing else writes
+  these specific rows concurrently, so a 0-row result is never a benign race). Replaced halls' empty-
+  array no-op with a real branch-scoped "delete everything I can see" (org-wide for an unrestricted
+  caller, matching the pre-branch-isolation behavior exactly). Added a target-branch check to
+  `updateStaffAction`/`deleteStaffAction`, mirroring `assertCanGrantBranches`.
+- Round 2 (self-review of round 1's own fix): the new staff target-branch check was itself wrong —
+  the migration backfills `allowed_branch_ids` to `[]` (unrestricted) for nearly every existing staff
+  row, so "the target's scope must be a subset of the caller's own" rejected almost any ordinary edit
+  (renaming someone, changing `assigned_group_ids`) that had nothing to do with branches. **Reverted**
+  rather than patched further — properly scoping "can a branch-restricted Administrator manage a
+  colleague outside their branch at all" (overlap vs. subset? does role tier matter?) is a real RBAC
+  question that deserves its own decision, not a side effect of this migration. Documented as an
+  open gap in `staff.ts`'s header instead.
+- Also caught: a comment on `updateGroupAction`'s new 0-row check overclaimed safety ("group-store.ts's
+  legacy path is used by other pages, not this one") — true for the narrow race-safety point it was
+  making, but read as if it meant branch enforcement couldn't be bypassed at all, which isn't true
+  (see below). Corrected the comment and added an explicit gap disclosure to the file header instead.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing. `next lint` on every touched file: clean
+  (pre-existing `no-explicit-any`/`no-img-element` warnings elsewhere in these files are untouched).
+- **Deliberately NOT done, Phase 1 scope**: Phases 2 (subscriptions/attendance/sales/expenses get
+  their own `branch_id`, stamped at creation) and 3 (calendar_events, derived from its hall) per the
+  written plan — roadmap only, not built. `group-store.ts`'s and `hall-store.ts`'s legacy write paths
+  (calendar/page.tsx's `createGroup`/`addSlotToGroup`/`removeSlotFromGroup`, onboarding's
+  `SetupWizard`) still write to the same tables with no branch check and no `branch_id` at all —
+  inherits the exact same gap this file already had for org_id/permission enforcement before this
+  pass (documented in `groups.ts`'s own header both times). Staff management (update/delete) isn't
+  branch-scoped at all per Round 2 above — deliberately deferred, not silently missed.
+  `resolveCallerBranchIds()` re-runs a full caller resolution (a `staff` table query, sometimes a
+  Supabase Auth call too) that `requireEffectivePermission()`/`requireStudioManager()` already just
+  did and discarded — every branch-aware write now costs 2 caller-resolution round trips instead of
+  1; a real inefficiency, not fixed here since it would mean reshaping `DualAuthContext` across every
+  caller, wider scope than this pass. New expected-failure paths (`assertBranchAccess`,
+  `assertCanGrantBranches`, the new 0-row "not found" errors) `throw` rather than returning
+  `ActionResult` — consistent with these specific files' own pre-existing convention (they already
+  threw before this pass), but not the `docs/agents/api-contract.md` convention newer code is meant
+  to follow; a full retrofit of `students.ts`/`staff.ts`/`groups.ts`/`halls.ts` to `ActionResult` is
+  out of proportion to a branch-isolation pass and left for its own turn.
