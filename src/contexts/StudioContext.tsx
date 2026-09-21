@@ -176,8 +176,16 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                 const updates = state.studio || {};
                 
                 // 🚀 SCORCHED EARTH v1.1.16: Force correct name casing for identity
+                // 🛠️ FIX: the "else" fallback here used to be the literal string
+                // 'S_T Dance Studio' (that studio's own real name, hardcoded during
+                // development) for EVERY OTHER studio too, not just this one's own
+                // slug — so any studio whose name hadn't resolved yet at this exact
+                // hydration tick (a fresh device, a slow settings blob) displayed a
+                // real customer's brand instead of its own. Falls back to whatever
+                // this studio's own state already has, or a neutral placeholder,
+                // never another org's name.
                 const rawName = updates.studio_name || cloudSettings.studioName || settings.studioName;
-                const finalName = activeSlug === 'stdancestudio' ? 'S_T Dance Studio' : ((rawName && !/^[0-9a-f-]{20,}$/i.test(rawName)) ? rawName : 'S_T Dance Studio');
+                const finalName = activeSlug === 'stdancestudio' ? 'S_T Dance Studio' : ((rawName && !/^[0-9a-f-]{20,}$/i.test(rawName)) ? rawName : (settings.studioName || 'Studio'));
 
                 // 💎 PLAN RESOLUTION: Admin plan from studios table MUST override everything
                 const finalPlan = updates.plan || cloudSettings.plan || settings.plan;
