@@ -1952,3 +1952,46 @@ Notes:
 - Separately reported in the same message: the Attendance button didn't work "this morning" — not
   yet investigated (no error detail given, and it may have been a transient symptom of whichever
   deploy was in progress at the time); needs its own reproduction detail before diagnosing.
+
+### Fix: search_students() failed on every single call — "column reference "id" is ambiguous"
+
+The owner reported /students permanently showing "NO DATA FOUND" even on the branch holding all
+69 real students, with the browser console showing a genuine `500 (Internal Server Error)` on the
+page's POST. Checked and ruled out, in order: browser extension interference (reproduced in
+Incognito with extensions off — same 500), and a stale/unapplied branch-isolation migration
+(`SELECT pronargs FROM pg_proc WHERE proname = 'search_students'` confirmed 10 — the correct,
+already-migrated signature). Vercel's function logs finally gave the real error text:
+`Error: column reference "id" is ambiguous`.
+
+Root cause, and it predates this session's branch-isolation work entirely — present verbatim in
+`search_students()`'s original creation migration (`20260916_search_students_rpc.sql`), carried
+forward unchanged into the Phase 1 rewrite: the function declares `RETURNS TABLE (id text, ...)`,
+which makes PL/pgSQL treat `id` as a variable in the function's own scope, and the function body's
+very first line —
+```sql
+SELECT org_id INTO caller_org_id FROM public.profiles WHERE id = auth.uid();
+```
+— references a bare, unqualified `id`. Postgres can no longer tell whether that means the
+function's own `id` output variable or `profiles.id`, so it raises the ambiguity error on
+literally every invocation, before the function's logic ever runs. `get_dashboard_stats()` has
+this exact same line but was never affected — its `RETURNS TABLE` has no column named `id` to
+collide with, which is exactly why the dashboard's server-side numbers kept working throughout
+this whole investigation while /students never did. Checked every other function with this same
+line (`checkin_deduct_session`, `checkin_refund_session`, `attendance_daily_counts`,
+`mark_attendance_and_deduct_session`) — none of them have an `id` output column either, so
+`search_students` is the only one actually affected.
+
+**This means /students has likely never actually worked in production** since the Server Actions
+cutover (task #22) — not something this session's branch-isolation work broke.
+
+**Fix**: qualify it as `profiles.id` — new migration `20260922_fix_search_students_ambiguous_id.sql`
+(`CREATE OR REPLACE`, no signature change, no DROP needed). Also corrected the same line in
+`20260921_branch_isolation_phase1.sql` in place, as a documentation/hygiene fix, so a future reader
+copying that file forward doesn't reintroduce the same bug.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing (no test covers a live RPC call, so this
+  specific regression wouldn't have been caught by the existing suite either way).
+- Real lesson for future RPCs: never name a `RETURNS TABLE` output column `id` (or anything else
+  likely to appear as a bare column reference elsewhere in the function body) without qualifying
+  every reference to a same-named table column throughout the function.

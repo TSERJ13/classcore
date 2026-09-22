@@ -103,7 +103,12 @@ DECLARE
     caller_org_id uuid;
     v_offset int;
 BEGIN
-    SELECT org_id INTO caller_org_id FROM public.profiles WHERE id = auth.uid();
+    -- NOTE: fixed to `profiles.id` by 20260922_fix_search_students_ambiguous_id.sql —
+    -- left unqualified here (as in the original 20260916 migration) caused
+    -- "column reference "id" is ambiguous" on every call, since this
+    -- function's own `RETURNS TABLE (id text, ...)` declares `id` as a
+    -- PL/pgSQL variable that collides with the bare column reference.
+    SELECT org_id INTO caller_org_id FROM public.profiles WHERE profiles.id = auth.uid();
     IF caller_org_id IS NULL THEN
         RAISE EXCEPTION 'No org for current user';
     END IF;
