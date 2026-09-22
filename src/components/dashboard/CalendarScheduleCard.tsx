@@ -254,10 +254,36 @@ export function CalendarScheduleCard({ lang = 'ka', onSelectDate, initialDate }:
 
     return (
         <div className="bg-card border border-border-subtle rounded-2xl overflow-hidden flex flex-col h-full min-h-[460px] shadow-xs transition-all">
-            {/* Header with Switcher: < დღევანდელი განრიგი ◇ კვირის განრიგი ◇ თვის განრიგი > */}
-            <div className="px-4 py-3.5 border-b border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-2.5 bg-surface/30">
-                {/* Arrow navigation + Switcher */}
-                <div className="flex items-center gap-1.5 w-full sm:w-auto justify-between sm:justify-start">
+            {/* ── Header: 2-tab switcher + Today button + link ── */}
+            <div className="px-4 py-3.5 border-b border-border-subtle flex items-center justify-between gap-3 bg-surface/20">
+                {/* Beautiful 2-tab pill switcher */}
+                <div className="flex items-center gap-1 bg-surface rounded-xl border border-border-subtle p-1 shadow-2xs">
+                    <button
+                        onClick={() => setViewMode('day')}
+                        className={cn(
+                            "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
+                            viewMode === 'day'
+                                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                                : "text-muted hover:text-primary hover:bg-surface/80"
+                        )}
+                    >
+                        {l('დღევანდელი განრიგი', 'Расписание на день', "Today's Schedule")}
+                    </button>
+                    <button
+                        onClick={() => setViewMode('week')}
+                        className={cn(
+                            "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
+                            viewMode === 'week'
+                                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                                : "text-muted hover:text-primary hover:bg-surface/80"
+                        )}
+                    >
+                        {l('კვირის განრიგი', 'Расписание на неделю', 'Week Schedule')}
+                    </button>
+                </div>
+
+                {/* Right controls: nav arrows + Today + external link */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                         onClick={handlePrev}
                         className="p-1.5 hover:bg-surface rounded-lg text-muted hover:text-primary transition-colors cursor-pointer"
@@ -265,61 +291,6 @@ export function CalendarScheduleCard({ lang = 'ka', onSelectDate, initialDate }:
                     >
                         <ChevronLeft className="w-4 h-4" />
                     </button>
-
-                    {/* View Switcher with Diamond Dividers matching screenshot */}
-                    <div className="flex items-center gap-1.5 text-xs font-bold bg-card p-1 rounded-xl border border-border-subtle shadow-2xs">
-                        <button
-                            onClick={() => setViewMode('day')}
-                            className={cn(
-                                "px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap",
-                                viewMode === 'day'
-                                    ? "bg-indigo-600 text-white shadow-xs"
-                                    : "text-muted hover:text-primary"
-                            )}
-                        >
-                            {l('დღევანდელი განრიგი', 'Расписание на день', 'Day Schedule')}
-                        </button>
-
-                        <span className="text-muted/40 select-none text-[10px]">◇</span>
-
-                        <button
-                            onClick={() => setViewMode('week')}
-                            className={cn(
-                                "px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap",
-                                viewMode === 'week'
-                                    ? "bg-indigo-600 text-white shadow-xs"
-                                    : "text-muted hover:text-primary"
-                            )}
-                        >
-                            {l('კვირის განრიგი', 'Расписание на неделю', 'Week Schedule')}
-                        </button>
-
-                        <span className="text-muted/40 select-none text-[10px]">◇</span>
-
-                        <button
-                            onClick={() => setViewMode('month')}
-                            className={cn(
-                                "px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap",
-                                viewMode === 'month'
-                                    ? "bg-indigo-600 text-white shadow-xs"
-                                    : "text-muted hover:text-primary"
-                            )}
-                        >
-                            {l('თვის განრიგი', 'Расписание на месяц', 'Month Schedule')}
-                        </button>
-                    </div>
-
-                    <button
-                        onClick={handleNext}
-                        className="p-1.5 hover:bg-surface rounded-lg text-muted hover:text-primary transition-colors cursor-pointer"
-                        title={l('შემდეგი', 'Вперед', 'Next')}
-                    >
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
-
-                {/* Right quick controls: Today button & Full calendar link */}
-                <div className="flex items-center gap-2">
                     <button
                         onClick={handleToday}
                         className={cn(
@@ -331,6 +302,13 @@ export function CalendarScheduleCard({ lang = 'ka', onSelectDate, initialDate }:
                     >
                         {l('დღეს', 'Сегодня', 'Today')}
                     </button>
+                    <button
+                        onClick={handleNext}
+                        className="p-1.5 hover:bg-surface rounded-lg text-muted hover:text-primary transition-colors cursor-pointer"
+                        title={l('შემდეგი', 'Вперед', 'Next')}
+                    >
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
                     <Link
                         href="/calendar"
                         className="p-1.5 hover:bg-surface rounded-lg text-muted hover:text-indigo-400 transition-colors"
@@ -340,6 +318,7 @@ export function CalendarScheduleCard({ lang = 'ka', onSelectDate, initialDate }:
                     </Link>
                 </div>
             </div>
+
 
             {/* VIEW 1: DAY SCHEDULE (Google Calendar Vertical Timeline) */}
             {viewMode === 'day' && (
