@@ -1995,3 +1995,33 @@ Notes:
 - Real lesson for future RPCs: never name a `RETURNS TABLE` output column `id` (or anything else
   likely to appear as a bare column reference elsewhere in the function body) without qualifying
   every reference to a same-named table column throughout the function.
+
+### Fix: search_students() second layer — "structure of query does not match function result type"
+
+Immediate follow-up to the ambiguous-`id` fix above: once that bug stopped short-circuiting every
+call before `RETURN QUERY` ever ran, a *second*, previously-unreachable bug surfaced immediately —
+same symptom (`/students` 500), different error text, confirmed again via Vercel function logs.
+**This means `/students` has likely never actually returned data in production at all** — the
+first bug always fired before this second one had any chance to.
+
+Root cause: `subscriptions.expires_at` is `timestamp with time zone` in the live schema (confirmed
+via `information_schema.columns`), but the function's `RETURNS TABLE` declares
+`sub_expires_at date`. Every other column matched exactly (checked all of them this time, not just
+skimmed) — `students.id/full_name/first_name/last_name/phone/email` are `text`, `students.data` is
+`jsonb`, `subscriptions.sessions_total`/`sessions_used` are `integer`, `subscriptions.status` is
+`text`.
+
+**Fix**: new migration `20260922_fix_search_students_type_mismatch.sql` — casts `expires_at::date`
+right where it's selected in the LATERAL subquery, so every downstream reference (the
+active/expired comparisons, and the final `RETURN QUERY` column) consistently carries `date`,
+matching the declared return type. No signature change, `CREATE OR REPLACE` in place.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 (no coverage of live RPC calls either way).
+- Confirmed via the owner directly running both the diagnostic `information_schema.columns` query
+  and the fix in Supabase SQL Editor, and via fresh Vercel function logs showing the error message
+  itself change from the first bug's text to this one's — real evidence the first fix took effect,
+  not just an assumption.
+- If `/students` still doesn't return rows after this one, the next thing to check is whether this
+  was really the last mismatch — re-run the diagnostic query after this migration and, if the
+  error text changes again, there's a third one to chase the same way.
