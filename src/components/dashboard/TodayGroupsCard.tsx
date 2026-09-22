@@ -172,11 +172,6 @@ export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }
                                     >
                                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: group.color || '#6366f1' }} />
                                         <span className="truncate max-w-[130px]">{group.name}</span>
-                                        {slot && (
-                                            <span className={cn("text-[9px] font-semibold px-1 py-0.5 rounded-md", isSelected ? "bg-white/20 text-white" : "bg-muted/10 text-muted")}>
-                                                {slot.startTime}
-                                            </span>
-                                        )}
                                     </button>
                                 );
                             })}
