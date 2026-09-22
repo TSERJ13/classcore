@@ -375,6 +375,17 @@ export default function AttendancePage() {
     const [selectedClass, setSelectedClass] = useState('');
     const selClass = filteredSchedule.find(s => s.id === selectedClass);
     const [att, setAtt] = useState<Record<string, State>>({});
+    // 🛠️ FIX: `att` starts empty on every class/date switch, so every
+    // student's button rendered as "+" (not checked in) for as long as
+    // loadAtt()'s real getCheckinsForDate() round-trip was in flight — a
+    // student who was ALREADY marked present earlier still showed "+" for
+    // that window, then flipped to the checkmark once the fetch resolved.
+    // That's the "delay" this looked like — but it's not cosmetic: a click
+    // during that window ran toggle()'s "mark present" branch against a
+    // student the server already had present, since `att[id]` still read
+    // 'none'. Gates the button on this instead of trusting an empty `att`
+    // to mean "confirmed not present".
+    const [attReady, setAttReady] = useState(false);
 
     const lastInteractionRef = useRef<number>(Date.now());
 
@@ -511,6 +522,7 @@ export default function AttendancePage() {
 
     useEffect(() => {
         let cancelled = false;
+        setAttReady(false);
         const loadAtt = async () => {
             const key = getScopedKey('cc_attendance_archive');
             let saved = localStorage.getItem(key);
@@ -568,8 +580,10 @@ export default function AttendancePage() {
                         merged[rec.studentId] = 'present';
                     }
                 });
+                if (!cancelled) setAttReady(true);
             } catch (e) {
                 console.error('❌ [Attendance] Failed to reconcile real check-ins:', e);
+                if (!cancelled) setAttReady(true);
             }
 
             if (!cancelled) setAtt(merged);
@@ -1893,8 +1907,10 @@ export default function AttendancePage() {
                                                     {/* Single Combined Attendance Toggle */}
                                                     <div className="flex-none pl-1 relative z-20">
                                                         <button
+                                                            disabled={!attReady}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
+                                                                if (!attReady) return;
                                                                 if (isReallyExpired && !isAllPresent) {
                                                                     setSelectedStudent(primary.id);
                                                                     setIssueModalOpen(true);
@@ -1904,13 +1920,14 @@ export default function AttendancePage() {
                                                             }}
                                                             className={cn(
                                                                 "w-11 h-11 md:w-14 md:h-14 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-90",
-                                                                isAllPresent ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
-                                                                    isAllAbsent ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
-                                                                        isReallyExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
-                                                                            "bg-surface border-border-subtle text-muted/30"
+                                                                !attReady ? "bg-surface border-border-subtle text-muted/20 animate-pulse cursor-wait" :
+                                                                    isAllPresent ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                                                                        isAllAbsent ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
+                                                                            isReallyExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
+                                                                                "bg-surface border-border-subtle text-muted/30"
                                                             )}
                                                         >
-                                                            {isAllPresent ? (
+                                                            {!attReady ? null : isAllPresent ? (
                                                                 <Check className="w-6 h-6 stroke-[3]" />
                                                             ) : isAllAbsent ? (
                                                                 <X className="w-6 h-6 stroke-[3]" />
@@ -2050,8 +2067,10 @@ export default function AttendancePage() {
                                             {/* Attendance Toggle (Fixed Right) */}
                                             <div className="flex-none pl-1 relative z-20">
                                                 <button
+                                                    disabled={!attReady}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        if (!attReady) return;
                                                         if (isExpired && state === 'none') {
                                                             setSelectedStudent(st.id);
                                                             setIssueModalOpen(true);
@@ -2061,13 +2080,14 @@ export default function AttendancePage() {
                                                     }}
                                                     className={cn(
                                                         "w-11 h-11 md:w-14 md:h-14 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-90",
-                                                        state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
-                                                            state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
-                                                                isExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
-                                                                    "bg-surface border-border-subtle text-muted/30"
+                                                        !attReady ? "bg-surface border-border-subtle text-muted/20 animate-pulse cursor-wait" :
+                                                            state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                                                                state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
+                                                                    isExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
+                                                                        "bg-surface border-border-subtle text-muted/30"
                                                     )}
                                                 >
-                                                    {state === 'present' ? (
+                                                    {!attReady ? null : state === 'present' ? (
                                                         <Check className="w-6 h-6 stroke-[3]" />
                                                     ) : state === 'absent' ? (
                                                         <X className="w-6 h-6 stroke-[3]" />

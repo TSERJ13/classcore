@@ -2025,3 +2025,36 @@ Notes:
 - If `/students` still doesn't return rows after this one, the next thing to check is whether this
   was really the last mismatch — re-run the diagnostic query after this migration and, if the
   error text changes again, there's a third one to chase the same way.
+
+### Fix: Attendance button "delayed 5 seconds", session not deducted, checkmark disappears on return
+
+The owner reported the attendance check-in button on `/attendance` was slow to mark (~5s delay),
+didn't deduct a session, and lost its "already marked" state when coming back to the same class on
+a later day. Reproduced the exact moment via frame-by-frame analysis of a fresh screen recording:
+two different students' checkmarks flipped from unmarked to marked *simultaneously*, even though
+only one was actually being clicked at that moment — ruling out a real double-marking bug. The
+owner confirmed no second device/session was active during the recording, ruling out a genuine
+realtime-sync coincidence too.
+
+Root cause: `attendance/page.tsx`'s `att` state (`Record<studentId, State>`) is reset to `{}` on
+every class/date switch, then repopulated asynchronously by the `loadAtt` effect, which awaits a
+real `getCheckinsForDate()` Server Action round-trip before calling `setAtt(merged)`. Until that
+resolves, every student's button renders as `'none'` ("+") regardless of whether they were
+genuinely already checked in — this is the "5 second delay" the owner saw: not a slow click
+response, but an honest data fetch that hadn't landed yet. It's not just cosmetic either: a real
+tap during that window ran `toggle()`'s "mark present" branch against a student the server already
+had marked, because `att[id]` still read `'none'` — explaining "session not deducted" (the second,
+now-redundant `recordCheckin` call could fail or no-op depending on timing) and "checkmark
+disappears on return" (the same race replaying identically every time the page is revisited).
+
+**Fix**: added an `attReady` boolean (`false` at the top of every `loadAtt` run, `true` once the
+real check-in fetch resolves — success or failure path). Both attendance buttons (the single-
+student button and the couple/pair button) now render a neutral pulsing placeholder and ignore
+clicks while `!attReady`, instead of confidently showing "+" for students who may already be
+marked present. No DB/SQL change — this is a pure client-state fix in
+`src/app/(dashboard)/attendance/page.tsx`.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- No SQL migration needed for this one — unlike most fixes this session, it needs a code
+  deploy (merge to `rebrendig`/`main` + Vercel redeploy) to go live, nothing to run in Supabase.
