@@ -11,7 +11,7 @@ import {
 import { cn, getInitials, getLocalISODate, formatDate } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { getSessionsRemaining } from '@/lib/checkin-store';
+import { getSessionsRemaining, getCheckinsForDate as getLocalCheckinsForDate } from '@/lib/checkin-store';
 import { recordCheckin, forceCheckin, getCheckinCountToday, getStudentCheckins, getCheckinsForDate, recordCompanionCheckin, deleteCompanionCheckin, refundCheckin, deleteCheckin } from '@/lib/checkin-client';
 import { getStudents, updateStudent, lookupByUid } from '@/lib/student-store';
 import { useUser } from '@/hooks/useUser';
@@ -385,7 +385,7 @@ export default function AttendancePage() {
     // student the server already had present, since `att[id]` still read
     // 'none'. Gates the button on this instead of trusting an empty `att`
     // to mean "confirmed not present".
-    const [attReady, setAttReady] = useState(false);
+    const [attReady, setAttReady] = useState(true);
 
     const lastInteractionRef = useRef<number>(Date.now());
 
@@ -522,7 +522,6 @@ export default function AttendancePage() {
 
     useEffect(() => {
         let cancelled = false;
-        setAttReady(false);
         const loadAtt = async () => {
             const key = getScopedKey('cc_attendance_archive');
             let saved = localStorage.getItem(key);
@@ -559,50 +558,46 @@ export default function AttendancePage() {
                 }
             }
 
-            // 🛠️ FIX: `cc_attendance_archive` is a plain per-device localStorage
-            // cache — it's only ever written by THIS browser's own toggle()
-            // clicks (see saveAttendance below) and is never pushed to the
-            // cloud, so it can silently drift from reality (cleared storage,
-            // a different device, a check-in that happened before this
-            // browser ever loaded the archive). The REAL record of who
-            // checked in is `cc_checkins_<date>`, written by recordCheckin()
-            // and kept in sync across devices in real time by
-            // realtime-sync.ts's applyRemoteCheckin(). Overlay those real
-            // records on top of the archive so "present" (the "+" turning
-            // green) always reflects the actual check-in database — the
-            // archive now only remains authoritative for explicit "absent"
-            // marks, which have no real backing record of their own.
-            // 🛠️ FIX: matching strictly on `rec.classId === selectedClass` made
-            // history disappear the moment the schedule-item id it was
-            // recorded under stopped existing verbatim — a virtual group
-            // slot (`virtual-<groupId>`) getting superseded by a real
-            // calendar event for that date, an individual lesson's id
-            // (`sub-ind-<subId>-<date>`) outliving its subscription's id
-            // after a renewal, or simply landing on the wrong auto-selected
-            // class when jumping straight to an old date. `group_id` and
-            // `student_id` are real, permanent columns on the check-in row
-            // itself (not a derived, re-computable string), so match on
-            // those first — they can't drift the way a synthetic classId can.
             const indStudentIds = (selClass?.type === 'individual' || selClass?.type === 'rental')
                 ? String(selClass.student_id || '').split(',').map((s: string) => s.trim()).filter(Boolean)
                 : [];
             const merged: Record<string, State> = { ...archived };
+
+            // ⚡ FAST PATH: Synchronously overlay local preloaded check-in database
             try {
-                const realCheckins = await getCheckinsForDate(dateKey);
-                realCheckins.forEach(rec => {
+                const localCheckins = getLocalCheckinsForDate(dateKey);
+                localCheckins.forEach(rec => {
                     const isGroupMatch = !!selClass?.group_id && rec.groupId === selClass.group_id;
                     const isIndividualMatch = indStudentIds.includes(rec.studentId);
                     if (rec.classId === selectedClass || isGroupMatch || isIndividualMatch) {
                         merged[rec.studentId] = 'present';
                     }
                 });
-                if (!cancelled) setAttReady(true);
             } catch (e) {
-                console.error('❌ [Attendance] Failed to reconcile real check-ins:', e);
-                if (!cancelled) setAttReady(true);
+                console.error('❌ [Attendance] Failed to read local check-ins:', e);
             }
 
-            if (!cancelled) setAtt(merged);
+            // Immediately ready and active!
+            if (!cancelled) {
+                setAtt(merged);
+                setAttReady(true);
+            }
+
+            // 🔄 BACKGROUND RECONCILIATION: fetch freshest cloud check-ins without blocking UI
+            try {
+                const realCheckins = await getCheckinsForDate(dateKey);
+                const cloudMerged: Record<string, State> = { ...merged };
+                realCheckins.forEach(rec => {
+                    const isGroupMatch = !!selClass?.group_id && rec.groupId === selClass.group_id;
+                    const isIndividualMatch = indStudentIds.includes(rec.studentId);
+                    if (rec.classId === selectedClass || isGroupMatch || isIndividualMatch) {
+                        cloudMerged[rec.studentId] = 'present';
+                    }
+                });
+                if (!cancelled) setAtt(cloudMerged);
+            } catch (e) {
+                console.error('❌ [Attendance] Failed to reconcile real check-ins:', e);
+            }
         };
 
         loadAtt();
@@ -1059,10 +1054,26 @@ export default function AttendancePage() {
                 return;
             }
 
-            // Mark present: deduct session
-            const checkinRes = await recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, currentPlanType);
-            patchSubAfterCheckin(id, checkinRes.record?.subId, checkinRes.sessionsUsed ?? null, checkinRes.sessionsTotal ?? null);
+            // ⚡ OPTIMISTIC: immediately mark present on screen & save local archive
             next = 'present';
+            const optimisticAtt = { ...att, [id]: 'present' as State };
+            setAtt(optimisticAtt);
+            saveAttendance(optimisticAtt);
+            setFlash(id);
+            setTimeout(() => setFlash(null), 2000);
+
+            try {
+                // Mark present: deduct session
+                const checkinRes = await recordCheckin(id, student.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, currentPlanType);
+                patchSubAfterCheckin(id, checkinRes.record?.subId, checkinRes.sessionsUsed ?? null, checkinRes.sessionsTotal ?? null);
+            } catch (err) {
+                console.error('❌ [Attendance] Checkin failed:', err);
+                const rollback = { ...att, [id]: cur };
+                setAtt(rollback);
+                saveAttendance(rollback);
+                alert('დასწრების ჩაწერა ვერ მოხერხდა');
+                return;
+            }
 
             const usedSub = choiceSubId ? getStudentSubscriptions(id).find(s => s.id === choiceSubId) : activeSub;
 
@@ -1100,8 +1111,8 @@ export default function AttendancePage() {
                                 tpl = templates.ka.expiration_day_0;
                             }
 
-                            const studioName = settings.studioName || 'Studio';
-                            const planName = usedSub?.plan || (usedSub as any)?.plan_name || '';
+                            const planName = (usedSub as any)?.plan_name || (usedSub as any)?.plan || 'აბონემენტი';
+                            const studioName = settings.studioName || 'სტუდია';
                             const msg = formatSmsTemplate(tpl, {
                                 student,
                                 planName,
@@ -1120,26 +1131,29 @@ export default function AttendancePage() {
                 }
             }
         } else if (cur === 'present') {
-            // Mark absent: refund session (since it was present)
-            // 🛠️ FIX: refundCheckin(id) with no date argument silently
-            // defaults to TODAY's real-world date internally — so
-            // un-marking attendance on any day OTHER than today (which is
-            // most of the time an admin browses back to fix a past date)
-            // looked for that day's check-in under today's key, found
-            // nothing, and refunded nothing. Combined with the check-in
-            // overlay in loadAtt() (see saveAttendance/loadAtt above),
-            // that stale real check-in record for the past date was never
-            // removed either, so it would keep reappearing as "present"
-            // no matter how many times it was unmarked. Pass the date
-            // actually being viewed, same as toggleCouple() already does.
-            const refundRes = await refundCheckin(id, dateKey, currentPlanType, selClass?.group_id);
-            patchSubAfterCheckin(id, refundRes.subId, refundRes.sessionsUsed, refundRes.sessionsTotal);
             next = 'absent';
+            const optimisticAtt = { ...att, [id]: 'absent' as State };
+            setAtt(optimisticAtt);
+            saveAttendance(optimisticAtt);
+
+            try {
+                const refundRes = await refundCheckin(id, dateKey, currentPlanType, selClass?.group_id);
+                patchSubAfterCheckin(id, refundRes.subId, refundRes.sessionsUsed, refundRes.sessionsTotal);
+            } catch (err) {
+                console.error('❌ [Attendance] Refund failed:', err);
+                const rollback = { ...att, [id]: cur };
+                setAtt(rollback);
+                saveAttendance(rollback);
+                alert('გაუქმება ვერ მოხერხდა');
+                return;
+            }
         } else {
             next = 'none';
+            const optimisticAtt = { ...att, [id]: 'none' as State };
+            setAtt(optimisticAtt);
+            saveAttendance(optimisticAtt);
         }
 
-        saveAttendance({ ...att, [id]: next });
         setPopup(null);
     }
 
@@ -1160,41 +1174,41 @@ export default function AttendancePage() {
         }
 
         if (!isAllPresent && !isAnyPresent) {
-            // MARK BOTH PRESENT:
-            // 1. Deduct 1 session from shared sub
-            const primaryRes = await recordCheckin(primary.id, primary.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, 'individual');
-            patchSubAfterCheckin(primary.id, primaryRes.record?.subId, primaryRes.sessionsUsed ?? null, primaryRes.sessionsTotal ?? null);
-
-            // 2. Record check-in history log for partner student(s) without extra
-            // deduction. 🛠️ FIX: this used to hand-write the companion's
-            // record straight into localStorage, bypassing checkin-store's
-            // cloud sync entirely — so the companion's own "present" mark
-            // never reached Supabase and would vanish on any other device
-            // (or after this browser's storage was cleared), even though
-            // the primary partner's mark was fine. recordCompanionCheckin()
-            // writes an equally real, cloud-synced record but still skips
-            // the session deduction (already taken once, above).
-            const dateToUse = dateKey || getLocalISODate();
-            await Promise.all(cStudents.slice(1).map(st =>
-                recordCompanionCheckin(
-                    st.id,
-                    st.full_name,
-                    'manual',
-                    primarySubStatus.remaining > 0 ? primarySubStatus.remaining - 1 : 0,
-                    selectedClass,
-                    selClass?.group_id,
-                    dateToUse
-                )
-            ));
-
-            // 3. Mark both present in att
-            const nextAtt = { ...att };
-            cStudents.forEach(s => {
-                nextAtt[s.id] = 'present';
-            });
-            saveAttendance(nextAtt);
+            // ⚡ OPTIMISTIC: Mark both present immediately in UI & local archive
+            const optimisticAtt = { ...att };
+            cStudents.forEach(s => { optimisticAtt[s.id] = 'present'; });
+            setAtt(optimisticAtt);
+            saveAttendance(optimisticAtt);
             setFlash(primary.id);
             setTimeout(() => setFlash(null), 2000);
+
+            try {
+                // 1. Deduct 1 session from shared sub
+                const primaryRes = await recordCheckin(primary.id, primary.full_name, 'manual', selectedClass, selClass?.group_id, choiceSubId, dateKey, 'individual');
+                patchSubAfterCheckin(primary.id, primaryRes.record?.subId, primaryRes.sessionsUsed ?? null, primaryRes.sessionsTotal ?? null);
+
+                // 2. Record check-in history log for partner student(s) without extra deduction.
+                const dateToUse = dateKey || getLocalISODate();
+                await Promise.all(cStudents.slice(1).map(st =>
+                    recordCompanionCheckin(
+                        st.id,
+                        st.full_name,
+                        'manual',
+                        primarySubStatus.remaining > 0 ? primarySubStatus.remaining - 1 : 0,
+                        selectedClass,
+                        selClass?.group_id,
+                        dateToUse
+                    )
+                ));
+            } catch (err) {
+                console.error('❌ [Attendance] Couple checkin failed:', err);
+                const rollback = { ...att };
+                cStudents.forEach(s => { rollback[s.id] = 'none'; });
+                setAtt(rollback);
+                saveAttendance(rollback);
+                alert('დასწრების ჩაწერა ვერ მოხერხდა');
+                return;
+            }
 
             // 4. --- Immediate SMS Trigger for "0 Visits Left" (Sent to BOTH students!) ---
             const usedSub = choiceSubId ? getStudentSubscriptions(primary.id).find(s => s.id === choiceSubId) : activeSub;
@@ -1252,19 +1266,25 @@ export default function AttendancePage() {
                 }
             }
         } else if (isAllPresent || isAnyPresent) {
-            // MARK ABSENT (refund the 1 shared session via the primary's
-            // record; also remove the companion's own record — otherwise
-            // it lingers as a phantom "present" check-in even after the
-            // couple is unmarked, since deleteCompanionCheckin deliberately
-            // does NOT refund again for it).
-            const refundRes = await refundCheckin(primary.id, dateKey, 'individual', selClass?.group_id);
-            patchSubAfterCheckin(primary.id, refundRes.subId, refundRes.sessionsUsed, refundRes.sessionsTotal);
-            await Promise.all(cStudents.slice(1).map(st => deleteCompanionCheckin(st.id, dateKey)));
-            const nextAtt = { ...att };
-            cStudents.forEach(s => {
-                nextAtt[s.id] = 'absent';
-            });
-            saveAttendance(nextAtt);
+            // ⚡ OPTIMISTIC: Mark absent immediately in UI & local archive
+            const optimisticAtt = { ...att };
+            cStudents.forEach(s => { optimisticAtt[s.id] = 'absent' as State; });
+            setAtt(optimisticAtt);
+            saveAttendance(optimisticAtt);
+
+            try {
+                const refundRes = await refundCheckin(primary.id, dateKey, 'individual', selClass?.group_id);
+                patchSubAfterCheckin(primary.id, refundRes.subId, refundRes.sessionsUsed, refundRes.sessionsTotal);
+                await Promise.all(cStudents.slice(1).map(st => deleteCompanionCheckin(st.id, dateKey)));
+            } catch (err) {
+                console.error('❌ [Attendance] Couple refund failed:', err);
+                const rollback = { ...att };
+                cStudents.forEach(s => { rollback[s.id] = 'present' as State; });
+                setAtt(rollback);
+                saveAttendance(rollback);
+                alert('გაუქმება ვერ მოხერხდა');
+                return;
+            }
         } else {
             // RESET TO NONE
             const nextAtt = { ...att };
