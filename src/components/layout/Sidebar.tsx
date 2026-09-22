@@ -330,9 +330,6 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
 
     return (
         <nav className="flex-1 py-1 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-4">
-            <div className="space-y-0.5">
-                <NeedsAttentionButton exp={exp} isMobile={isMobile} profile={profile} lang={lang} />
-            </div>
             {sections.map((section, sIdx) => {
                 const sectionItems = section.items
                     .map(href => ALL_ITEMS.find(item => item.href === href)!)
