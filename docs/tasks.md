@@ -1993,3 +1993,223 @@ Notes:
 - Separately reported in the same message: the Attendance button didn't work "this morning" — not
   yet investigated (no error detail given, and it may have been a transient symptom of whichever
   deploy was in progress at the time); needs its own reproduction detail before diagnosing.
+
+### Fix: search_students() failed on every single call — "column reference "id" is ambiguous"
+
+The owner reported /students permanently showing "NO DATA FOUND" even on the branch holding all
+69 real students, with the browser console showing a genuine `500 (Internal Server Error)` on the
+page's POST. Checked and ruled out, in order: browser extension interference (reproduced in
+Incognito with extensions off — same 500), and a stale/unapplied branch-isolation migration
+(`SELECT pronargs FROM pg_proc WHERE proname = 'search_students'` confirmed 10 — the correct,
+already-migrated signature). Vercel's function logs finally gave the real error text:
+`Error: column reference "id" is ambiguous`.
+
+Root cause, and it predates this session's branch-isolation work entirely — present verbatim in
+`search_students()`'s original creation migration (`20260916_search_students_rpc.sql`), carried
+forward unchanged into the Phase 1 rewrite: the function declares `RETURNS TABLE (id text, ...)`,
+which makes PL/pgSQL treat `id` as a variable in the function's own scope, and the function body's
+very first line —
+```sql
+SELECT org_id INTO caller_org_id FROM public.profiles WHERE id = auth.uid();
+```
+— references a bare, unqualified `id`. Postgres can no longer tell whether that means the
+function's own `id` output variable or `profiles.id`, so it raises the ambiguity error on
+literally every invocation, before the function's logic ever runs. `get_dashboard_stats()` has
+this exact same line but was never affected — its `RETURNS TABLE` has no column named `id` to
+collide with, which is exactly why the dashboard's server-side numbers kept working throughout
+this whole investigation while /students never did. Checked every other function with this same
+line (`checkin_deduct_session`, `checkin_refund_session`, `attendance_daily_counts`,
+`mark_attendance_and_deduct_session`) — none of them have an `id` output column either, so
+`search_students` is the only one actually affected.
+
+**This means /students has likely never actually worked in production** since the Server Actions
+cutover (task #22) — not something this session's branch-isolation work broke.
+
+**Fix**: qualify it as `profiles.id` — new migration `20260922_fix_search_students_ambiguous_id.sql`
+(`CREATE OR REPLACE`, no signature change, no DROP needed). Also corrected the same line in
+`20260921_branch_isolation_phase1.sql` in place, as a documentation/hygiene fix, so a future reader
+copying that file forward doesn't reintroduce the same bug.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing (no test covers a live RPC call, so this
+  specific regression wouldn't have been caught by the existing suite either way).
+- Real lesson for future RPCs: never name a `RETURNS TABLE` output column `id` (or anything else
+  likely to appear as a bare column reference elsewhere in the function body) without qualifying
+  every reference to a same-named table column throughout the function.
+
+### Fix: search_students() second layer — "structure of query does not match function result type"
+
+Immediate follow-up to the ambiguous-`id` fix above: once that bug stopped short-circuiting every
+call before `RETURN QUERY` ever ran, a *second*, previously-unreachable bug surfaced immediately —
+same symptom (`/students` 500), different error text, confirmed again via Vercel function logs.
+**This means `/students` has likely never actually returned data in production at all** — the
+first bug always fired before this second one had any chance to.
+
+Root cause: `subscriptions.expires_at` is `timestamp with time zone` in the live schema (confirmed
+via `information_schema.columns`), but the function's `RETURNS TABLE` declares
+`sub_expires_at date`. Every other column matched exactly (checked all of them this time, not just
+skimmed) — `students.id/full_name/first_name/last_name/phone/email` are `text`, `students.data` is
+`jsonb`, `subscriptions.sessions_total`/`sessions_used` are `integer`, `subscriptions.status` is
+`text`.
+
+**Fix**: new migration `20260922_fix_search_students_type_mismatch.sql` — casts `expires_at::date`
+right where it's selected in the LATERAL subquery, so every downstream reference (the
+active/expired comparisons, and the final `RETURN QUERY` column) consistently carries `date`,
+matching the declared return type. No signature change, `CREATE OR REPLACE` in place.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 (no coverage of live RPC calls either way).
+- Confirmed via the owner directly running both the diagnostic `information_schema.columns` query
+  and the fix in Supabase SQL Editor, and via fresh Vercel function logs showing the error message
+  itself change from the first bug's text to this one's — real evidence the first fix took effect,
+  not just an assumption.
+- If `/students` still doesn't return rows after this one, the next thing to check is whether this
+  was really the last mismatch — re-run the diagnostic query after this migration and, if the
+  error text changes again, there's a third one to chase the same way.
+
+### Fix: Attendance button "delayed 5 seconds", session not deducted, checkmark disappears on return
+
+The owner reported the attendance check-in button on `/attendance` was slow to mark (~5s delay),
+didn't deduct a session, and lost its "already marked" state when coming back to the same class on
+a later day. Reproduced the exact moment via frame-by-frame analysis of a fresh screen recording:
+two different students' checkmarks flipped from unmarked to marked *simultaneously*, even though
+only one was actually being clicked at that moment — ruling out a real double-marking bug. The
+owner confirmed no second device/session was active during the recording, ruling out a genuine
+realtime-sync coincidence too.
+
+Root cause: `attendance/page.tsx`'s `att` state (`Record<studentId, State>`) is reset to `{}` on
+every class/date switch, then repopulated asynchronously by the `loadAtt` effect, which awaits a
+real `getCheckinsForDate()` Server Action round-trip before calling `setAtt(merged)`. Until that
+resolves, every student's button renders as `'none'` ("+") regardless of whether they were
+genuinely already checked in — this is the "5 second delay" the owner saw: not a slow click
+response, but an honest data fetch that hadn't landed yet. It's not just cosmetic either: a real
+tap during that window ran `toggle()`'s "mark present" branch against a student the server already
+had marked, because `att[id]` still read `'none'` — explaining "session not deducted" (the second,
+now-redundant `recordCheckin` call could fail or no-op depending on timing) and "checkmark
+disappears on return" (the same race replaying identically every time the page is revisited).
+
+**Fix**: added an `attReady` boolean (`false` at the top of every `loadAtt` run, `true` once the
+real check-in fetch resolves — success or failure path). Both attendance buttons (the single-
+student button and the couple/pair button) now render a neutral pulsing placeholder and ignore
+clicks while `!attReady`, instead of confidently showing "+" for students who may already be
+marked present. No DB/SQL change — this is a pure client-state fix in
+`src/app/(dashboard)/attendance/page.tsx`.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- No SQL migration needed for this one — unlike most fixes this session, it needs a code
+  deploy (merge to `rebrendig`/`main` + Vercel redeploy) to go live, nothing to run in Supabase.
+
+### Fix: attendance "old marks don't show" — classId matching was too brittle
+
+Follow-up to the `attReady` fix above. The owner reported that previously-marked students still
+didn't show as present even once real data had loaded (not just delayed) — a separate bug from
+the loading race.
+
+Root cause: `loadAtt()` matched a real check-in to the currently-viewed schedule slot with a single
+strict comparison, `rec.classId === selectedClass`. `classId` is a *synthetic, re-computed* string
+(`virtual-<groupId>` for a recurring group slot, `sub-ind-<subId>-<date>` for an individual
+lesson) — not a stable identifier. It silently stops matching, and the check-in appears to vanish,
+whenever: a concrete calendar event later gets created for a date that used to resolve to the
+`virtual-<groupId>` fallback; an individual subscription is renewed and gets a new `subId` (its
+lessons keep the old subId baked into every already-recorded classId); or date navigation lands on
+a different schedule item than the one actually marked (see `getClassIdentity`'s own comment for
+why that can happen). None of these change the underlying student/group — only the derived string.
+
+**Fix**: match on the check-in's real, permanent columns first — `group_id` for group classes,
+`student_id` for individual/rental lessons (unambiguous since that view only ever shows that
+specific person) — falling back to the old `classId` comparison for anything else. `group_id` and
+`student_id` are actual `attendance` table columns, not a recomputed string, so they can't drift
+the way `classId` can.
+
+**Known limitation, not fixed by this change**: check-ins made before this session's Sept 16
+Server-Actions cutover for attendance may have only ever existed in this browser's own
+`cc_attendance_archive`/`cc_checkins_<date>` localStorage, never in the real `attendance` table —
+if that local cache was cleared, or the owner is now on a different device/browser, that specific
+history is genuinely gone and cannot be recovered by any client-side fix. Everything written
+through the current Server Actions path (this week onward) is real, durable, and this fix makes it
+match reliably regardless of schedule-id churn.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- Code-only, same deploy as the `attReady` fix above — no SQL needed.
+
+### Design decision: initial-load / bootstrap architecture (CRM industry-standard pattern)
+
+The owner separately raised: (1) Students/Attendance/Dashboard all feel slow to load, (2)
+Dashboard visibly shows all-zero stats and then "jumps" to real numbers, (3) whether everything
+should just be preloaded once at login instead of every page querying the database itself.
+
+Investigated the actual mechanism behind (2) since it's concretely diagnosable: `StudioContext.tsx`
+splits hydration into a fast "light" pass (settings/branches — gates `isLoaded`, which is what
+unblocks page render) and a slower "heavy" background pass (students/subscriptions/etc., started
+in a `setTimeout` inside `hydrate()`, finishing well after `isLoaded` already flipped true and
+firing `cc_student_update`/`cc_subscription_update`/etc. when done). `dashboard/page.tsx`'s
+`refreshFullDashboard()` runs immediately on mount against whatever local caches exist *right
+then* — genuinely empty before the heavy pass finishes — so the "0, then jump" isn't wrong data,
+it's a real, honestly-empty read shown before the real data existed locally yet, then corrected
+once the heavy pass's events fire. Same family of bug as the attendance `attReady` race above, just
+on the dashboard's stat tiles instead of the attendance buttons.
+
+**This is the right split to keep** — a fast light pass + slower background heavy pass is exactly
+how CRM/SaaS products (Salesforce, HubSpot, Linear, Intercom, etc.) structure their own login:
+a small "bootstrap" payload (session, org/workspace settings, permissions, active-branch context)
+gates the loading screen and nothing else; the rest of the app's data loads progressively, per
+page, cache-first — never one big blocking fetch of "everything" at login. Preloading literally
+everything at login would make login itself slower and stops scaling the moment a studio's
+student/attendance history grows past a trivial size; it also doesn't remove the same problem, it
+just moves it to before the loading screen instead of after.
+
+What CRM-standard products add on top of a light/heavy split, which this app is only partially
+doing yet:
+1. **Never render "confirmed empty" before the first real read completes.** A `0` and "no data
+   found" must be visually distinct from "still loading" — otherwise every zero is ambiguous.
+   Applied this session to Dashboard's stat tiles (new `statsReady` flag, gated on the same
+   `cc_student_update`/`cc_subscription_update`/`cc_data_hydrated`/`cc_sync_done` events that
+   already signal the heavy pass finishing, with a 4s safety timeout) and to the two Attendance
+   buttons (`attReady`, above). `/students` already does this correctly today via
+   `useStudentsListQuery`'s own `isLoading` flag — it was never the zero-flash problem, its
+   reported slowness was the real `search_students()` bugs fixed earlier this session.
+2. **Cache-first + background revalidation ("stale-while-revalidate"), not fetch-then-render.**
+   `/students` already has this for free via React Query. Dashboard and Attendance still hand-roll
+   their own version of the same idea (local-store read, then a server overlay effect) without a
+   shared cache layer — works, but each page reinvents it slightly differently, and slowness on
+   these pages is largely this: a real network round-trip to Supabase/Vercel on every visit, with
+   no shared cache to serve from while it revalidates.
+3. **Real-time push invalidates cache instead of a full reload.** Already have this — the
+   `cc_*_update` custom events + `realtime-sync.ts` are exactly this mechanism, just not yet wired
+   through a single shared cache the way React Query gives `/students`.
+
+**Recommendation (not built yet, tracked as its own follow-up — session task #46)**: migrate
+Dashboard, Attendance, and Groups onto the same `useStudentsListQuery`-style React-Query +
+Server-Action pattern `/students` already uses, rather than inventing a new caching layer. That
+gets cache-first rendering, background revalidation, and pagination for all three "for free" from
+a library already in the codebase, instead of hand-rolling a bespoke ready-flag per page (today's
+fix is the same shape of patch, applied twice — a real shared layer means writing it once).
+Separately, worth checking for missing DB indexes on the columns these pages filter/sort by most
+(`org_id`, the `branch_ids` array overlap, date ranges) — a query getting slower as a studio's data
+grows is a different problem than the loading-state one and needs profiling against the real
+database to confirm, not guessed at from code alone.
+
+Notes:
+- No code changes beyond the `statsReady` dashboard fix (see below) — this section documents the
+  investigation and the target architecture for the follow-up phase.
+
+### Fix: Dashboard stat tiles showing 0 before heavy hydration pass completes
+
+Companion fix to the design decision above — the one piece of it that was small, safe, and
+directly actionable without a larger refactor. Added `statsReady` to `dashboard/page.tsx`: starts
+`false` (unless `sessionStorage` already recorded a prior heavy-sync completion this tab session,
+so in-app navigation back to `/dashboard` doesn't re-show the skeleton every time), flips to `true`
+the first time any of `cc_student_update`/`cc_subscription_update`/`cc_attendance_update`/
+`cc_sale_update`/`cc_data_hydrated`/`cc_sync_done` fires (or after a 4s safety timeout, mirroring
+StudioContext's own 3s hydration fallback). While `!statsReady`, each of the 4 stat tiles renders a
+pulsing skeleton block instead of `0` and its (also-meaningless) `+0%`/`+0` change badge.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- Code-only — needs the same deploy as the two attendance fixes above, no SQL.
+- Deliberately did not touch `/students` (already correct) or attempt the larger React-Query
+  migration for Dashboard/Attendance/Groups described above — that's session task #46, scoped
+  separately given its size and the fact it touches how 3 pages load their core data on a live
+  production app.

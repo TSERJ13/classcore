@@ -375,6 +375,17 @@ export default function AttendancePage() {
     const [selectedClass, setSelectedClass] = useState('');
     const selClass = filteredSchedule.find(s => s.id === selectedClass);
     const [att, setAtt] = useState<Record<string, State>>({});
+    // 🛠️ FIX: `att` starts empty on every class/date switch, so every
+    // student's button rendered as "+" (not checked in) for as long as
+    // loadAtt()'s real getCheckinsForDate() round-trip was in flight — a
+    // student who was ALREADY marked present earlier still showed "+" for
+    // that window, then flipped to the checkmark once the fetch resolved.
+    // That's the "delay" this looked like — but it's not cosmetic: a click
+    // during that window ran toggle()'s "mark present" branch against a
+    // student the server already had present, since `att[id]` still read
+    // 'none'. Gates the button on this instead of trusting an empty `att`
+    // to mean "confirmed not present".
+    const [attReady, setAttReady] = useState(false);
 
     const lastInteractionRef = useRef<number>(Date.now());
 
@@ -511,6 +522,7 @@ export default function AttendancePage() {
 
     useEffect(() => {
         let cancelled = false;
+        setAttReady(false);
         const loadAtt = async () => {
             const key = getScopedKey('cc_attendance_archive');
             let saved = localStorage.getItem(key);
@@ -560,16 +572,34 @@ export default function AttendancePage() {
             // green) always reflects the actual check-in database — the
             // archive now only remains authoritative for explicit "absent"
             // marks, which have no real backing record of their own.
+            // 🛠️ FIX: matching strictly on `rec.classId === selectedClass` made
+            // history disappear the moment the schedule-item id it was
+            // recorded under stopped existing verbatim — a virtual group
+            // slot (`virtual-<groupId>`) getting superseded by a real
+            // calendar event for that date, an individual lesson's id
+            // (`sub-ind-<subId>-<date>`) outliving its subscription's id
+            // after a renewal, or simply landing on the wrong auto-selected
+            // class when jumping straight to an old date. `group_id` and
+            // `student_id` are real, permanent columns on the check-in row
+            // itself (not a derived, re-computable string), so match on
+            // those first — they can't drift the way a synthetic classId can.
+            const indStudentIds = (selClass?.type === 'individual' || selClass?.type === 'rental')
+                ? String(selClass.student_id || '').split(',').map((s: string) => s.trim()).filter(Boolean)
+                : [];
             const merged: Record<string, State> = { ...archived };
             try {
                 const realCheckins = await getCheckinsForDate(dateKey);
                 realCheckins.forEach(rec => {
-                    if (rec.classId === selectedClass) {
+                    const isGroupMatch = !!selClass?.group_id && rec.groupId === selClass.group_id;
+                    const isIndividualMatch = indStudentIds.includes(rec.studentId);
+                    if (rec.classId === selectedClass || isGroupMatch || isIndividualMatch) {
                         merged[rec.studentId] = 'present';
                     }
                 });
+                if (!cancelled) setAttReady(true);
             } catch (e) {
                 console.error('❌ [Attendance] Failed to reconcile real check-ins:', e);
+                if (!cancelled) setAttReady(true);
             }
 
             if (!cancelled) setAtt(merged);
@@ -1893,8 +1923,10 @@ export default function AttendancePage() {
                                                     {/* Single Combined Attendance Toggle */}
                                                     <div className="flex-none pl-1 relative z-20">
                                                         <button
+                                                            disabled={!attReady}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
+                                                                if (!attReady) return;
                                                                 if (isReallyExpired && !isAllPresent) {
                                                                     setSelectedStudent(primary.id);
                                                                     setIssueModalOpen(true);
@@ -1904,13 +1936,14 @@ export default function AttendancePage() {
                                                             }}
                                                             className={cn(
                                                                 "w-11 h-11 md:w-14 md:h-14 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-90",
-                                                                isAllPresent ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
-                                                                    isAllAbsent ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
-                                                                        isReallyExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
-                                                                            "bg-surface border-border-subtle text-muted/30"
+                                                                !attReady ? "bg-surface border-border-subtle text-muted/20 animate-pulse cursor-wait" :
+                                                                    isAllPresent ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                                                                        isAllAbsent ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
+                                                                            isReallyExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
+                                                                                "bg-surface border-border-subtle text-muted/30"
                                                             )}
                                                         >
-                                                            {isAllPresent ? (
+                                                            {!attReady ? null : isAllPresent ? (
                                                                 <Check className="w-6 h-6 stroke-[3]" />
                                                             ) : isAllAbsent ? (
                                                                 <X className="w-6 h-6 stroke-[3]" />
@@ -2050,8 +2083,10 @@ export default function AttendancePage() {
                                             {/* Attendance Toggle (Fixed Right) */}
                                             <div className="flex-none pl-1 relative z-20">
                                                 <button
+                                                    disabled={!attReady}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        if (!attReady) return;
                                                         if (isExpired && state === 'none') {
                                                             setSelectedStudent(st.id);
                                                             setIssueModalOpen(true);
@@ -2061,13 +2096,14 @@ export default function AttendancePage() {
                                                     }}
                                                     className={cn(
                                                         "w-11 h-11 md:w-14 md:h-14 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-90",
-                                                        state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
-                                                            state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
-                                                                isExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
-                                                                    "bg-surface border-border-subtle text-muted/30"
+                                                        !attReady ? "bg-surface border-border-subtle text-muted/20 animate-pulse cursor-wait" :
+                                                            state === 'present' ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" :
+                                                                state === 'absent' ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20" :
+                                                                    isExpired ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/5" :
+                                                                        "bg-surface border-border-subtle text-muted/30"
                                                     )}
                                                 >
-                                                    {state === 'present' ? (
+                                                    {!attReady ? null : state === 'present' ? (
                                                         <Check className="w-6 h-6 stroke-[3]" />
                                                     ) : state === 'absent' ? (
                                                         <X className="w-6 h-6 stroke-[3]" />
