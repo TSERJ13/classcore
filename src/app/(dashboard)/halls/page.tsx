@@ -8,6 +8,8 @@ import { HallModal } from '@/components/halls/HallModal';
 import { useT } from '@/contexts/LanguageContext';
 import type { Hall } from '@/types';
 import { getHallsAction, saveHallsAction, deleteHallAction } from '@/app/actions/halls';
+import { getHalls } from '@/lib/hall-store';
+import { getEvents } from '@/lib/event-store';
 import { useStudio } from '@/contexts/StudioContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -17,18 +19,20 @@ export default function HallsPage() {
     const { t, lang } = useT();
     const { settings } = useStudio();
     const confirm = useConfirm();
-    const [halls, setHalls] = useState<Hall[]>([]);
+    const [halls, setHalls] = useState<Hall[]>(() => {
+        try { return getHalls() as unknown as Hall[]; } catch { return []; }
+    });
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Hall | null>(null);
 
-    const [events, setEvents] = useState<any[]>([]);
+    const [events, setEvents] = useState<any[]>(() => {
+        try { return getEvents(); } catch { return []; }
+    });
 
     useEffect(() => {
         const refresh = () => { getHallsAction(settings.activeBranchId || undefined).then(rows => setHalls(rows as unknown as Hall[])).catch(err => console.error('❌ [Halls] Failed to load:', err)); };
         refresh();
-        import('@/lib/event-store').then(mod => {
-            setEvents(mod.getEvents());
-        });
+        setEvents(getEvents());
 
         window.addEventListener('cc_halls_update', refresh);
         return () => window.removeEventListener('cc_halls_update', refresh);

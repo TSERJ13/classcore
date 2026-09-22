@@ -11,7 +11,7 @@ import { isFeatureEnabled } from '@/lib/settings-store';
 import { cn, formatCurrency } from '@/lib/utils';
 import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { useStudio } from '@/contexts/StudioContext';
-import { type Plan, type RentalPeriod } from '@/lib/plan-store';
+import { type Plan, type RentalPeriod, getPlans } from '@/lib/plan-store';
 import { getPlansAction, savePlansAction, deletePlanAction } from '@/app/actions/plans';
 import { getGroups, type Group } from '@/lib/group-store';
 
@@ -44,8 +44,18 @@ export default function PlansManagementPage() {
     const { t } = useT();
     const { settings, updateSettings } = useStudio();
     const confirm = useConfirm();
-    const [plans, setPlans] = useState<Plan[]>([]);
-    const [groups, setGroups] = useState<Group[]>([]);
+    const [plans, setPlans] = useState<Plan[]>(() => {
+        try {
+            const list = getPlans();
+            if (list.length > 0) return list;
+            return settings.subscription_plans || [];
+        } catch {
+            return [];
+        }
+    });
+    const [groups, setGroups] = useState<Group[]>(() => {
+        try { return getGroups(); } catch { return []; }
+    });
     const [tab, setTab] = useState<PlanType>('group');
 
     useEffect(() => {

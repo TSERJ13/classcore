@@ -5,7 +5,8 @@ import { useT } from '@/contexts/LanguageContext';
 import { GroupModal } from '@/components/groups/GroupModal';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
-import { type Group } from '@/lib/group-store';
+import { type Group, getGroups } from '@/lib/group-store';
+import { getSubscriptions } from '@/lib/subscription-store';
 import { getGroupsAction, createGroupAction, updateGroupAction, deleteGroupAction } from '@/app/actions/groups';
 import { getSubscriptionsAction, type SubscriptionRow } from '@/app/actions/subscriptions';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
@@ -21,8 +22,18 @@ export default function GroupsPage() {
     const { t, lang } = useT();
     const { profile } = useUser();
 
-    const [groups, setGroups] = useState<Group[]>([]);
-    const [uniqueSubs, setUniqueSubs] = useState<SubscriptionRow[]>([]);
+    const [groups, setGroups] = useState<Group[]>(() => {
+        try { return getGroups(); } catch { return []; }
+    });
+    const [uniqueSubs, setUniqueSubs] = useState<SubscriptionRow[]>(() => {
+        try {
+            const all = getSubscriptions() || {};
+            const flat = Object.values(all).flat();
+            return flat as unknown as SubscriptionRow[];
+        } catch {
+            return [];
+        }
+    });
 
     const { settings, updateStaff } = useStudio();
     useEffect(() => {

@@ -1429,11 +1429,11 @@ export default function CalendarPage() {
     const [view, setView] = useState<'day' | 'week' | 'month'>('week');
     const [anchor, setAnchor] = useState(new Date());
     const { settings } = useStudio();
-    const [events, setEvents] = useState<CalendarEvent[]>([]);
-    const [teachers, setTeachers] = useState<any[]>([]);
-    const [halls, setHalls] = useState<{ id: string; name: string; color: string }[]>([]);
-    const [groups, setGroups] = useState<Group[]>([]);
-    const [subs, setSubs] = useState<Record<string, SubscriptionInfo[]>>({});
+    const [events, setEvents] = useState<CalendarEvent[]>(() => { try { return getEvents(); } catch { return []; } });
+    const [teachers, setTeachers] = useState<any[]>(() => { try { return getTeachers(); } catch { return []; } });
+    const [halls, setHalls] = useState<{ id: string; name: string; color: string }[]>(() => { try { return getHalls().filter(h => h.is_active !== false); } catch { return []; } });
+    const [groups, setGroups] = useState<Group[]>(() => { try { return getGroups(); } catch { return []; } });
+    const [subs, setSubs] = useState<Record<string, SubscriptionInfo[]>>(() => { try { return (getSubscriptions() || {}) as any; } catch { return {}; } });
     const [hasMounted, setHasMounted] = useState(false);
 
     useEffect(() => {

@@ -17,6 +17,8 @@ import {
 } from '@/hooks/useStudentsQuery';
 import type { StudentRow } from '@/app/actions/students';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
+import { getStudents } from '@/lib/student-store';
+import { getSubscriptions } from '@/lib/subscription-store';
 import type { Student } from '@/types';
 
 function StatusBadge({ status, t }: { status: string; t: ReturnType<typeof useT>['t'] }) {
@@ -93,8 +95,37 @@ function StudentsPageInner() {
     const deleteStudent = useDeleteStudentMutation();
     const checkDuplicate = useCheckDuplicateStudent();
 
-    const rows: StudentRow[] = data?.pages.flatMap(p => p.rows) ?? [];
-    const total = data?.pages[0]?.total ?? 0;
+    const localStudents = useMemo(() => {
+        try {
+            const list = getStudents();
+            const allSubs = getSubscriptions() || {};
+            return list.map(s => {
+                const studentSubs = (allSubs as any)[s.id] || [];
+                const activeSub = studentSubs.find((sub: any) => sub.status === 'active') || studentSubs[0];
+                return {
+                    ...s,
+                    id: s.id,
+                    full_name: s.full_name,
+                    first_name: s.first_name || null,
+                    last_name: s.last_name || null,
+                    phone: s.phone || '',
+                    email: s.email || null,
+                    subscription: activeSub ? {
+                        status: activeSub.status,
+                        sessions_total: activeSub.sessions_total ?? null,
+                        sessions_used: activeSub.sessions_used ?? 0,
+                        expires_at: activeSub.expires_at ?? null,
+                    } : null,
+                } as StudentRow;
+            });
+        } catch {
+            return [];
+        }
+    }, [settings.activeBranchId]);
+
+    const serverRows: StudentRow[] = data?.pages.flatMap(p => p.rows) ?? [];
+    const rows: StudentRow[] = (serverRows.length > 0 || (data && !isLoading)) ? serverRows : localStudents;
+    const total = data?.pages[0]?.total ?? (rows.length || localStudents.length);
 
     function openAdd() { setEditing(null); setModalOpen(true); }
     function openEdit(s: StudentRow) { setEditing(s as unknown as Student); setModalOpen(true); }
@@ -437,7 +468,7 @@ function StudentsPageInner() {
                     );
                 })}
 
-                {isLoading ? (
+                {isLoading && rows.length === 0 ? (
                     <div className="col-span-full flex flex-col items-center py-20">
                         <div className="w-12 h-12 border-4 border-[#6d28d9] border-t-transparent rounded-full animate-spin mb-4" />
                         <p className="text-sm font-bold text-muted animate-pulse">იტვირთება...</p>

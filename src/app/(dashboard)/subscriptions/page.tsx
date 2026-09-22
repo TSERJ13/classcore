@@ -6,7 +6,7 @@ import { Plus, Users, Zap, Clock, User, AlertCircle, Pause, CreditCard, Edit2, D
 import { useT } from '@/contexts/LanguageContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
-import { getEffectiveStatus, type SubscriptionInfo } from '@/lib/subscription-store';
+import { getEffectiveStatus, type SubscriptionInfo, getSubscriptions } from '@/lib/subscription-store';
 import { getSubscriptionsAction, issueSubscriptionAction, updateSubscriptionAction, deleteSubscriptionAction } from '@/app/actions/subscriptions';
 import { isFeatureEnabled } from '@/lib/settings-store';
 import { getStudents } from '@/lib/student-store';
@@ -29,7 +29,15 @@ export default function SubscriptionsPage() {
     const [bookingSub, setBookingSub] = useState<SubscriptionInfo | null>(null);
     const [issuing, setIssuing] = useState(false);
     const [fabOpen, setFabOpen] = useState(false);
-    const [allSubs, setAllSubs] = useState<SubscriptionInfo[]>([]);
+    const [allSubs, setAllSubs] = useState<SubscriptionInfo[]>(() => {
+        try {
+            const all = getSubscriptions() || {};
+            const flat = Object.values(all).flat();
+            return flat as SubscriptionInfo[];
+        } catch {
+            return [];
+        }
+    });
 
     useEffect(() => {
         let cancelled = false;
