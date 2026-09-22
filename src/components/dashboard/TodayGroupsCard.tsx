@@ -219,7 +219,7 @@ export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }
                     {/* ── Student Grid (2 columns, attendance-style) ── */}
                     <div className="flex-1 overflow-y-auto max-h-[390px] p-3">
                         {enrolledStudents.length > 0 ? (
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                                 {enrolledStudents.map(student => {
                                     const isPresent = checkinMap.has(student.id);
                                     const isAnimating = animatingId === student.id;
@@ -231,7 +231,7 @@ export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }
                                             onClick={() => handleCheckin(student)}
                                             disabled={isPresent}
                                             className={cn(
-                                                "relative flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all active:scale-95 cursor-pointer text-left",
+                                                "relative flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border-2 transition-all active:scale-95 cursor-pointer",
                                                 isPresent
                                                     ? "bg-emerald-500/10 border-emerald-500 shadow-md shadow-emerald-500/10"
                                                     : "bg-surface border-border-subtle hover:border-indigo-400/50 hover:bg-surface/80",
@@ -240,23 +240,17 @@ export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }
                                         >
                                             {/* Photo / Avatar */}
                                             <div className={cn(
-                                                "w-14 h-14 rounded-full border-[3px] flex items-center justify-center overflow-hidden flex-shrink-0 transition-all",
+                                                "w-11 h-11 rounded-full border-[3px] flex items-center justify-center overflow-hidden flex-shrink-0 transition-all",
                                                 isPresent
-                                                    ? "border-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.35)]"
+                                                    ? "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)]"
                                                     : "border-border-subtle"
                                             )}>
                                                 {student.photo_url ? (
-                                                    <img
-                                                        src={student.photo_url}
-                                                        alt={student.full_name}
-                                                        className="w-full h-full object-cover"
-                                                    />
+                                                    <img src={student.photo_url} alt={student.full_name} className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className={cn(
-                                                        "w-full h-full flex items-center justify-center font-black text-sm",
-                                                        isPresent
-                                                            ? "bg-emerald-500 text-white"
-                                                            : "bg-indigo-500/15 text-indigo-400"
+                                                        "w-full h-full flex items-center justify-center font-black text-[11px]",
+                                                        isPresent ? "bg-emerald-500 text-white" : "bg-indigo-500/15 text-indigo-400"
                                                     )}>
                                                         {initials}
                                                     </div>
@@ -265,25 +259,22 @@ export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }
 
                                             {/* Name */}
                                             <p className={cn(
-                                                "text-[11px] font-bold text-center leading-tight w-full truncate px-1",
+                                                "text-[10px] font-bold text-center leading-tight w-full truncate px-0.5",
                                                 isPresent ? "text-emerald-700 dark:text-emerald-300" : "text-primary"
                                             )}>
                                                 {student.full_name}
                                             </p>
 
-                                            {/* Check indicator */}
-                                            {isPresent && (
-                                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
-                                                    <Check className="w-3 h-3 text-white stroke-[3]" />
-                                                </div>
-                                            )}
-
-                                            {/* Plus indicator for not-present */}
-                                            {!isPresent && (
-                                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-surface border border-border-subtle flex items-center justify-center">
-                                                    <Plus className="w-3 h-3 text-muted/50 stroke-[2]" />
-                                                </div>
-                                            )}
+                                            {/* Check / Plus badge */}
+                                            <div className={cn(
+                                                "absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center",
+                                                isPresent ? "bg-emerald-500 shadow-sm" : "bg-surface border border-border-subtle"
+                                            )}>
+                                                {isPresent
+                                                    ? <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
+                                                    : <Plus className="w-2.5 h-2.5 text-muted/50 stroke-[2]" />
+                                                }
+                                            </div>
                                         </button>
                                     );
                                 })}
