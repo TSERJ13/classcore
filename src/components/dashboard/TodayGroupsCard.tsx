@@ -219,7 +219,7 @@ export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }
                     {/* ── Student Grid (2 columns, attendance-style) ── */}
                     <div className="flex-1 overflow-y-auto max-h-[390px] p-3">
                         {enrolledStudents.length > 0 ? (
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 {enrolledStudents.map(student => {
                                     const isPresent = checkinMap.has(student.id);
                                     const isAnimating = animatingId === student.id;
@@ -231,7 +231,7 @@ export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }
                                             onClick={() => handleCheckin(student)}
                                             disabled={isPresent}
                                             className={cn(
-                                                "relative flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border-2 transition-all active:scale-95 cursor-pointer",
+                                                "relative flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all active:scale-95 cursor-pointer",
                                                 isPresent
                                                     ? "bg-emerald-500/10 border-emerald-500 shadow-md shadow-emerald-500/10"
                                                     : "bg-surface border-border-subtle hover:border-indigo-400/50 hover:bg-surface/80",
@@ -240,9 +240,9 @@ export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }
                                         >
                                             {/* Photo / Avatar */}
                                             <div className={cn(
-                                                "w-11 h-11 rounded-full border-[3px] flex items-center justify-center overflow-hidden flex-shrink-0 transition-all",
+                                                "w-10 h-10 rounded-full border-[2.5px] flex items-center justify-center overflow-hidden flex-shrink-0 transition-all",
                                                 isPresent
-                                                    ? "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)]"
+                                                    ? "border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.35)]"
                                                     : "border-border-subtle"
                                             )}>
                                                 {student.photo_url ? (
@@ -267,12 +267,12 @@ export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }
 
                                             {/* Check / Plus badge */}
                                             <div className={cn(
-                                                "absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center",
+                                                "absolute top-1 right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center",
                                                 isPresent ? "bg-emerald-500 shadow-sm" : "bg-surface border border-border-subtle"
                                             )}>
                                                 {isPresent
-                                                    ? <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
-                                                    : <Plus className="w-2.5 h-2.5 text-muted/50 stroke-[2]" />
+                                                    ? <Check className="w-2 h-2 text-white stroke-[3]" />
+                                                    : <Plus className="w-2 h-2 text-muted/50 stroke-[2]" />
                                                 }
                                             </div>
                                         </button>
