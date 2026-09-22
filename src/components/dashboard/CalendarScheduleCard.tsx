@@ -69,9 +69,17 @@ export function CalendarScheduleCard({ lang = 'ka', onSelectDate, initialDate }:
         const listener = () => load();
         window.addEventListener('cc_calendar_events_update', listener);
         window.addEventListener('cc_groups_update', listener);
+        // 🛠️ FIX: getEvents()/getGroups() are already branch-scoped internally
+        // (they read the active branch from localStorage at call time), but
+        // this card only re-called them on calendar/group edits — switching
+        // the active branch itself (BranchSwitcher -> 'cc_branch_change')
+        // never triggered a reload, so this card kept showing the previous
+        // branch's schedule until some unrelated edit happened to refresh it.
+        window.addEventListener('cc_branch_change', listener);
         return () => {
             window.removeEventListener('cc_calendar_events_update', listener);
             window.removeEventListener('cc_groups_update', listener);
+            window.removeEventListener('cc_branch_change', listener);
         };
     }, []);
 

@@ -2213,3 +2213,29 @@ Notes:
   migration for Dashboard/Attendance/Groups described above — that's session task #46, scoped
   separately given its size and the fact it touches how 3 pages load their core data on a live
   production app.
+
+### Fix: dashboard's Today's Groups / Calendar cards didn't update on branch switch
+
+Owner reported the dashboard's bottom section (Today's Groups + Calendar Schedule, extracted into
+`TodayGroupsCard.tsx`/`CalendarScheduleCard.tsx` since this branch last synced with `main`) kept
+showing the previous branch's groups/schedule after switching branches — a branch with no events
+still showed another branch's.
+
+Root cause: `getGroups()`/`getEvents()` already read the active branch from `localStorage` at call
+time (correctly branch-scoped), but both cards only re-called them on `cc_groups_update`/
+`cc_calendar_events_update`/etc. — never on `cc_branch_change` itself, the event the
+`BranchSwitcher` actually dispatches. Same class of bug already fixed earlier this session for the
+main dashboard stats effect; recurred here because these two cards are new (added directly on
+`main` by the other collaborator since this branch's last sync) and didn't carry that fix forward.
+
+**Fix**: added `cc_branch_change` to both cards' event listener lists, so switching branches
+reloads them immediately instead of waiting for an unrelated edit to happen to trigger a refresh.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- This branch was 32 commits behind `main` (SMS module rebuild, unified auth, permissions/RBAC,
+  the dashboard's Today's Groups/Calendar redesign, etc. — all merged directly to `main` by the
+  other collaborator without going through this branch). Fast-forward merged `origin/main` into
+  this branch before making this fix, specifically so this fix — and anything else from here on —
+  targets the actual current dashboard code instead of a stale copy that would conflict with or
+  regress that other work on the next merge.

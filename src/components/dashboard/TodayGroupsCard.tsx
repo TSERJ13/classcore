@@ -51,11 +51,18 @@ export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }
         window.addEventListener('cc_groups_update', listener);
         window.addEventListener('cc_student_update', listener);
         window.addEventListener('cc_calendar_events_update', listener);
+        // 🛠️ FIX: getGroups()/getStudents() are already branch-scoped
+        // internally (read the active branch from localStorage at call
+        // time), but this card never reloaded on 'cc_branch_change' itself —
+        // switching branches left it showing the previous branch's groups
+        // until some unrelated edit happened to trigger a refresh.
+        window.addEventListener('cc_branch_change', listener);
         return () => {
             window.removeEventListener('cc_checkins_update', listener);
             window.removeEventListener('cc_groups_update', listener);
             window.removeEventListener('cc_student_update', listener);
             window.removeEventListener('cc_calendar_events_update', listener);
+            window.removeEventListener('cc_branch_change', listener);
         };
     }, [loadData]);
 
