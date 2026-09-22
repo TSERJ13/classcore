@@ -6,7 +6,7 @@ import {
     checkDuplicateStudentAction, getGroupsForOrg,
 } from '@/app/actions/students';
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 100;
 
 export type StudentsFilterParams = {
     search: string;

@@ -123,9 +123,30 @@ function StudentsPageInner() {
         }
     }, [settings.activeBranchId]);
 
+    const filteredLocalStudents = useMemo(() => {
+        let list = localStudents;
+        if (search) {
+            const q = search.toLowerCase();
+            list = list.filter(s => (s.full_name || '').toLowerCase().includes(q) || (s.phone || '').includes(q));
+        }
+        if (statusFilter !== 'all') {
+            list = list.filter(s => {
+                const isAct = s.subscription?.status === 'active';
+                return statusFilter === 'active' ? isAct : !isAct;
+            });
+        }
+        if (genderFilter !== 'all') {
+            list = list.filter(s => s.gender === genderFilter);
+        }
+        if (groupFilter) {
+            list = list.filter(s => Array.isArray(s.enrolled_group_ids) && (s.enrolled_group_ids as string[]).includes(groupFilter));
+        }
+        return list;
+    }, [localStudents, search, statusFilter, genderFilter, groupFilter]);
+
     const serverRows: StudentRow[] = data?.pages.flatMap(p => p.rows) ?? [];
-    const rows: StudentRow[] = (serverRows.length > 0 || (data && !isLoading)) ? serverRows : localStudents;
-    const total = data?.pages[0]?.total ?? (rows.length || localStudents.length);
+    const rows: StudentRow[] = serverRows.length > 0 ? serverRows : filteredLocalStudents;
+    const total = data?.pages[0]?.total ?? (serverRows.length || filteredLocalStudents.length);
 
     function openAdd() { setEditing(null); setModalOpen(true); }
     function openEdit(s: StudentRow) { setEditing(s as unknown as Student); setModalOpen(true); }
@@ -280,7 +301,7 @@ function StudentsPageInner() {
             </div>
 
             {/* Student list */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {rows.map(student => {
                     const sub = student.subscription;
                     const certExpiring = student.medical_cert_expires_at ? isExpiringSoon(student.medical_cert_expires_at as string, 30) : false;
