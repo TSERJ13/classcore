@@ -2239,3 +2239,59 @@ Notes:
   this branch before making this fix, specifically so this fix — and anything else from here on —
   targets the actual current dashboard code instead of a stale copy that would conflict with or
   regress that other work on the next merge.
+
+### Feature: merged, collapsible "Needs Attention" panel + app-wide quick-access button + notification
+
+Owner asked for three related things after the branch-refresh fix above: (1) merge the dashboard's
+separate "Needs Attention" strip and "Birthday Today" banner into one collapsible panel instead of
+two always-visible blocks, (2) a persistent button in the left sidebar (available on every page,
+not just the dashboard) that opens a popup with the same information, and (3) the same information
+surfacing in the notification bell — explicitly not as an emoji, using an icon consistent with the
+app's own (lucide-react) icon set.
+
+**Shared computation** (`src/lib/needs-attention.ts`, new): extracted the debt/expiring-soon/
+one-session-left/pending-bookings/birthday computation that used to live only inline in
+`dashboard/page.tsx`'s `refreshFullDashboard()` into `computeNeedsAttention()` (takes the
+already-branch/role-scoped student & subscription lists dashboard has on hand) and
+`getNeedsAttentionSummary()` (a self-contained variant that fetches those itself, for callers like
+the sidebar that don't have dashboard's precomputed context). `dashboard/page.tsx` now calls the
+shared function instead of duplicating the logic — the dashboard panel, the sidebar button, and
+the notification below are guaranteed to agree on the same numbers instead of three independent
+copies that could drift.
+
+**Dashboard**: the two separate sections are now one card with a header (icon + title + total
+count badge + chevron) that toggles a collapsed/expanded body holding both the needs-attention
+pills and the birthday row. Collapse state persists per-browser via `localStorage`
+(`cc_dashboard_attention_collapsed`), defaulting to expanded.
+
+**Sidebar** (`src/components/layout/Sidebar.tsx`, new `NeedsAttentionButton` component): a button
+above the regular nav sections — not a page link — showing a `ShieldAlert` icon (the icon already
+used for this concept everywhere else in the app) plus a red count badge, refreshing on
+`cc_branch_change`/`cc_student_update`/`cc_subscription_update`/`cc_calendar_events_update`/
+`cc_data_hydrated`. Clicking it opens a popup listing each category (debt, expiring soon, one
+session left, pending bookings, today's birthdays) with lucide icons per row, no emoji.
+
+**Notification** (`src/components/layout/Header.tsx`): once per calendar day per studio (deduped
+via a `getScopedKey`'d localStorage flag, same pattern the existing broadcast-notification check
+already uses), if `getNeedsAttentionSummary()` has anything, pushes one notification summarizing
+all of it (including birthday names) into the existing bell/notification-store system. The
+notification list only ever renders a colored dot per item (no icon slot), so "no emoji" is
+satisfied by keeping the notification text itself plain — the dot color used is `bg-rose-400` to
+match the sidebar/dashboard's rose accent for this concept.
+
+**Also fixed while in this code**: the dashboard's stat-tile `statsReady` skeleton-loading fix from
+earlier this session had been silently orphaned by the Today's Groups/Calendar redesign merged
+directly to `main` — the state variable still updated correctly, but nothing in the new
+`DonutCard`-based stat tiles read it anymore (caught by `next lint`'s `no-unused-vars` flagging
+`statsReady` as unused, which is what surfaced it). Added a `loading` prop to `DonutCard`,
+wired `loading={!statsReady}` at all 4 call sites — each ring/number now shows a pulsing skeleton
+instead of a real "0" until the heavy hydration pass actually has data, same as originally intended.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing. `next lint` on touched files shows only
+  pre-existing warnings/errors from before this session's changes (unused `ChevronLeft`/
+  `ShoppingBag` imports, `revenueRange`/`liveActivity`/`allEvents` state, scattered `any` types
+  from the Today's Groups/Calendar redesign) — none introduced by this change, left alone rather
+  than scope-creeping into cleanup of code this branch doesn't own the redesign of.
+- Code-only, same deploy path as the other fixes above (merge to `main`/`rebrendig` + Vercel
+  redeploy) — no SQL migration.

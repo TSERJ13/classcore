@@ -6,17 +6,19 @@ import {
     LayoutDashboard, Users, CalendarCheck, BookOpen, Settings,
     CreditCard, Receipt, GraduationCap, BarChart2,
     CalendarDays, DoorOpen, ChevronRight, LucideIcon, ShoppingBag, MessageSquare,
-    Building2, Plus, Check, LogOut, Zap, Ticket, TrendingUp, FileText, Banknote
+    Building2, Plus, Check, LogOut, Zap, Ticket, TrendingUp, FileText, Banknote,
+    ShieldAlert, X, Gift, Clock
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';
 import { useStudio } from '@/contexts/StudioContext';
 import { THEMES } from '@/lib/settings-store';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { isOwnerOrAdmin } from '@/lib/access';
+import { getNeedsAttentionSummary, type NeedsAttentionSummary } from '@/lib/needs-attention';
 
 type NavItem = {
     href: string;
@@ -171,6 +173,137 @@ function StudioBlock({ exp, isMobile, settings, activeBranchId, setActiveBranch,
     );
 }
 
+// ── Needs Attention quick-access button + popup ──
+// Persistent, app-wide shortcut (not a page nav link) so the owner can check
+// unpaid debt / expiring subs / pending bookings / today's birthdays from
+// any page, not just the dashboard — see src/lib/needs-attention.ts for the
+// shared computation this and the dashboard's own collapsible panel both use.
+function NeedsAttentionButton({ exp, isMobile, profile, lang }: any) {
+    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+    const { settings } = useStudio();
+    const [summary, setSummary] = useState<NeedsAttentionSummary | null>(null);
+    const [open, setOpen] = useState(false);
+
+    const refresh = useCallback(() => {
+        try { setSummary(getNeedsAttentionSummary(profile)); } catch { /* ignore */ }
+    }, [profile]);
+
+    useEffect(() => {
+        refresh();
+        const events = ['cc_branch_change', 'cc_student_update', 'cc_subscription_update', 'cc_calendar_events_update', 'cc_data_hydrated'];
+        events.forEach(e => window.addEventListener(e, refresh));
+        return () => events.forEach(e => window.removeEventListener(e, refresh));
+    }, [refresh]);
+
+    const count = summary?.totalCount || 0;
+
+    return (
+        <>
+            <button
+                onClick={() => setOpen(true)}
+                className={cn(
+                    'flex items-center rounded-xl transition-colors relative w-full cursor-pointer',
+                    isMobile ? 'h-8 pl-2 gap-2' : 'h-10 lg:h-11 pl-3 lg:pl-4 gap-3 lg:gap-3.5',
+                    count > 0 ? 'text-rose-500 hover:bg-rose-500/10' : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover)]'
+                )}
+            >
+                <div className={cn(
+                    "flex-shrink-0 flex items-center justify-center rounded-lg transition-all duration-300",
+                    isMobile ? "w-6 h-6" : "w-7 h-7 lg:w-8 h-8"
+                )}>
+                    <ShieldAlert className={cn(isMobile ? "w-4 h-4" : "w-[21px] h-[21px]")} strokeWidth={2} />
+                </div>
+                {exp && (
+                    <span className={cn("truncate font-black tracking-tight", isMobile ? "text-[12px]" : "text-[14.5px]")}>
+                        {l('საჭიროებს ყურადღებას', 'Требует внимания', 'Needs Attention')}
+                    </span>
+                )}
+                {count > 0 && (
+                    <span className={cn(
+                        "flex-shrink-0 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center px-1.5 h-5 min-w-[20px]",
+                        !exp && "absolute -top-0.5 -right-0.5 h-4 min-w-[16px] text-[9px] px-1"
+                    )}>
+                        {count}
+                    </span>
+                )}
+            </button>
+
+            {open && summary && (
+                <>
+                    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setOpen(false)} />
+                    <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none">
+                        <div className="w-full max-w-md bg-card border border-border-subtle rounded-3xl shadow-2xl overflow-hidden pointer-events-auto animate-in fade-in zoom-in-95 duration-200">
+                            <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface/30">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500">
+                                        <ShieldAlert className="w-4.5 h-4.5" />
+                                    </div>
+                                    <p className="text-sm font-black text-primary">{l('საჭიროებს ყურადღებას', 'Требует внимания', 'Needs Attention')}</p>
+                                </div>
+                                <button onClick={() => setOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-xl text-muted hover:text-primary hover:bg-surface transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="p-4 space-y-2 max-h-[70vh] overflow-y-auto">
+                                {count === 0 ? (
+                                    <div className="flex flex-col items-center py-10 text-muted">
+                                        <ShieldAlert className="w-9 h-9 mb-2 opacity-20" />
+                                        <p className="text-xs font-bold">{l('ყველაფერი წესრიგშია', 'Все в порядке', 'All clear')}</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {summary.studentsWithDebtCount > 0 && (
+                                            <Link href="/subscriptions" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-xl bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/15 transition-colors">
+                                                <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500 flex-shrink-0"><CreditCard className="w-4 h-4" /></div>
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-bold text-primary">{summary.studentsWithDebtCount} {l('სტუდენტს აქვს დავალიანება', 'студентов с долгом', 'students with debt')}</p>
+                                                    <p className="text-[11px] text-rose-500 font-semibold">{formatCurrency(summary.totalDebt, settings.currency)}</p>
+                                                </div>
+                                            </Link>
+                                        )}
+                                        {summary.expiringSoonCount > 0 && (
+                                            <Link href="/subscriptions" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-xl bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/15 transition-colors">
+                                                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0"><Clock className="w-4 h-4" /></div>
+                                                <p className="text-xs font-bold text-primary">{summary.expiringSoonCount} {l('სტუდენტს ეწურება აბონემენტი', 'заканчивается абонемент', 'subs expiring soon')}</p>
+                                            </Link>
+                                        )}
+                                        {summary.oneSessionLeftCount > 0 && (
+                                            <Link href="/subscriptions" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-xl bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/15 transition-colors">
+                                                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0"><CalendarCheck className="w-4 h-4" /></div>
+                                                <p className="text-xs font-bold text-primary">{summary.oneSessionLeftCount} {l('სტუდენტს დარჩა 1 გაკვეთილი', 'у студентов остался 1 урок', 'students with 1 lesson left')}</p>
+                                            </Link>
+                                        )}
+                                        {summary.pendingBookingsCount > 0 && (
+                                            <Link href="/calendar" onClick={() => setOpen(false)} className="flex items-center gap-3 p-3 rounded-xl bg-indigo-500/5 hover:bg-indigo-500/10 border border-indigo-500/15 transition-colors">
+                                                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500 flex-shrink-0"><CalendarDays className="w-4 h-4" /></div>
+                                                <p className="text-xs font-bold text-primary">{summary.pendingBookingsCount} {l('დასადასტურებელი ჯავშანი', 'бронь ожидает подтверждения', 'pending bookings')}</p>
+                                            </Link>
+                                        )}
+                                        {summary.birthdayStudents.length > 0 && (
+                                            <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500/5 via-pink-500/5 to-purple-500/5 border border-amber-500/15">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 flex-shrink-0"><Gift className="w-4 h-4" /></div>
+                                                    <p className="text-xs font-bold text-primary">{l('დღეს დაბადების დღეა', 'Сегодня день рождения', 'Birthday today')}</p>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5 pl-1">
+                                                    {summary.birthdayStudents.map(s => (
+                                                        <span key={s.id} className="text-[11px] font-semibold text-primary bg-card border border-border-subtle rounded-lg px-2 py-1">{s.full_name}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
+        </>
+    );
+}
+
 // ── Nav Items ──
 function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRole }: any) {
     const { lang } = useT();
@@ -197,6 +330,9 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
 
     return (
         <nav className="flex-1 py-1 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-4">
+            <div className="space-y-0.5">
+                <NeedsAttentionButton exp={exp} isMobile={isMobile} profile={profile} lang={lang} />
+            </div>
             {sections.map((section, sIdx) => {
                 const sectionItems = section.items
                     .map(href => ALL_ITEMS.find(item => item.href === href)!)

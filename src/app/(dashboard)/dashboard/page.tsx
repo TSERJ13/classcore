@@ -6,7 +6,7 @@ import { getTodayCheckins, type CheckinRecord } from '@/lib/checkin-store';
 import { getUniqueSubscriptions, getSubscriptionStatusBucket, type SubscriptionEffectiveStatus } from '@/lib/subscription-store';
 import { getSales } from '@/lib/sales-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, UserPlus, ChevronLeft, ChevronRight, ShoppingBag, RefreshCcw, ShieldAlert, Sparkles } from 'lucide-react';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, UserPlus, ChevronLeft, ChevronRight, ChevronDown, ShoppingBag, RefreshCcw, ShieldAlert, Sparkles } from 'lucide-react';
 import { cn, getLocalISODate, formatCurrency, getScopedKey } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
@@ -25,6 +25,7 @@ import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
 import { TodayGroupsCard } from '@/components/dashboard/TodayGroupsCard';
 import { CalendarScheduleCard } from '@/components/dashboard/CalendarScheduleCard';
+import { computeNeedsAttention } from '@/lib/needs-attention';
 
 // ─── Lightweight SVG Donut Chart Card ──────────────────────────────────────
 
@@ -69,6 +70,7 @@ function DonutCard({
     centerLabel,
     defaultPct,
     segments,
+    loading = false,
 }: {
     title: string;
     icon: any;
@@ -79,6 +81,14 @@ function DonutCard({
     centerLabel: string;
     defaultPct?: string | null;
     segments: DonutSegment[];
+    // 🛠️ FIX: on a fresh login/hard refresh, this card's numbers are computed
+    // from local student/subscription caches that are genuinely empty until
+    // StudioContext's slower background hydration pass finishes (see the
+    // statsReady comment further down this file) — this rendered a real "0"
+    // ring/value that then jumped to the true number a moment later. Gate
+    // the numeric display on this instead of trusting an all-zero
+    // `segments`/`centerValue` to mean "confirmed empty".
+    loading?: boolean;
 }) {
     const [activeKey, setActiveKey] = useState<string | null>(null);
 
@@ -149,7 +159,7 @@ function DonutCard({
                             className="text-surface/80 dark:text-slate-800"
                         />
                         {/* Slices */}
-                        {total > 0 && slices.map(slice => {
+                        {!loading && total > 0 && slices.map(slice => {
                             if (slice.count <= 0 || !slice.pathD) return null;
                             const isHovered = activeKey === slice.key;
                             return (
@@ -177,18 +187,22 @@ function DonutCard({
 
                     {/* Inside Donut Center: ONLY the numeric value (reduced font size for amounts like 3,450 ₾) */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-1 text-center">
-                        <span className={cn(
-                            "font-black text-primary leading-none tracking-tight truncate max-w-[76px] sm:max-w-[90px]",
-                            isLongValue ? "text-xs sm:text-base" : "text-lg sm:text-2xl"
-                        )}>
-                            {displayedValue}
-                        </span>
+                        {loading ? (
+                            <span className="h-5 sm:h-6 w-10 rounded-md bg-surface animate-pulse" />
+                        ) : (
+                            <span className={cn(
+                                "font-black text-primary leading-none tracking-tight truncate max-w-[76px] sm:max-w-[90px]",
+                                isLongValue ? "text-xs sm:text-base" : "text-lg sm:text-2xl"
+                            )}>
+                                {displayedValue}
+                            </span>
+                        )}
                     </div>
                 </div>
 
                 {/* Under Donut: Text & Percentage */}
                 <div className="mt-2 sm:mt-3 text-center min-h-[36px] sm:min-h-[40px] flex flex-col items-center justify-center w-full px-1">
-                    {activeSlice ? (
+                    {loading ? null : activeSlice ? (
                         <div className="animate-in fade-in zoom-in-95 duration-150 flex flex-col items-center">
                             <span className="text-[11px] sm:text-xs font-bold text-primary truncate max-w-[140px] sm:max-w-[190px] leading-tight">
                                 {activeSlice.label}
@@ -261,6 +275,18 @@ export default function DashboardPage() {
         monthlyShopRevenue: 0,
     });
     const [birthdayStudents, setBirthdayStudents] = useState<Student[]>([]);
+    // Needs Attention + Birthdays merged into one collapsible panel; collapse
+    // state is a per-browser UI preference, remembered across visits.
+    const [attentionCollapsed, setAttentionCollapsed] = useState(() => {
+        try { return localStorage.getItem('cc_dashboard_attention_collapsed') === '1'; } catch { return false; }
+    });
+    const toggleAttentionCollapsed = useCallback(() => {
+        setAttentionCollapsed(prev => {
+            const next = !prev;
+            try { localStorage.setItem('cc_dashboard_attention_collapsed', next ? '1' : '0'); } catch { }
+            return next;
+        });
+    }, []);
     const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
     const [allEvents, setAllEvents] = useState<any[]>([]);
@@ -426,93 +452,28 @@ export default function DashboardPage() {
             }
         } catch { /* ignore */ }
 
-        // ── Pending Bookings ──────────────────────────────────────────────────
-        let pendingBookings = 0;
+        // ── Pending Bookings / Debt / Birthdays / Expiring-soon — shared with
+        // the sidebar's quick-access button and the once-a-day notification
+        // (src/lib/needs-attention.ts), so all three agree on the same numbers.
         let allEvs: any[] = [];
         try {
             allEvs = getEvents();
-            pendingBookings = allEvs.filter(ev => {
-                if ((ev as any).booking_status !== 'pending') return false;
-                if (ev.date < todayStr) return false;
-                if (isTeacher && visibleGroupIds && ev.group_id && !visibleGroupIds.includes(ev.group_id)) return false;
-                return true;
-            }).length;
         } catch { /* ignore */ }
         setAllEvents(allEvs);
 
-        // ── Debt Calculation (Subscriptions unpaid + Negative Student Balances) ──
-        let totalDebt = 0;
-        const debtStudentIds = new Set<string>();
-
-        allSubsList.forEach((sub: any) => {
-            if (sub.status === 'cancelled') return;
-            const subPrice = sub.price ?? (sub.plan != null ? planPrices[String(sub.plan)] : undefined) ?? (sub.plan_id != null ? planPrices[String(sub.plan_id)] : undefined) ?? 0;
-            if (subPrice > 0) {
-                const amountPaid = typeof sub.amount_paid === 'number' ? sub.amount_paid : (sub.paid ? subPrice : 0);
-                if (amountPaid < subPrice) {
-                    const diff = subPrice - amountPaid;
-                    totalDebt += diff;
-                    if (sub.student_id) {
-                        sub.student_id.split(',').forEach((sid: string) => {
-                            const clean = sid.trim();
-                            if (clean) debtStudentIds.add(clean);
-                        });
-                    }
-                }
-            }
+        const attention = computeNeedsAttention({
+            studentsList,
+            allSubsList,
+            events: allEvs,
+            planPrices,
+            todayStr,
+            isTeacher,
+            visibleGroupIds,
         });
-
-        studentsList.forEach(s => {
-            if (typeof s.balance === 'number' && s.balance < 0) {
-                totalDebt += Math.abs(s.balance);
-                debtStudentIds.add(s.id);
-            }
-        });
-        const studentsWithDebt = debtStudentIds.size;
-
-        // ── Birthdays Today ───────────────────────────────────────────────────
-        const todayMonthDay = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        const birthdayList = studentsList.filter(s => {
-            if (!s.birth_date) return false;
-            const cleanBday = s.birth_date.split('T')[0];
-            const parts = cleanBday.split('-');
-            if (parts.length === 3) {
-                return `${parts[1]}-${parts[2]}` === todayMonthDay;
-            }
-            return false;
-        });
-        setBirthdayStudents(birthdayList);
-
-        // ── Needs Attention ───────────────────────────────────────────────────
-        const expiringSoonStudents = new Set<string>();
-        const oneSessionStudents = new Set<string>();
-        
-        const nextWeek = new Date(now);
-        nextWeek.setDate(now.getDate() + 7);
-        const nextWeekStr = getLocalISODate(nextWeek);
-        
-        studentsList.forEach(s => {
-            const subsList = allSubsList.filter(sub => {
-                if (!sub.student_id) return false;
-                const ids = sub.student_id.split(',').map(x => x.trim());
-                return ids.includes(s.id);
-            });
-            for (const sub of subsList) {
-                const isUnlimited = sub.sessions_total === null;
-                const remaining = isUnlimited ? Infinity : ((sub.sessions_total ?? 0) - (sub.sessions_used ?? 0));
-                const hasExpiredByDate = sub.expires_at < todayStr;
-                const hasUsedAllSessions = !isUnlimited && remaining <= 0;
-                
-                if (!hasExpiredByDate && !hasUsedAllSessions) {
-                    if (sub.expires_at <= nextWeekStr) {
-                        expiringSoonStudents.add(s.id);
-                    }
-                    if (remaining === 1) {
-                        oneSessionStudents.add(s.id);
-                    }
-                }
-            }
-        });
+        const pendingBookings = attention.pendingBookingsCount;
+        const totalDebt = attention.totalDebt;
+        const studentsWithDebt = attention.studentsWithDebtCount;
+        setBirthdayStudents(attention.birthdayStudents);
 
         // ── Subscription Status Breakdown (Real Effective Status) ──
         const subStatusCounts: Record<SubscriptionEffectiveStatus, number> & { total: number } = {
@@ -546,14 +507,14 @@ export default function DashboardPage() {
             todayExpected,
             studentChange,
             pendingBookings,
-            totalDebt: Math.round(totalDebt),
+            totalDebt,
             studentsWithDebt,
             subStatusCounts,
             newThisMonthStudents: newStudentsThisMonth,
             monthlySubsRevenue: allSubsList.filter(sub => isSubInMonth(sub, currentMonth)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0),
             monthlyShopRevenue: sales.filter(s => s.date?.startsWith(currentMonth)).reduce((sum, s) => sum + s.price * s.quantity, 0),
-            expiringSoon: expiringSoonStudents.size,
-            oneSessionLeft: oneSessionStudents.size,
+            expiringSoon: attention.expiringSoonCount,
+            oneSessionLeft: attention.oneSessionLeftCount,
             todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => isSubOnDay(sub, todayStr)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0),
         }));
 
@@ -775,6 +736,10 @@ export default function DashboardPage() {
 
     if (!isLoaded || (loading && !isDemo)) return null;
 
+    const attentionTotalCount =
+        (canViewRevenue && liveStats.totalDebt > 0 ? liveStats.studentsWithDebt : 0) +
+        liveStats.expiringSoon + liveStats.oneSessionLeft + liveStats.pendingBookings + birthdayStudents.length;
+
     return (
         <div className="space-y-6 animate-fade-in relative max-w-7xl mx-auto">
 
@@ -899,44 +864,11 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* ─── Compact Needs Attention Strip ─── */}
-            {(liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0 || liveStats.pendingBookings > 0 || (canViewRevenue && liveStats.totalDebt > 0)) && (
-                <div className="flex items-center gap-2.5 px-3.5 py-2 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/15 rounded-xl text-xs overflow-x-auto scrollbar-none animate-fade-in">
-                    <div className="flex items-center gap-1.5 text-rose-500 font-bold flex-shrink-0">
-                        <ShieldAlert className="w-3.5 h-3.5" />
-                        <span className="text-[11px] uppercase tracking-wider font-extrabold">{l('საჭიროებს ყურადღებას:', 'Требует внимания:', 'Needs Attention:')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                        {canViewRevenue && liveStats.totalDebt > 0 && (
-                            <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium text-xs transition-colors border border-rose-500/20 flex-shrink-0">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                <span><strong className="font-bold">{liveStats.studentsWithDebt}</strong> {l('სტუდენტს აქვს დავალიანება', 'студентов с долгом', 'students with debt')}</span>
-                                <span className="font-bold text-rose-500">({formatCurrency(liveStats.totalDebt, settings.currency)})</span>
-                            </Link>
-                        )}
-                        {liveStats.expiringSoon > 0 && (
-                            <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-medium text-xs transition-colors border border-amber-500/20 flex-shrink-0">
-                                <span><strong className="font-bold">{liveStats.expiringSoon}</strong> {l('სტუდენტს ეწურება აბონემენტი', 'заканчивается абонемент', 'subs expiring')}</span>
-                            </Link>
-                        )}
-                        {liveStats.oneSessionLeft > 0 && (
-                            <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-medium text-xs transition-colors border border-amber-500/20 flex-shrink-0">
-                                <span><strong className="font-bold">{liveStats.oneSessionLeft}</strong> {l('დარჩა 1 გაკვეთილი', 'остался 1 урок', '1 lesson left')}</span>
-                            </Link>
-                        )}
-                        {liveStats.pendingBookings > 0 && (
-                            <Link href="/calendar" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-medium text-xs transition-colors border border-indigo-500/20 flex-shrink-0">
-                                <span><strong className="font-bold">{liveStats.pendingBookings}</strong> {l('დასადასტურებელი ჯავშანი', 'бронь ожидает', 'pending bookings')}</span>
-                            </Link>
-                        )}
-                    </div>
-                </div>
-            )}
-
             {/* ─── Operations & Analytics (Donut Cards: 2x2 on mobile, 4 in 1 row on desktop) ─── */}
             <div className={cn("grid gap-2.5 sm:gap-4 mb-4 items-stretch", canViewRevenue ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 sm:grid-cols-3")}>
                 {/* 1. Students Breakdown */}
                 <DonutCard
+                    loading={!statsReady}
                     title={l('სტუდენტები', 'Студенты', 'Students')}
                     icon={Users}
                     iconColorClass="text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
@@ -973,6 +905,7 @@ export default function DashboardPage() {
                 {/* 2. Monthly Revenue (if canViewRevenue) */}
                 {canViewRevenue && (
                     <DonutCard
+                        loading={!statsReady}
                         title={l('თვის შემოსავალი', 'Доход за месяц', 'Monthly Revenue')}
                         icon={TrendingUp}
                         iconColorClass="text-amber-400 bg-amber-500/10 border-amber-500/20"
@@ -1004,6 +937,7 @@ export default function DashboardPage() {
 
                 {/* 3. Subscriptions Statuses */}
                 <DonutCard
+                    loading={!statsReady}
                     title={l('აბონემენტები', 'Абонементы', 'Subscriptions')}
                     icon={CreditCard}
                     iconColorClass="text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
@@ -1049,6 +983,7 @@ export default function DashboardPage() {
 
                 {/* 4. Today's Attendance */}
                 <DonutCard
+                    loading={!statsReady}
                     title={l('დღევანდელი დასწრება', 'Посещаемость сегодня', "Today's Attendance")}
                     icon={CalendarCheck}
                     iconColorClass="text-violet-400 bg-violet-500/10 border-violet-500/20"
@@ -1076,35 +1011,87 @@ export default function DashboardPage() {
                 />
             </div>
 
-            {/* ─── Birthdays Today (Compact) ─── */}
-            {birthdayStudents.length > 0 && (
-                <div className="bg-gradient-to-r from-amber-500/10 via-pink-500/10 to-purple-500/10 border border-amber-500/20 rounded-xl p-2.5 sm:p-3 mb-4 animate-fade-in">
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                            <h3 className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase flex items-center gap-1">
-                                <span>🎉</span> {l('დღეს დაბადების დღეა!', 'Сегодня день рождения!', 'Birthday Today!')}
-                            </h3>
-                        </div>
-                        <Link href="/sms-manager" className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1">
-                            <span>{l('SMS მილოცვა', 'Поздравить по SMS', 'Send Birthday SMS')}</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                        </Link>
-                    </div>
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                        {birthdayStudents.map(student => (
-                            <div key={student.id} className="flex items-center gap-2 bg-white/60 dark:bg-slate-900/60 border border-amber-500/15 rounded-lg px-2.5 py-1.5 flex-shrink-0">
-                                {student.photo_url ? (
-                                    <img src={student.photo_url} alt="" className="w-6 h-6 rounded-full object-cover border border-amber-400/40" />
-                                ) : (
-                                    <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
-                                        {(student.full_name || 'S').substring(0, 2).toUpperCase()}
-                                    </div>
-                                )}
-                                <p className="text-xs font-bold text-primary truncate max-w-[140px]">{student.full_name}</p>
+            {/* ─── Needs Attention + Birthdays (merged, collapsible) ─── */}
+            {attentionTotalCount > 0 && (
+                <div className="bg-card border border-border-subtle rounded-2xl mb-6 overflow-hidden animate-fade-in">
+                    <button
+                        onClick={toggleAttentionCollapsed}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/50 transition-colors cursor-pointer"
+                    >
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500 flex-shrink-0">
+                                <ShieldAlert className="w-4 h-4" />
                             </div>
-                        ))}
-                    </div>
+                            <span className="text-xs font-bold text-primary uppercase tracking-wide">{l('საჭიროებს ყურადღებას', 'Требует внимания', 'Needs Attention')}</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-500">{attentionTotalCount}</span>
+                        </div>
+                        <ChevronDown className={cn("w-4 h-4 text-muted transition-transform", !attentionCollapsed && "rotate-180")} />
+                    </button>
+
+                    {!attentionCollapsed && (
+                        <div className="px-4 pb-4 space-y-3 border-t border-border-subtle pt-3">
+                            {(liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0 || liveStats.pendingBookings > 0 || (canViewRevenue && liveStats.totalDebt > 0)) && (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    {canViewRevenue && liveStats.totalDebt > 0 && (
+                                        <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium text-xs transition-colors border border-rose-500/20 flex-shrink-0">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                            <span><strong className="font-bold">{liveStats.studentsWithDebt}</strong> {l('სტუდენტს აქვს დავალიანება', 'студентов с долгом', 'students with debt')}</span>
+                                            <span className="font-bold text-rose-500">({formatCurrency(liveStats.totalDebt, settings.currency)})</span>
+                                        </Link>
+                                    )}
+                                    {liveStats.expiringSoon > 0 && (
+                                        <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-medium text-xs transition-colors border border-amber-500/20 flex-shrink-0">
+                                            <span><strong className="font-bold">{liveStats.expiringSoon}</strong> {l('სტუდენტს ეწურება აბონემენტი', 'заканчивается абонемент', 'subs expiring')}</span>
+                                        </Link>
+                                    )}
+                                    {liveStats.oneSessionLeft > 0 && (
+                                        <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-medium text-xs transition-colors border border-amber-500/20 flex-shrink-0">
+                                            <span><strong className="font-bold">{liveStats.oneSessionLeft}</strong> {l('დარჩა 1 გაკვეთილი', 'остался 1 урок', '1 lesson left')}</span>
+                                        </Link>
+                                    )}
+                                    {liveStats.pendingBookings > 0 && (
+                                        <Link href="/calendar" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-medium text-xs transition-colors border border-indigo-500/20 flex-shrink-0">
+                                            <span><strong className="font-bold">{liveStats.pendingBookings}</strong> {l('დასადასტურებელი ჯავშანი', 'бронь ожидает', 'pending bookings')}</span>
+                                        </Link>
+                                    )}
+                                </div>
+                            )}
+
+                            {birthdayStudents.length > 0 && (
+                                <div className={cn(
+                                    "bg-gradient-to-r from-amber-500/10 via-pink-500/10 to-purple-500/10 border border-amber-500/20 rounded-xl p-2.5 sm:p-3",
+                                    (liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0 || liveStats.pendingBookings > 0 || (canViewRevenue && liveStats.totalDebt > 0)) && "mt-1"
+                                )}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                                            <h3 className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase flex items-center gap-1">
+                                                <span>🎉</span> {l('დღეს დაბადების დღეა!', 'Сегодня день рождения!', 'Birthday Today!')}
+                                            </h3>
+                                        </div>
+                                        <Link href="/sms-manager" className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1">
+                                            <span>{l('SMS მილოცვა', 'Поздравить по SMS', 'Send Birthday SMS')}</span>
+                                            <ChevronRight className="w-3.5 h-3.5" />
+                                        </Link>
+                                    </div>
+                                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                                        {birthdayStudents.map(student => (
+                                            <div key={student.id} className="flex items-center gap-2 bg-white/60 dark:bg-slate-900/60 border border-amber-500/15 rounded-lg px-2.5 py-1.5 flex-shrink-0">
+                                                {student.photo_url ? (
+                                                    <img src={student.photo_url} alt="" className="w-6 h-6 rounded-full object-cover border border-amber-400/40" />
+                                                ) : (
+                                                    <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
+                                                        {(student.full_name || 'S').substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                )}
+                                                <p className="text-xs font-bold text-primary truncate max-w-[140px]">{student.full_name}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 

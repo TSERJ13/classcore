@@ -17,7 +17,8 @@ import { getStudents } from '@/lib/student-store';
 import { getGroups } from '@/lib/group-store';
 import { addIndividualLesson } from '@/lib/event-store';
 import { saveSubscription } from '@/lib/subscription-store';
-import { getLocalISODate } from '@/lib/utils';
+import { getLocalISODate, getScopedKey } from '@/lib/utils';
+import { getNeedsAttentionSummary } from '@/lib/needs-attention';
 import { NotesDrawer } from '@/components/dashboard/NotesDrawer';
 
 interface ChatAttachment {
@@ -53,7 +54,7 @@ const SUPPORT_CHAT_ID = 'classcore_support';
 export function Header() {
     const pathname = usePathname();
     const { toggle } = useMobileMenu();
-    useUser();
+    const { profile } = useUser();
     const { settings, addBranch } = useStudio();
     const { t, lang } = useT();
     const [notifOpen, setNotifOpen] = useState(false);
@@ -205,6 +206,42 @@ export function Header() {
             window.removeEventListener('storage', checkBroadcast);
         };
     }, [lang, settings.studioSlug]);
+
+    // Once-a-day "needs attention" notification — same computation the
+    // dashboard's collapsible panel and the sidebar's quick-access button
+    // use (src/lib/needs-attention.ts), so this doesn't drift from what
+    // those show. Deduped per studio per calendar day so it doesn't spam
+    // the bell on every render/navigation.
+    useEffect(() => {
+        try {
+            const todayStr = getLocalISODate();
+            const dedupKey = getScopedKey(`cc_needs_attention_notified_${todayStr}`);
+            if (localStorage.getItem(dedupKey)) return;
+
+            const summary = getNeedsAttentionSummary(profile);
+            if (summary.totalCount === 0) return;
+
+            const parts: string[] = [];
+            if (summary.studentsWithDebtCount > 0) parts.push(`${summary.studentsWithDebtCount} ${lang === 'ka' ? 'სტუდენტს აქვს დავალიანება' : lang === 'ru' ? 'студентов с долгом' : 'students with debt'}`);
+            if (summary.expiringSoonCount > 0) parts.push(`${summary.expiringSoonCount} ${lang === 'ka' ? 'აბონემენტს ეწურება ვადა' : lang === 'ru' ? 'абонементов заканчивается' : 'subs expiring soon'}`);
+            if (summary.oneSessionLeftCount > 0) parts.push(`${summary.oneSessionLeftCount} ${lang === 'ka' ? 'სტუდენტს დარჩა 1 გაკვეთილი' : lang === 'ru' ? 'студентов с 1 уроком' : 'with 1 lesson left'}`);
+            if (summary.pendingBookingsCount > 0) parts.push(`${summary.pendingBookingsCount} ${lang === 'ka' ? 'დასადასტურებელი ჯავშანი' : lang === 'ru' ? 'ожидающих брони' : 'pending bookings'}`);
+            if (summary.birthdayStudents.length > 0) {
+                const names = summary.birthdayStudents.map(s => s.full_name).join(', ');
+                parts.push(`${lang === 'ka' ? 'დღეს დაბადების დღეა' : lang === 'ru' ? 'День рождения сегодня' : 'Birthday today'}: ${names}`);
+            }
+
+            addNotification({
+                title: lang === 'ka' ? 'საჭიროებს ყურადღებას' : lang === 'ru' ? 'Требует внимания' : 'Needs Attention',
+                message: parts.join(' · '),
+                type: 'warning',
+            }, 'bg-rose-400');
+            setNotifications(getNotifications());
+            localStorage.setItem(dedupKey, '1');
+        } catch (e) {
+            console.error('Needs-attention notification check failed', e);
+        }
+    }, [lang, settings.studioSlug, profile]);
 
     useEffect(() => {
         const handleToggleSupport = () => {
