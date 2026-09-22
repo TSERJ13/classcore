@@ -228,6 +228,25 @@ export default function DashboardPage() {
     const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
     const [allEvents] = useState<any[]>([]);
+    // 🛠️ FIX: `liveStats` starts at all-zero, and refreshFullDashboard()'s
+    // very first call (on mount) runs against whatever local student/
+    // subscription caches happen to be populated *right now* — which, on a
+    // fresh login or hard refresh, is genuinely empty, because StudioContext
+    // splits hydration into a fast "light" pass (settings/branches, gates
+    // `isLoaded`) and a slower "heavy" background pass (students,
+    // subscriptions, etc., which is what actually feeds these numbers) that
+    // finishes later and re-fires this same refresh via cc_student_update/
+    // cc_subscription_update/cc_data_hydrated. That's the "0, then suddenly
+    // jumps" the owner saw — not wrong data, just a real 0 shown before the
+    // real data existed locally yet. Gate the numbers on a ready flag
+    // instead of trusting an all-zero liveStats to mean "confirmed empty".
+    const [statsReady, setStatsReady] = useState(() => {
+        try { return sessionStorage.getItem('cc_dashboard_stats_seen') === '1'; } catch { return false; }
+    });
+    const markStatsReady = useCallback(() => {
+        setStatsReady(true);
+        try { sessionStorage.setItem('cc_dashboard_stats_seen', '1'); } catch { }
+    }, []);
 
     // Cloud Sync State
     const [syncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
@@ -495,29 +514,37 @@ export default function DashboardPage() {
 
     useEffect(() => {
         refreshFullDashboard();
+        // Any of these firing means the heavy student/subscription/attendance
+        // caches actually have real data now (see the statsReady comment
+        // above) — safe to trust liveStats as a confirmed value from here on.
+        const onDataReady = () => { refreshFullDashboard(); markStatsReady(); };
         // 🛠️ FIX: switching the active branch (BranchSwitcher -> setActiveBranch,
         // which dispatches 'cc_branch_change') never triggered a recompute here —
         // the numbers only happened to change on whatever unrelated event fired
         // next (a hydration cycle, an edit elsewhere). Branch-scoped stats need
         // to redraw the moment the branch itself changes.
         window.addEventListener('cc_branch_change', refreshFullDashboard);
-        window.addEventListener('cc_subscription_update', refreshFullDashboard);
-        window.addEventListener('cc_attendance_update', refreshFullDashboard);
-        window.addEventListener('cc_sale_update', refreshFullDashboard);
-        window.addEventListener('cc_student_update', refreshFullDashboard);
-        window.addEventListener('cc_data_hydrated', refreshFullDashboard);
-        window.addEventListener('cc_sync_done', refreshFullDashboard);
+        window.addEventListener('cc_subscription_update', onDataReady);
+        window.addEventListener('cc_attendance_update', onDataReady);
+        window.addEventListener('cc_sale_update', onDataReady);
+        window.addEventListener('cc_student_update', onDataReady);
+        window.addEventListener('cc_data_hydrated', onDataReady);
+        window.addEventListener('cc_sync_done', onDataReady);
+        // Safety net: never leave the skeleton up forever if none of the above
+        // fire for some reason (mirrors StudioContext's own 3s hydration timeout).
+        const safety = setTimeout(markStatsReady, 4000);
 
         return () => {
+            clearTimeout(safety);
             window.removeEventListener('cc_branch_change', refreshFullDashboard);
-            window.removeEventListener('cc_subscription_update', refreshFullDashboard);
-            window.removeEventListener('cc_attendance_update', refreshFullDashboard);
-            window.removeEventListener('cc_sale_update', refreshFullDashboard);
-            window.removeEventListener('cc_student_update', refreshFullDashboard);
-            window.removeEventListener('cc_data_hydrated', refreshFullDashboard);
-            window.removeEventListener('cc_sync_done', refreshFullDashboard);
+            window.removeEventListener('cc_subscription_update', onDataReady);
+            window.removeEventListener('cc_attendance_update', onDataReady);
+            window.removeEventListener('cc_sale_update', onDataReady);
+            window.removeEventListener('cc_student_update', onDataReady);
+            window.removeEventListener('cc_data_hydrated', onDataReady);
+            window.removeEventListener('cc_sync_done', onDataReady);
         };
-    }, [refreshFullDashboard]);
+    }, [refreshFullDashboard, markStatsReady]);
 
     // Server-authoritative overlay for the 4 numbers get_dashboard_stats()
     // computes in Postgres instead of over a client-side array reduce
@@ -770,17 +797,23 @@ export default function DashboardPage() {
                         </div>
                         <p className="text-[10px] sm:text-xs font-bold text-muted mb-1">{stat.label}</p>
                         <div className="flex items-end gap-2 mt-auto">
-                            <span className="text-xl sm:text-2xl font-black text-primary leading-none">{stat.value}</span>
-                            {stat.change && (
-                                <span className={cn(
-                                    "text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 mb-0.5",
-                                    stat.change.startsWith('+') && stat.change !== '+0%' && stat.change !== '+0' ? "text-emerald-500 bg-emerald-500/10" : 
-                                    stat.change.startsWith('-') ? "text-rose-500 bg-rose-500/10" : "text-muted bg-surface"
-                                )}>
-                                    {stat.change.startsWith('+') && stat.change !== '+0%' && stat.change !== '+0' ? <ArrowUpRight className="w-2.5 h-2.5" /> : 
-                                     stat.change.startsWith('-') ? <ArrowDownRight className="w-2.5 h-2.5" /> : null}
-                                    {stat.change.replace('+', '')}
-                                </span>
+                            {!statsReady ? (
+                                <span className="h-6 sm:h-7 w-14 rounded-md bg-surface animate-pulse" />
+                            ) : (
+                                <>
+                                    <span className="text-xl sm:text-2xl font-black text-primary leading-none">{stat.value}</span>
+                                    {stat.change && (
+                                        <span className={cn(
+                                            "text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 mb-0.5",
+                                            stat.change.startsWith('+') && stat.change !== '+0%' && stat.change !== '+0' ? "text-emerald-500 bg-emerald-500/10" :
+                                            stat.change.startsWith('-') ? "text-rose-500 bg-rose-500/10" : "text-muted bg-surface"
+                                        )}>
+                                            {stat.change.startsWith('+') && stat.change !== '+0%' && stat.change !== '+0' ? <ArrowUpRight className="w-2.5 h-2.5" /> :
+                                             stat.change.startsWith('-') ? <ArrowDownRight className="w-2.5 h-2.5" /> : null}
+                                            {stat.change.replace('+', '')}
+                                        </span>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>

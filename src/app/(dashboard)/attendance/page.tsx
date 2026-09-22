@@ -572,11 +572,27 @@ export default function AttendancePage() {
             // green) always reflects the actual check-in database — the
             // archive now only remains authoritative for explicit "absent"
             // marks, which have no real backing record of their own.
+            // 🛠️ FIX: matching strictly on `rec.classId === selectedClass` made
+            // history disappear the moment the schedule-item id it was
+            // recorded under stopped existing verbatim — a virtual group
+            // slot (`virtual-<groupId>`) getting superseded by a real
+            // calendar event for that date, an individual lesson's id
+            // (`sub-ind-<subId>-<date>`) outliving its subscription's id
+            // after a renewal, or simply landing on the wrong auto-selected
+            // class when jumping straight to an old date. `group_id` and
+            // `student_id` are real, permanent columns on the check-in row
+            // itself (not a derived, re-computable string), so match on
+            // those first — they can't drift the way a synthetic classId can.
+            const indStudentIds = (selClass?.type === 'individual' || selClass?.type === 'rental')
+                ? String(selClass.student_id || '').split(',').map((s: string) => s.trim()).filter(Boolean)
+                : [];
             const merged: Record<string, State> = { ...archived };
             try {
                 const realCheckins = await getCheckinsForDate(dateKey);
                 realCheckins.forEach(rec => {
-                    if (rec.classId === selectedClass) {
+                    const isGroupMatch = !!selClass?.group_id && rec.groupId === selClass.group_id;
+                    const isIndividualMatch = indStudentIds.includes(rec.studentId);
+                    if (rec.classId === selectedClass || isGroupMatch || isIndividualMatch) {
                         merged[rec.studentId] = 'present';
                     }
                 });
