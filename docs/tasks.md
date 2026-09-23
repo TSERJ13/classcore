@@ -2295,3 +2295,43 @@ Notes:
   than scope-creeping into cleanup of code this branch doesn't own the redesign of.
 - Code-only, same deploy path as the other fixes above (merge to `main`/`rebrendig` + Vercel
   redeploy) — no SQL migration.
+
+### Fix: Staff & Access edit modal (Settings) silently failed to save any change
+
+Owner reported that editing a staff member in Settings → Staff & Access (role, feature
+permissions, anything) didn't persist — the modal appeared to work but nothing changed after
+reopening it.
+
+Root cause: this modal's password field (`src/app/(dashboard)/settings/page.tsx`) was initialized
+from the staff member's real, already-stored password (`setEditingStaffData(JSON.parse(...member))`,
+no override) and bound directly to it (`value={member.password || ''}`). Every save — regardless
+of what was actually being changed — sent that same old password value back to
+`updateStaffAction`, which unconditionally runs `assertPasswordPolicy(input.password)` whenever
+`password` is present at all. Any staff member whose password predates the current policy (e.g.
+`12345678` — no uppercase, no special char, visible in the owner's own screenshot) has every
+single edit rejected with a thrown "Password does not meet the minimum requirements" error, which
+rolls back the whole update — role and permission changes included, not just the password. The
+error was surfaced via `addNotification` inside `updateStaff()`, but easy to miss, so it looked
+like the save just silently did nothing.
+
+`src/components/staff/TeacherModal.tsx` already gets this right (blank password field on open,
+stripped from the payload entirely when left blank) — this Settings-page modal is a separate,
+parallel implementation of the same edit UI that never got the same fix.
+
+**Fix**: initialize this modal's `editingStaffData.password` to `''` instead of the real stored
+value, and strip the `password` key from the save payload entirely when left blank (an omitted key
+and an explicit empty string aren't the same to `updateStaffAction` — the latter would still count
+as "a password was supplied" and, for a legacy non-Supabase-Auth staff row, null out the stored
+password hash). Only a password the admin actually types in this session is ever sent now.
+
+**Found but not fixed here** (spawned as its own follow-up task — touches auth/security code that
+deserves its own focused pass): `updateStaffAction` can still write a staff member's *new*
+password into the `staff.data` JSONB column as plaintext when that row is linked to a real
+Supabase Auth account (`data.authType === 'supabase'`) — the hash only overwrites `data.password`
+in the branch for legacy, non-Supabase-Auth rows. Unrelated to today's bug (which happened
+regardless of whether a new password was ever typed), but a real exposure if an admin changes a
+Supabase-Auth-linked staff member's password.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- Code-only — needs the same merge + Vercel redeploy as everything else this session, no SQL.
