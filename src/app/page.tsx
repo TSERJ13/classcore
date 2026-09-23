@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -29,6 +30,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { AppLogo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
+
+const Hero3DScene = dynamic(() => import("@/components/landing/Hero3DScene"), { ssr: false });
 
 // --- HOOKS ---
 
@@ -108,10 +111,18 @@ function LiveStatBadge({ label, min, max, prefix = "", suffix = "", trend = "up"
     );
 }
 
-/** The hero dashboard mockup: tilts in 3D toward the cursor, with badges parallaxing at a different depth. */
-function TiltDashboard({ l }: { l: any }) {
+/** The hero visual: a real WebGL 3D scene (the dashboard screenshot on a floating panel, with
+ * orbiting accent panels and particles) with DOM stat badges layered on top, parallaxing at their
+ * own depth for a richer sense of layering than the WebGL canvas alone. */
+function Hero3DVisual({ l }: { l: any }) {
     const [tilt, setTilt] = useState({ x: 0, y: 0 });
-    const [hovering, setHovering] = useState(false);
+    const [loaded, setLoaded] = useState(false);
+
+    useEffect(() => {
+        // The WebGL canvas mounts async (dynamic import); give it a tick before fading it in.
+        const t = setTimeout(() => setLoaded(true), 50);
+        return () => clearTimeout(t);
+    }, []);
 
     const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         const rect = e.currentTarget.getBoundingClientRect();
@@ -120,49 +131,38 @@ function TiltDashboard({ l }: { l: any }) {
         setTilt({ x: py * -12, y: px * 16 });
     }, []);
 
-    const handleLeave = useCallback(() => {
-        setTilt({ x: 0, y: 0 });
-        setHovering(false);
-    }, []);
+    const handleLeave = useCallback(() => setTilt({ x: 0, y: 0 }), []);
 
     return (
         <div
-            className="relative [perspective:1600px]"
-            onMouseEnter={() => setHovering(true)}
+            className="relative aspect-square lg:aspect-[6/5]"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleLeave}
         >
             <div
-                className="absolute top-[-6%] left-[-4%] md:top-[-10%] md:left-[-16%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-top-left"
+                className={cn("absolute inset-0 rounded-[3rem] bg-gradient-to-br from-indigo-500/10 to-transparent transition-opacity duration-700", loaded ? "opacity-0" : "opacity-100 animate-pulse")}
+            />
+            <Suspense fallback={null}>
+                <Hero3DScene />
+            </Suspense>
+
+            <div
+                className="absolute top-[2%] left-[0%] md:top-[4%] md:left-[2%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-top-left"
                 style={{ transform: `translate3d(${tilt.y * -1.6}px, ${tilt.x * -1.6}px, 0)`, transition: 'transform 0.2s ease-out' }}
             >
                 <LiveStatBadge label={l('მოსწავლე', 'Учеников', 'Students')} min={1240} max={1500} trend="up" />
             </div>
             <div
-                className="absolute top-[33%] right-[-4%] md:top-[38%] md:right-[-17%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-top-right"
+                className="absolute top-[42%] right-[-2%] md:top-[44%] md:right-[-6%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-top-right"
                 style={{ transform: `translate3d(${tilt.y * 1.8}px, ${tilt.x * 1.8}px, 0)`, transition: 'transform 0.2s ease-out' }}
             >
                 <LiveStatBadge label={l('დასწრება', 'Посещаемость', 'Attendance')} min={92} max={99} suffix="%" trend="down" />
             </div>
             <div
-                className="absolute bottom-[-6%] left-[3%] md:bottom-[-12%] md:left-[8%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-bottom-left"
+                className="absolute bottom-[4%] left-[8%] md:bottom-[8%] md:left-[10%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-bottom-left"
                 style={{ transform: `translate3d(${tilt.y * -1.4}px, ${tilt.x * -1.4}px, 0)`, transition: 'transform 0.2s ease-out' }}
             >
                 <LiveStatBadge label={l('შემოსავალი', 'Доход', 'Revenue')} min={4500} max={6000} prefix="+" suffix=" GEL" trend="up" />
-            </div>
-
-            <div
-                className="relative p-2 bg-white/10 rounded-3xl md:rounded-[3rem] border border-white/20 shadow-[0_60px_120px_-30px_rgba(79,70,229,0.55)]"
-                style={{
-                    transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${hovering ? 1.02 : 1})`,
-                    transition: 'transform 0.2s ease-out',
-                    transformStyle: 'preserve-3d'
-                }}
-            >
-                <div className="relative aspect-video rounded-2xl md:rounded-[2.5rem] overflow-hidden bg-slate-900">
-                    <Image src="/dashboard_hero_zoomed_out.png" alt="ClassCore Dashboard" fill className="object-cover" priority />
-                    <div className="absolute inset-0 bg-gradient-to-tr from-indigo-950/20 via-transparent to-white/5 pointer-events-none" />
-                </div>
             </div>
         </div>
     );
@@ -196,6 +196,39 @@ function GlowButton({ href, children, variant = "solid", className }: { href: st
             />
             <span className="relative z-10 flex items-center gap-3">{children}</span>
         </Link>
+    );
+}
+
+/** Infinite auto-scrolling strip of feature keywords -- a common premium-site device, done here
+ * with plain duplicated content + a CSS keyframe so it never depends on JS to keep scrolling. */
+function Marquee({ items }: { items: string[] }) {
+    const loop = [...items, ...items];
+    return (
+        <div className="relative py-8 bg-slate-950 border-y border-white/5 overflow-hidden">
+            <div className="flex w-max animate-[marquee_28s_linear_infinite] hover:[animation-play-state:paused]">
+                {loop.map((item, i) => (
+                    <div key={i} className="flex items-center shrink-0 px-8">
+                        <span className="text-lg md:text-xl font-black uppercase tracking-tight text-white/25">{item}</span>
+                        <span className="w-2 h-2 rounded-full bg-indigo-500 ml-8" />
+                    </div>
+                ))}
+            </div>
+            <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-slate-950 to-transparent pointer-events-none" />
+            <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-slate-950 to-transparent pointer-events-none" />
+        </div>
+    );
+}
+
+/** Giant faint uppercase text sitting behind a section heading -- an oversized-type accent used
+ * throughout editorial-style premium sites. Decorative only (aria-hidden). */
+function Watermark({ text }: { text: string }) {
+    return (
+        <span
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute inset-x-0 -top-4 md:-top-10 text-center text-[4.5rem] md:text-[9rem] font-black uppercase tracking-tighter text-slate-900/[0.035] whitespace-nowrap leading-none"
+        >
+            {text}
+        </span>
     );
 }
 
@@ -563,7 +596,7 @@ export default function LandingPage() {
                         </div>
 
                         <Reveal delay={200}>
-                            <TiltDashboard l={l} />
+                            <Hero3DVisual l={l} />
                         </Reveal>
                     </div>
 
@@ -575,12 +608,22 @@ export default function LandingPage() {
                     </div>
                 </section>
 
+                <Marquee items={[
+                    l('მოსწავლეები', 'Ученики', 'Students'),
+                    l('ჯგუფები', 'Группы', 'Groups'),
+                    l('ფინანსები', 'Финансы', 'Finances'),
+                    l('SMS', 'СМС', 'SMS'),
+                    l('ანალიტიკა', 'Аналитика', 'Analytics'),
+                    l('ხელფასები', 'Зарплаты', 'Payroll'),
+                ]} />
+
                 {/* Features — bento grid */}
-                <section id="features" className="py-32 bg-white">
+                <section id="features" className="py-32 bg-white relative overflow-hidden">
                     <div className="max-w-7xl mx-auto px-6">
-                        <Reveal className="text-center space-y-4 mb-20">
-                            <h2 className="text-4xl lg:text-5xl font-black text-slate-900 uppercase tracking-tight">{l('პლატფორმის შესაძლებლობები', 'Возможности платформы', 'Platform Features')}</h2>
-                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">{l('ყველა ინსტრუმენტი ერთ სივრცეში', 'Все инструменты в одном месте', 'All tools in one place')}</p>
+                        <Reveal className="relative text-center space-y-4 mb-20">
+                            <Watermark text={l('ფუნქციები', 'Функции', 'Features')} />
+                            <h2 className="relative text-4xl lg:text-5xl font-black text-slate-900 uppercase tracking-tight">{l('პლატფორმის შესაძლებლობები', 'Возможности платформы', 'Platform Features')}</h2>
+                            <p className="relative text-slate-400 font-bold uppercase tracking-widest text-xs">{l('ყველა ინსტრუმენტი ერთ სივრცეში', 'Все инструменты в одном месте', 'All tools in one place')}</p>
                         </Reveal>
 
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-24">
@@ -637,9 +680,10 @@ export default function LandingPage() {
                             </div>
                         </Reveal>
 
-                        <Reveal delay={120} className="bg-white p-12 lg:p-16 rounded-[4rem] text-center space-y-10 shadow-[0_40px_100px_-20px_rgba(99,102,241,0.5)]">
-                            <h3 className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">{l('პრემიუმ პაკეტი', 'Премиум пакет', 'Premium Plan')}</h3>
-                            <div className="flex items-baseline justify-center gap-2">
+                        <Reveal delay={120} className="relative bg-white p-12 lg:p-16 rounded-[4rem] text-center space-y-10 shadow-[0_40px_100px_-20px_rgba(99,102,241,0.5)] overflow-hidden">
+                            <span aria-hidden="true" className="pointer-events-none select-none absolute -top-6 -right-10 text-[11rem] font-black text-indigo-50 tracking-tighter leading-none">49</span>
+                            <h3 className="relative text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">{l('პრემიუმ პაკეტი', 'Премиум пакет', 'Premium Plan')}</h3>
+                            <div className="relative flex items-baseline justify-center gap-2">
                                 <span className="text-8xl font-black text-slate-900 tracking-tighter">49</span>
                                 <span className="text-2xl font-black text-slate-400 uppercase tracking-widest">GEL</span>
                             </div>

@@ -430,6 +430,11 @@ input:-webkit-autofill:active {
     animation: scroll-hint 2s ease-in-out infinite;
 }
 
+@keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
 /* ─── Dashboard stabilization ─────────────────────────────────────────── */
 :root {
     --sidebar-width: 280px;
