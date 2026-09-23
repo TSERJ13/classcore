@@ -88,7 +88,8 @@ export async function getGroupsAction(branchId?: string): Promise<GroupRow[]> {
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
-    return (data ?? []).map(g => ({ ...(g.data as Record<string, unknown> || {}), id: g.id, name: g.name, branch_id: g.branch_id }));
+    const rows = (data ?? []).map(g => ({ ...(g.data as Record<string, unknown> || {}), id: g.id, name: g.name, branch_id: g.branch_id }));
+    return rows.sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
 }
 
 const groupSchema = z.object({

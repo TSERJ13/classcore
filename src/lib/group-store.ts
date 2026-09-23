@@ -76,7 +76,8 @@ export function getGroups(): Group[] {
         // 🚀 Fall back to memory cache
         if (!saved && _groupsMemoryCache && _groupsMemoryCacheSlug === activeSlug) {
             console.log('💾 [GroupStore] Using memory cache');
-            return deletedIds.size > 0 ? _groupsMemoryCache.filter(g => !deletedIds.has(g.id)) : _groupsMemoryCache;
+            const cachedList = deletedIds.size > 0 ? _groupsMemoryCache.filter(g => !deletedIds.has(g.id)) : _groupsMemoryCache;
+            return [...cachedList].sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
         }
 
         // Migration: If new scoped key is empty, check old unscoped key
@@ -104,7 +105,9 @@ export function getGroups(): Group[] {
             return isMainBranch ? INITIAL_GROUPS : [];
         }
         const list = Array.isArray(parsed) ? (parsed as Group[]) : INITIAL_GROUPS;
-        const nonDeleted = list.filter(g => !deletedIds.has(g.id));
+        const nonDeleted = list
+            .filter(g => !deletedIds.has(g.id))
+            .sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
 
         // 🛠️ FIX: `branch_id` (real column, 20260921_branch_isolation_phase1.sql)
         // was tracked on every Group but never actually filtered here — this

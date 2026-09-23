@@ -89,7 +89,7 @@ export async function GET(req: Request) {
         const responses = await Promise.all([
             supabaseAdmin.from('students').select('*').eq('org_id', targetOrgId),
             supabaseAdmin.from('staff').select('*').eq('org_id', targetOrgId),
-            supabaseAdmin.from('groups').select('*').eq('org_id', targetOrgId),
+            supabaseAdmin.from('groups').select('*').eq('org_id', targetOrgId).order('name'),
             supabaseAdmin.from('branches').select('*').eq('org_id', targetOrgId),
             supabaseAdmin.from('halls').select('*').eq('org_id', targetOrgId),
             supabaseAdmin.from('studio_settings').select('*').eq('org_id', targetOrgId).maybeSingle(),
@@ -184,7 +184,7 @@ export async function POST(req: Request) {
                 ? supabaseAdmin.from('staff').select('*').eq('org_id', targetOrgId).limit(5)
                 : supabaseAdmin.from('staff').select('*').eq('org_id', targetOrgId)) : Promise.resolve({ data: [] }),
             // 2: Groups
-            isCore ? supabaseAdmin.from('groups').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
+            isCore ? supabaseAdmin.from('groups').select('*').eq('org_id', targetOrgId).order('name') : Promise.resolve({ data: [] }),
             // 3: Branches
             isCore ? supabaseAdmin.from('branches').select('*').eq('org_id', targetOrgId) : Promise.resolve({ data: [] }),
             // 4: Halls

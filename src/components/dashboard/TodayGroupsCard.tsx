@@ -28,12 +28,12 @@ function getInitials(name: string) {
 export function TodayGroupsCard({ lang = 'ka', onRefreshDashboard, currentDate }: TodayGroupsCardProps) {
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
 
-    const [groups, setGroups] = useState<Group[]>([]);
-    const [students, setStudents] = useState<Student[]>([]);
-    const [checkins, setCheckins] = useState<CheckinRecord[]>([]);
-    const [events, setEvents] = useState<any[]>([]);
-    const [teachers, setTeachers] = useState<any[]>([]);
-    const [halls, setHalls] = useState<any[]>([]);
+    const [groups, setGroups] = useState<Group[]>(() => { try { return getGroups(); } catch { return []; } });
+    const [students, setStudents] = useState<Student[]>(() => { try { return getStudents(); } catch { return []; } });
+    const [checkins, setCheckins] = useState<CheckinRecord[]>(() => { try { return getTodayCheckins(); } catch { return []; } });
+    const [events, setEvents] = useState<any[]>(() => { try { return getEvents(); } catch { return []; } });
+    const [teachers, setTeachers] = useState<any[]>(() => { try { return getTeachers(); } catch { return []; } });
+    const [halls, setHalls] = useState<any[]>(() => { try { return getHalls(); } catch { return []; } });
     const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
     const [animatingId, setAnimatingId] = useState<string | null>(null);
 

@@ -73,9 +73,40 @@ export function getPlans(): Plan[] {
     try {
         const activeSlug = getActiveSlug() || 'demo.classcore.ge';
         const key = getPlansKey(activeSlug);
-        const saved = localStorage.getItem(key);
+        let saved = localStorage.getItem(key);
 
         const deletedIds = getLocallyDeletedIds(getDeletedPlansKey());
+
+        // 🔄 Fallback candidates if scoped key is empty
+        if (!saved) {
+            const orgId = getEffectiveOrgId(activeSlug);
+            const candidates = [
+                `cc_subscription_plans_${activeSlug}`,
+                orgId ? `cc_subscription_plans_${orgId}` : null,
+                'cc_subscription_plans',
+                'cc_subscription_plans_default'
+            ].filter(Boolean) as string[];
+
+            for (const cand of candidates) {
+                if (cand !== key) {
+                    const val = localStorage.getItem(cand);
+                    if (val) {
+                        saved = val;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 🔄 Settings fallback if still empty
+        if (!saved) {
+            try {
+                const settings = loadSettings(activeSlug);
+                if (settings.subscription_plans && settings.subscription_plans.length > 0) {
+                    saved = JSON.stringify(settings.subscription_plans);
+                }
+            } catch {}
+        }
 
         if (saved) {
             const parsed = JSON.parse(saved);
@@ -98,7 +129,8 @@ export function getPlans(): Plan[] {
                             is_default: item.is_default !== undefined ? !!item.is_default : !!data.is_default
                         };
                     })
-                    .filter((p: any) => !p || !p.id || !deletedIds.has(p.id));
+                    .filter((p: any) => p && p.id && !deletedIds.has(p.id))
+                    .sort((a: any, b: any) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
                 _plansMemoryCache = normalized;
                 _plansMemoryCacheSlug = activeSlug;
                 return normalized;
@@ -109,7 +141,9 @@ export function getPlans(): Plan[] {
         // 🚀 Fall back to memory cache
         if (_plansMemoryCache && _plansMemoryCacheSlug === activeSlug) {
             console.log('💾 [PlanStore] Using memory cache');
-            return _plansMemoryCache.filter((p: any) => !p || !p.id || !deletedIds.has(p.id));
+            return _plansMemoryCache
+                .filter((p: any) => p && p.id && !deletedIds.has(p.id))
+                .sort((a: any, b: any) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
         }
 
         return INITIAL_PLANS;

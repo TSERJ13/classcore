@@ -3,7 +3,7 @@
 import { BookOpen, Users, Plus, GraduationCap, Pencil } from 'lucide-react';
 import { useT } from '@/contexts/LanguageContext';
 import { GroupModal } from '@/components/groups/GroupModal';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { type Group, getGroups } from '@/lib/group-store';
 import { getSubscriptions } from '@/lib/subscription-store';
@@ -18,12 +18,16 @@ import { cn } from '@/lib/utils';
 import { MobileFAB } from '@/components/ui/MobileFAB';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
+function sortGroups<T extends { name?: string }>(list: T[]): T[] {
+    return [...list].sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
+}
+
 export default function GroupsPage() {
     const { t, lang } = useT();
     const { profile } = useUser();
 
     const [groups, setGroups] = useState<Group[]>(() => {
-        try { return getGroups(); } catch { return []; }
+        try { return sortGroups(getGroups()); } catch { return []; }
     });
     const [uniqueSubs, setUniqueSubs] = useState<SubscriptionRow[]>(() => {
         try {
@@ -38,7 +42,9 @@ export default function GroupsPage() {
     const { settings, updateStaff } = useStudio();
     useEffect(() => {
         function load() {
-            getGroupsAction(settings.activeBranchId || undefined).then(rows => setGroups(rows as unknown as Group[])).catch(err => console.error('❌ [Groups] Failed to load:', err));
+            getGroupsAction(settings.activeBranchId || undefined)
+                .then(rows => setGroups(sortGroups(rows as unknown as Group[])))
+                .catch(err => console.error('❌ [Groups] Failed to load:', err));
             getSubscriptionsAction().then(setUniqueSubs).catch(err => console.error('❌ [Groups] Failed to load subscriptions:', err));
         }
         load();
@@ -50,11 +56,14 @@ export default function GroupsPage() {
         };
     }, [settings.activeBranchId]);
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const groupsWithEnrollments = groups.map(g => {
-        const enrolledCount = uniqueSubs.filter(s => s.group_id === g.id && s.status === 'active' && s.expires_at >= todayStr).length;
-        return { ...g, enrolled: enrolledCount };
-    });
+    const groupsWithEnrollments = useMemo(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const withCounts = groups.map(g => {
+            const enrolledCount = uniqueSubs.filter(s => s.group_id === g.id && s.status === 'active' && s.expires_at >= todayStr).length;
+            return { ...g, enrolled: enrolledCount };
+        });
+        return sortGroups(withCounts);
+    }, [groups, uniqueSubs]);
 
     const [editing, setEditing] = useState<Group | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
@@ -216,7 +225,7 @@ export default function GroupsPage() {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {groupsWithEnrollments.filter(g => {
                     if (isTeacherRole(profile?.role)) {
                         const visible = getVisibleGroupIds(profile as any, (settings.staff || []) as any, groupsWithEnrollments as any);

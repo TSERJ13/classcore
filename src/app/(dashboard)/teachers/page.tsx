@@ -69,9 +69,9 @@ export default function TeachersPage() {
         const fullName = `${t.first_name || ''} ${t.last_name || t.full_name || ''}`.trim().toLowerCase();
         return fullName.includes(search.toLowerCase());
     }).sort((a, b) => {
-        const nameA = `${a.first_name || ''} ${a.last_name || a.full_name || ''}`.trim();
-        const nameB = `${b.first_name || ''} ${b.last_name || b.full_name || ''}`.trim();
-        return nameA.localeCompare(nameB, lang === 'ka' ? 'ka-GE' : lang === 'ru' ? 'ru-RU' : 'en-US');
+        const nameA = (a.full_name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || '').toLowerCase();
+        const nameB = (b.full_name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || '').toLowerCase();
+        return nameA.localeCompare(nameB);
     });
 
     function openAdd() { setEditing(null); setModalOpen(true); }
@@ -254,7 +254,7 @@ export default function TeachersPage() {
             )}
 
             {/* Teacher cards */}
-                <div className="grid gap-4 stagger">
+                <div className="grid gap-4">
                     {filtered.map(teacher => (
                         <div key={teacher.id}
                             className="group bg-card border-2 border-border-subtle hover:border-violet-500/40 hover:shadow-xl hover:shadow-violet-500/5 rounded-3xl p-4 transition-all duration-300 relative overflow-hidden flex flex-col">

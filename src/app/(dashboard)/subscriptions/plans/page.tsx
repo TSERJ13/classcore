@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     ToggleLeft, ToggleRight, ArrowLeft, Plus, Users, User, Zap, Pencil, Trash2, Check, Home, FolderPlus, Star, Ticket, Minus, Snowflake, Umbrella
 } from 'lucide-react';
@@ -18,9 +18,9 @@ import { getGroups, type Group } from '@/lib/group-store';
 type PlanType = 'group' | 'personal' | 'individual' | 'rental';
 type Period = 'sessions' | 'monthly' | 'unlimited';
 
-
-
-
+function sortPlans<T extends { name?: string }>(list: T[]): T[] {
+    return [...list].sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
+}
 
 const EMPTY_PLAN: Omit<Plan, 'id'> = {
     name: '', type: 'group', period: 'sessions', session_count: 8, validity_days: 30, price: 0, is_active: true,
@@ -47,8 +47,10 @@ export default function PlansManagementPage() {
     const [plans, setPlans] = useState<Plan[]>(() => {
         try {
             const list = getPlans();
-            if (list.length > 0) return list;
-            return settings.subscription_plans || [];
+            if (list.length > 0) return sortPlans(list);
+            const fromSettings = (settings.subscription_plans || []) as unknown as Plan[];
+            if (fromSettings.length > 0) return sortPlans(fromSettings);
+            return [];
         } catch {
             return [];
         }
@@ -60,13 +62,21 @@ export default function PlansManagementPage() {
 
     useEffect(() => {
         const load = () => {
-            getPlansAction().then(rows => setPlans(rows as unknown as Plan[])).catch(err => console.error('❌ [Plans] Failed to load:', err));
+            getPlansAction()
+                .then(rows => setPlans(sortPlans(rows as unknown as Plan[])))
+                .catch(err => console.error('❌ [Plans] Failed to load:', err));
             setGroups(getGroups());
         };
         load();
         window.addEventListener('cc_subscription_plans_update', load);
         return () => window.removeEventListener('cc_subscription_plans_update', load);
     }, []);
+
+    useEffect(() => {
+        if (plans.length === 0 && settings.subscription_plans && settings.subscription_plans.length > 0) {
+            setPlans(sortPlans(settings.subscription_plans as unknown as Plan[]));
+        }
+    }, [settings.subscription_plans, plans.length]);
 
     const [showForm, setShowForm] = useState(false);
     const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -88,7 +98,9 @@ export default function PlansManagementPage() {
         }
     }, [settings.pausePrices, settings.vacationMode]);
 
-    const filtered = plans.filter(p => p.type === tab);
+    const filtered = useMemo(() => {
+        return sortPlans(plans.filter(p => p.type === tab));
+    }, [plans, tab]);
 
     function openAdd() {
         setEditingPlan(null);
@@ -132,7 +144,7 @@ export default function PlansManagementPage() {
             } else {
                 next = [...plans, { ...form, id: String(Date.now()) } as Plan];
             }
-            setPlans(next);
+            setPlans(sortPlans(next));
             await savePlansAction(next);
             window.dispatchEvent(new Event('cc_subscription_plans_update'));
             setShowForm(false);

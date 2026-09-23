@@ -3,6 +3,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { loadSettings, saveSettings } from '@/lib/settings-store';
 import { setMemoryStudentsCache } from '@/lib/student-store';
 import { setSubscriptionsMemoryCache } from '@/lib/subscription-store';
+import { setPlansMemoryCache } from '@/lib/plan-store';
+import { setTeachersMemoryCache } from '@/lib/teacher-store';
+import { setGroupsMemoryCache } from '@/lib/group-store';
 import { useUser } from '@/hooks/useUser';
 import { getActiveSlug, getScopedKey, safeSetItem, getLocallyDeletedIds } from '@/lib/utils';
 import type { StudioSettings, Branch, SubscriptionLog } from '@/types';
@@ -265,13 +268,20 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     return merged;
                 };
 
-                const finalStaff = resolveRicher(state.staff, cloudSettings.staff || settings.staff);
+                const finalStaff = resolveRicher(state.staff, cloudSettings.staff || settings.staff)
+                    .sort((a: any, b: any) => {
+                        const nameA = (a.full_name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.name || '').toLowerCase();
+                        const nameB = (b.full_name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.name || '').toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    });
                 const finalHalls = resolveRicher(state.halls, cloudSettings.halls || cloudSettings.data?.halls)
                     .filter((h: any) => !deletedHallIds.has(h.id));
                 const finalPlans = resolveRicher(state.subscription_plans, cloudSettings.subscription_plans || cloudSettings.plans)
-                    .filter((p: any) => !deletedPlanIds.has(p.id));
+                    .filter((p: any) => !deletedPlanIds.has(p.id))
+                    .sort((a: any, b: any) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
                 const finalGroups = resolveRicher(state.groups, cloudSettings.groups || cloudSettings.data?.groups)
-                    .filter((g: any) => !deletedGroupIds.has(g.id));
+                    .filter((g: any) => !deletedGroupIds.has(g.id))
+                    .sort((a: any, b: any) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
                 const finalEvents = resolveRicher(state.calendar_events, cloudSettings.calendar_events || cloudSettings.data?.events)
                     .filter((e: any) => !deletedEventIds.has(e.id));
                 
@@ -517,6 +527,15 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                     // getSubscriptions() had no fresher-than-nothing fallback.
                     if (mapping.cc_student_subscriptions) {
                         setSubscriptionsMemoryCache(mapping.cc_student_subscriptions, activeSlug || 'default');
+                    }
+                    if (mapping.cc_subscription_plans) {
+                        setPlansMemoryCache(mapping.cc_subscription_plans, activeSlug || 'default');
+                    }
+                    if (mapping.cc_groups) {
+                        setGroupsMemoryCache(mapping.cc_groups, activeSlug || 'default');
+                    }
+                    if (mapping.cc_teachers) {
+                        setTeachersMemoryCache(mapping.cc_teachers, activeSlug || 'default');
                     }
 
                     // Attendance mapping
@@ -832,9 +851,12 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
                                 }
 
                                 if (heavyState.subscription_plans && !heavyState.queryFailed?.subscription_plans) {
-                                    const plansList = unwrap(heavyState.subscription_plans).filter((p: any) => !deletedPlanIds.has(p.id));
+                                    const plansList = unwrap(heavyState.subscription_plans)
+                                        .filter((p: any) => !deletedPlanIds.has(p.id))
+                                        .sort((a: any, b: any) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
                                     if (plansList.length > 0) {
                                         await safeSetItem(getScopedKey('cc_subscription_plans', activeSlug || 'default'), JSON.stringify(plansList), activeSlug || 'default');
+                                        setPlansMemoryCache(plansList, activeSlug || 'default');
                                     }
                                 }
 

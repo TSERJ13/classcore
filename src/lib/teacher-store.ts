@@ -27,16 +27,23 @@ function invalidateTeachersMemoryCache() {
     _teachersMemoryCacheSlug = null;
 }
 
+export function compareTeachers(a: any, b: any): number {
+    const nameA = (a.full_name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.name || '').toLowerCase();
+    const nameB = (b.full_name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.name || '').toLowerCase();
+    return nameA.localeCompare(nameB);
+}
+
 export function getTeachers(): Teacher[] {
     if (typeof window === 'undefined') return INITIAL_TEACHERS;
     try {
         const activeSlug = getActiveSlug() || 'demo.classcore.ge';
         if (activeSlug && _teachersMemoryCache && _teachersMemoryCacheSlug === activeSlug) {
-            return _teachersMemoryCache;
+            return [..._teachersMemoryCache].sort(compareTeachers);
         }
         
         const settings = loadSettings(activeSlug);
-        return (settings.staff || []) as unknown as Teacher[];
+        const list = (settings.staff || []) as unknown as Teacher[];
+        return [...list].sort(compareTeachers);
     } catch {
         return INITIAL_TEACHERS;
     }

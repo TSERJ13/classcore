@@ -158,6 +158,9 @@ export async function searchStudents(rawParams: unknown): Promise<SearchStudents
     if (error) throw new Error(error.message);
 
     const rows = ((data as RawRpcRow[]) || []).map(rowFromRpc);
+    if (!p.sortBy || p.sortBy === 'none') {
+        rows.sort((a, b) => (a.full_name || '').toLowerCase().localeCompare((b.full_name || '').toLowerCase()));
+    }
     const total = data && data.length > 0 ? Number((data[0] as RawRpcRow).total_count) : 0;
     return { rows, total, page: p.page, pageSize: p.pageSize };
 }

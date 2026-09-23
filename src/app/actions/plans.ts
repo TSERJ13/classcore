@@ -43,7 +43,12 @@ export async function getPlansAction(): Promise<PlanRow[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.from('subscription_plans').select('id, data').eq('org_id', orgId);
     if (error) throw new Error(error.message);
-    return (data ?? []).map(r => ({ ...(r.data as Record<string, unknown> || {}), id: r.id }));
+    const rows = (data ?? []).map(r => {
+        const item = (r.data as Record<string, unknown> || {});
+        const migratedType = item.type === 'group' && item.period && item.period !== 'monthly' ? 'personal' : item.type;
+        return { ...item, id: r.id, type: migratedType };
+    });
+    return rows.sort((a: any, b: any) => String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase()));
 }
 
 const planSchema = z.object({
