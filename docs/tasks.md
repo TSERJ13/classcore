@@ -2509,3 +2509,58 @@ Notes:
   they're now committed for history consistency with every other migration in this session.
 - No code changes needed for the fixed items — pure DB-side hardening, nothing for Vercel to
   redeploy.
+
+### Full DB audit: 100% table/column/policy pass, fixed the 75-occurrence RLS performance issue
+
+Owner asked for a complete, no-stone-unturned pass over the live database (all tables, columns,
+constraints, policies) — separate from and beyond the earlier security-advisor pass above.
+
+**Cross-checked every `.from('table')` call in `src/` against `information_schema.columns`** —
+all 27 tables the code references exist, all columns the code writes/reads exist as real columns
+(no repeat of the `staff` missing-column issue found anywhere else). Confirmed clean.
+
+**Found: 3 orphaned tables never referenced anywhere in `src/`** — `attendance_records`,
+`inventory_products`, `student_subscriptions`. These come from `supabase/master_schema.sql`, an
+unused normalized schema that predates (and was superseded by) the live `id + org_id + data jsonb`
+pattern every real table actually uses. The app reads/writes `attendance`, `products`, and
+`subscriptions` instead — the "_records"/"inventory_"/"student_" variants are dead weight with
+0 rows each. Not deleted this pass (destructive, and out of scope for an audit) — flagged for the
+owner to decide whether to drop them later.
+
+**Found: essentially zero foreign-key constraints in the schema** — only `sms_logs.template_id ->
+sms_templates.id` and `sms_templates.category_id -> sms_categories.id` are real FKs; every other
+cross-table reference (`students.id` referenced from `subscriptions.student_id`/`attendance.
+student_id`/`sales.student_id`, `groups.id` from `calendar_events.group_id`, `staff.id` from
+`groups.coach_id`, etc.) is a plain unconstrained column. This matches the app's client-generated
+text-ID architecture (IDs are assigned client-side, not by the DB), so it's likely intentional
+rather than a bug — but it does mean the database itself will never catch an orphaned reference
+(e.g. a subscription left pointing at a deleted student's old id); that integrity is entirely up
+to the Server Actions layer. Flagged, not changed — adding FKs retroactively risks failing on
+existing orphaned data and would need its own careful pass.
+
+**Fixed: `auth_rls_initplan` performance issue, all 75 occurrences.** Every org-scoped RLS policy
+across 20 tables (`students`, `groups`, `branches`, `halls`, `studio_settings`, `attendance`,
+`sales`, `expenses`, `trash`, `calendar_events`, `subscription_plans`, `products`, `subscriptions`,
+`staff`, `permission_locks`, `staff_invites`, `sms_categories`, `sms_templates`, `sms_audit_log`,
+`sms_logs`) used the exact same shape: `org_id IN (SELECT org_id FROM profiles WHERE id =
+auth.uid())`. Calling `auth.uid()` bare like this forces Postgres to re-evaluate it once per row
+scanned instead of once per query — a real, previously-undiscovered, systemic performance cost on
+every single org-scoped read in the app, directly relevant to this session's long-running "why is
+everything slow" thread. Fixed via `20260923_fix_auth_rls_initplan_perf.sql`: dropped and recreated
+all 75 policy clauses with `auth.uid()` wrapped as `(select auth.uid())`, which Postgres can plan
+as a one-time stable subplan. Same access-control semantics, zero behavior change, pure query-plan
+win. Verified via direct `pg_policies` query afterward — zero policies left with the unwrapped
+pattern.
+
+Notes:
+- This migration is large (75 policy clauses) but entirely mechanical/uniform — every table
+  followed the identical `org_id IN (SELECT ... WHERE id = auth.uid())` shape, so it was safe to
+  script as one pass rather than reviewing each table's policy individually.
+- Like the earlier RLS-gap migration, this was applied directly to production via
+  `mcp__Supabase__apply_migration` and is now also committed to the repo
+  (`supabase/migrations/20260923_fix_auth_rls_initplan_perf.sql`) for history consistency.
+- No code changes, no Vercel redeploy needed — DB-side only.
+- Remaining lower-priority items from the advisor, still not acted on: `auth_leaked_password_
+  protection` (an Auth dashboard setting, not a migration), the 7 anon-callable `SECURITY DEFINER`
+  RPCs (low risk — each internally checks `auth.uid()`/`org_id` and rejects unauthenticated calls),
+  6 unused SMS-table indexes, and Auth DB connections not being percentage-based.
