@@ -5,7 +5,7 @@ import { Check, Shield, CreditCard, AlertTriangle, ArrowRight, Tag } from 'lucid
 import { cn, formatCurrency } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
 import { useStudio } from '@/contexts/StudioContext';
-import { getBillingState, recordPayment } from '@/lib/saas-billing';
+import { getBillingState } from '@/lib/saas-billing';
 import { logAction } from '@/lib/analytics';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
@@ -23,7 +23,7 @@ export default function BillingPage() {
     const { settings } = useStudio();
     const [period, setPeriod] = useState<Period>('1');
     const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-    const [selectedGateway, setSelectedGateway] = useState<string>('card');
+    const [selectedGateway, setSelectedGateway] = useState<string>('transfer');
     const [step, setStep] = useState<'plans' | 'pay'>('plans');
     const [isMounted, setIsMounted] = useState(false);
 
@@ -45,8 +45,9 @@ export default function BillingPage() {
 
     const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
 
+    // Only bank transfer is real today -- no card gateway (BOG/TBC/Stripe) is
+    // integrated yet, so this page must never claim instant card activation.
     const METHODS = [
-        { id: 'card', name: l('საბანკო ბარათი', 'Банковская карта', 'Credit Card'), logo: '💳', desc: l('მყისიერი აქტივაცია', 'Мгновенная активация', 'Instant activation') },
         { id: 'transfer', name: l('საბანკო გადარიცხვა', 'Банковский перевод', 'Bank Transfer'), logo: '🏦', desc: l('საჭიროებს კაბინეტის კოდს', 'Требует код кабинета', 'Requires Cabinet Code') },
     ];
 
@@ -104,11 +105,22 @@ export default function BillingPage() {
         }
     };
 
+    const [transferSubmitted, setTransferSubmitted] = useState(false);
+
+    // No payment gateway is integrated yet -- this never marks the account as
+    // paid on its own. It only records that the owner says they've sent the
+    // transfer, referencing their Cabinet Code; a ClassCore admin matches that
+    // code against the incoming bank transfer and activates the plan manually
+    // from the SuperAdmin studios list (which already shows every studio's
+    // Cabinet Code). Activation is never automatic from this click.
     const handleProceed = () => {
         if (!settings.studioSlug) return;
-        recordPayment(settings.studioSlug, selectedGateway as any, totalDiscountPrice, currentPeriodMonths);
-        alert(l('მადლობა! გადახდა მიღებულია.', 'Спасибо! Платеж приняტ.', 'Thank you! Payment received.'));
-        window.location.reload();
+        logAction('checkout_proceed', settings.studioSlug, {
+            amount: totalDiscountPrice,
+            months: currentPeriodMonths,
+            cabinetCode: settings.cabinetCode,
+        });
+        setTransferSubmitted(true);
     };
 
     return (
@@ -245,7 +257,30 @@ export default function BillingPage() {
             </div>
 
             {/* Payment method */}
-            {step === 'pay' && selectedPlan && (
+            {step === 'pay' && selectedPlan && transferSubmitted && (
+                <div className="bg-indigo-600 rounded-[2.5rem] p-12 text-center space-y-6 text-white shadow-2xl shadow-indigo-600/30 max-w-2xl mx-auto animate-in zoom-in-95 duration-500">
+                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto">
+                        <Check className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-2xl font-black uppercase tracking-tight">
+                        {l('მოთხოვნა გაგზავნილია', 'Запрос отправлен', 'Request Submitted')}
+                    </h3>
+                    <p className="font-medium text-indigo-100 leading-relaxed">
+                        {l(
+                            `გადარიცხეთ ${formatCurrency(totalDiscountPrice, settings.currency)} თანხა, მიმართვაში მიუთითეთ თქვენი კაბინეტის კოდი (${settings.cabinetCode}). გადარიცხვის დადასტურების შემდეგ, ჩვენი გუნდი გააქტიურებს პაკეტს უახლოეს ხანში.`,
+                            `Переведите ${formatCurrency(totalDiscountPrice, settings.currency)}, указав в назначении платежа ваш код кабинета (${settings.cabinetCode}). После подтверждения перевода наша команда активирует пакет в ближайшее время.`,
+                            `Transfer ${formatCurrency(totalDiscountPrice, settings.currency)}, including your Cabinet Code (${settings.cabinetCode}) in the payment reference. Once we confirm the transfer, our team will activate your plan shortly.`
+                        )}
+                    </p>
+                    <button
+                        onClick={() => { setTransferSubmitted(false); setStep('plans'); }}
+                        className="mt-6 text-sm font-black uppercase tracking-widest border-b border-indigo-200 hover:text-white transition-colors"
+                    >
+                        {l('დახურვა', 'Закрыть', 'Close')}
+                    </button>
+                </div>
+            )}
+            {step === 'pay' && selectedPlan && !transferSubmitted && (
                 <div className="bg-card border border-border-subtle rounded-[2.5rem] p-10 space-y-8 shadow-2xl shadow-black/5 animate-in slide-in-from-bottom duration-500 max-w-2xl mx-auto">
                     {/* Promo Code Section — MOVED UP */}
                     <div className="bg-surface/50 border border-border-subtle rounded-3xl p-6 space-y-4 shadow-sm">
@@ -317,7 +352,7 @@ export default function BillingPage() {
                                     </div>
                                 </label>
 
-                                {selectedGateway === gw.id && (gw.id === 'cash' || gw.id === 'transfer') && (
+                                {selectedGateway === gw.id && (
                                     <div className="pl-16 pr-4 pb-2 animate-in slide-in-from-top-2 duration-300">
                                         <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl flex flex-col gap-2 relative overflow-hidden">
                                             <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/50 rounded-l-2xl" />

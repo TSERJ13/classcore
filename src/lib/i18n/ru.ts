@@ -303,7 +303,7 @@ export const ru: Translations = {
     billingTrialWarn: 'После окончания аккаунт будет заблокирован.',
     billingPayMethod: 'Способ оплаты',
     billingSecure: 'Оплата защищена SSL.',
-    billingProceed: 'Перейти к оплате',
+    billingProceed: 'Подтвердить перевод',
     billingSelectStarter: 'Выбрать Starter',
     billingSelectGrowth: 'Выбрать Growth',
     billingSelectEnterprise: 'Связаться с нами',

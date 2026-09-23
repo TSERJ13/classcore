@@ -2621,3 +2621,54 @@ Notes:
   it means any code that does `subscriptions.student_id === someId` for those rows already
   silently fails to match either student. Not investigated further in this pass; flagged here for
   whoever picks up couple-subscription work next.
+
+### Billing page: stop faking payment activation; Tariffs page: fix dual-highlight + failed load
+
+Owner asked to (1) make the ClassCore SaaS billing page (`/billing`) honest about how payment
+actually works today, and (2) fix a bug where the sidebar highlights both "Subscriptions" and
+"Tariffs" at once and the Tariffs page (`/subscriptions/plans`) sometimes doesn't load its data.
+
+**Billing page (`src/app/(dashboard)/billing/page.tsx`)** — this was flagged earlier in the
+session's feature audit as the single most serious "completely non-functional" finding: clicking
+"Proceed to Payment" for *either* Credit Card or Bank Transfer instantly called `recordPayment()`
+(which only writes to `localStorage`) and showed "Thank you! Payment received." — no real gateway
+is integrated, so anyone could "extend" their subscription for free by clicking through, and Card
+was never real at all.
+- Removed the fake "Credit Card / Instant Activation" method entirely — only Bank Transfer
+  remains, since that's the one real channel today.
+- `handleProceed` no longer calls `recordPayment()` or shows a fake success alert. It now shows an
+  honest confirmation screen: transfer the amount with your Cabinet Code as the payment reference,
+  and a ClassCore admin will verify it and activate the plan. This matches how confirmation
+  actually works today — the SuperAdmin studios list already displays every studio's Cabinet Code,
+  and the admin already has a working "set plan" control there to activate a studio once they see
+  a matching transfer in their bank statement. No new pending-request infrastructure was needed;
+  the existing manual code-lookup + plan-assignment path already covers this exactly as the owner
+  described ("only the bank code needs confirming").
+- Renamed the `billingProceed` i18n string (ka/ru/en) from "Go to Payment" to "Confirm Transfer"
+  to match what the button now actually does.
+
+**Sidebar dual-highlight (`src/components/layout/Sidebar.tsx`)** — `/subscriptions/plans` is a
+sub-route of `/subscriptions`, and the active-link check was a plain prefix test
+(`pathname === href || pathname.startsWith(href + '/')`) applied independently per nav item, so
+visiting Tariffs matched both its own item AND its parent Subscriptions item, lighting up both.
+Fixed by computing the single longest-matching href across the whole nav once (`bestMatchHref`)
+and marking only that one item active — the generically correct fix for this exact
+prefix-collision class of bug, not just a special case for these two routes.
+
+**Tariffs page not loading (`src/app/actions/plans.ts`)** — root cause: this file's own
+`requireOrgId()` helper called `supabase.auth.getUser()` only, with no fallback for staff-token
+sessions (the signed `cc_staff_token` cookie used when there's no real Supabase Auth session —
+see `src/lib/server-actions-auth.ts`'s dual-auth doc comment). Every other migrated module
+(students, groups, staff, subscriptions, halls, etc.) was already switched to the shared
+`requireOrgIdDualAuth()` helper earlier in this project's Server Actions migration specifically to
+fix this class of bug — `plans.ts` was simply missed. For any session authenticated via the
+staff-token path (which is common — it's the fallback used whenever there's no live Supabase Auth
+session), `getPlansAction()`/`savePlansAction()`/`deletePlanAction()` all threw `'Not
+authenticated'` immediately, caught silently by the page's `.catch(console.error)`, leaving the
+Tariffs list empty with no visible error. Fixed by switching all three actions to
+`requireOrgIdDualAuth()`, matching the rest of the codebase.
+
+Notes:
+- `tsc --noEmit`: clean. `next lint` on all touched files: no new warnings (pre-existing
+  `no-explicit-any` findings elsewhere in `Sidebar.tsx` predate this change).
+- No DB/migration changes needed for any of these three fixes — all code-only.

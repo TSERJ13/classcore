@@ -303,7 +303,7 @@ export const en: Translations = {
     billingTrialWarn: 'Account will be locked after trial ends.',
     billingPayMethod: 'Payment Method',
     billingSecure: 'Secured with 256-bit SSL.',
-    billingProceed: 'Go to Payment',
+    billingProceed: 'Confirm Transfer',
     billingSelectStarter: 'Choose Starter',
     billingSelectGrowth: 'Choose Growth',
     billingSelectEnterprise: 'Contact Us',

@@ -303,7 +303,7 @@ export const ka: Translations = {
     billingTrialWarn: 'საცდელი პერიოდის შემდეგ ანგარიში დაიბლოკება.',
     billingPayMethod: 'გადახდის მეთოდი',
     billingSecure: 'დაცულია 256-ბიტიანი SSL-ით.',
-    billingProceed: 'გადახდაზე გადასვლა',
+    billingProceed: 'გადარიცხვის დადასტურება',
     billingSelectStarter: 'Starter-ის არჩევა',
     billingSelectGrowth: 'Growth-ის არჩევა',
     billingSelectEnterprise: 'დაგვიკავშირდით',

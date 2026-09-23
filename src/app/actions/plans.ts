@@ -19,28 +19,12 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
-
-async function requireOrgId(): Promise<{ orgId: string }> {
-    const supabase = await createClient();
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData?.user) throw new Error('Not authenticated');
-
-    const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('org_id')
-        .eq('id', userData.user.id)
-        .maybeSingle();
-    if (profileErr || !profile?.org_id) throw new Error('No org for this user');
-
-    return { orgId: profile.org_id };
-}
+import { requireOrgIdDualAuth } from '@/lib/server-actions-auth';
 
 export type PlanRow = { id: string; [key: string]: unknown };
 
 export async function getPlansAction(): Promise<PlanRow[]> {
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
     const { data, error } = await supabase.from('subscription_plans').select('id, data').eq('org_id', orgId);
     if (error) throw new Error(error.message);
     const rows = (data ?? []).map(r => {
@@ -64,8 +48,7 @@ const savePlansSchema = z.array(planSchema);
 /** Whole-array replace, matching plan-store.ts's savePlans() contract exactly. */
 export async function savePlansAction(rawInput: unknown): Promise<void> {
     const plans = savePlansSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
 
     const { data: existingRows, error: fetchErr } = await supabase
         .from('subscription_plans').select('id').eq('org_id', orgId);
@@ -92,8 +75,7 @@ const deletePlanSchema = z.object({ id: z.string().min(1) });
 
 export async function deletePlanAction(rawInput: unknown): Promise<void> {
     const { id } = deletePlanSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
 
     const { error } = await supabase.from('subscription_plans').delete().eq('id', id).eq('org_id', orgId);
     if (error) throw new Error(error.message);

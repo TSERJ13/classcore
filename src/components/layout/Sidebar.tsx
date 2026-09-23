@@ -328,6 +328,14 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
         }
     ];
 
+    // Some routes are nested under another nav item's path (e.g. /subscriptions/plans
+    // under /subscriptions), so a plain prefix check lights up both. Only the longest
+    // (most specific) matching href across the whole nav should render as active.
+    const bestMatchHref = ALL_ITEMS
+        .map(item => item.href)
+        .filter(href => pathname === href || pathname.startsWith(href + '/'))
+        .sort((a, b) => b.length - a.length)[0];
+
     return (
         <nav className="flex-1 py-1 overflow-y-auto no-scrollbar transition-all duration-300 px-2 space-y-4">
             {sections.map((section, sIdx) => {
@@ -391,7 +399,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                         )}
                         {sectionItems.map((item) => {
                             const { href, labelKey, icon: Icon, color } = item;
-                            const active = pathname === href || pathname.startsWith(href + '/');
+                            const active = href === bestMatchHref;
                             return (
                                 <div key={href} className="relative group w-full">
                                     <Link
