@@ -2452,3 +2452,60 @@ Notes:
   that never accounted for those columns being legitimately empty on existing rows. Worth a closer
   look at whether `createStaffAction`'s insert has the same null-handling gaps, since it references
   the identical fields.
+
+### Security audit: Supabase advisor findings after MCP access connected
+
+Owner connected Supabase MCP access and asked for a general health check (`get_advisors`, both
+`security` and `performance` types) against project `pkmofhsbdwulczligyvl`.
+
+**Fixed and verified this pass:**
+- **RLS completely disabled on 7 public tables** (ERROR-level finding) — `profiles`,
+  `registration_otps`, `promo_codes`, `attendance_records`, `inventory_products`,
+  `student_subscriptions`, `studios`. Any request with the anon/publishable key could read (and in
+  most cases write) every row in these tables, bypassing all org-scoping entirely. Fixed 6 of 7 via
+  migration `20260923_enable_rls_gap_fill_round2.sql` (applied live via
+  `mcp__Supabase__apply_migration`, now also committed to the repo for history): `profiles` gets a
+  self-only SELECT policy; `registration_otps`/`promo_codes` get RLS enabled with zero policies
+  (deny-by-default, matching how they're actually used — service-role only, no client code path
+  touches them); `attendance_records`/`inventory_products`/`student_subscriptions` get full
+  org-scoped SELECT/INSERT/UPDATE/DELETE policies matching the pattern already used elsewhere in
+  this repo. Re-ran `get_advisors(security)` afterward — RLS-disabled count dropped from 7 tables to
+  1, confirming the fix. `studios` deliberately left disabled: `StudioContext.tsx`'s browser-side
+  "Nuclear Discovery" fallback reads it directly with the anon key under a staff-token session
+  (no `auth.uid()`), so a naive org-scoped policy would break staff-token login's org-id
+  resolution. Real fix needs that lookup moved behind a Server Action first — not done in this pass.
+- **3 functions with mutable `search_path`** (`_safe_numeric`, two overloads of `_sub_in_month`) —
+  fixed via `20260923_fix_function_search_path_mutable.sql` (`ALTER FUNCTION ... SET search_path =
+  public`), pure hardening, zero behavior change. Re-ran advisor — this finding is now gone.
+
+**Found, not fixed this pass (reported to owner as follow-ups):**
+- **7 `SECURITY DEFINER` functions callable directly via PostgREST RPC by `anon`/`authenticated`**
+  (`attendance_daily_counts`, `checkin_deduct_session`, `checkin_refund_session`,
+  `expire_overdue_subscriptions`, `get_dashboard_stats`, `mark_attendance_and_deduct_session`,
+  `search_students`). Lower priority: each internally resolves `auth.uid() -> profiles.org_id` and
+  throws if there's no match, so an anon/unauthenticated RPC call should fail inside the function —
+  but advisor still flags it as bad practice (better to `REVOKE EXECUTE FROM anon` explicitly where
+  not intentional).
+- **`auth_leaked_password_protection` disabled** — Supabase Auth's HaveIBeenPwned check is off. This
+  is an Auth *setting*, not a SQL migration; needs the Supabase dashboard (Authentication → Policies)
+  or the Management API, not `apply_migration`.
+- **`auth_rls_initplan` (performance, 75 occurrences)** — RLS policies across nearly every table
+  (`students`, `groups`, `branches`, `halls`, `studio_settings`, `attendance`, `sales`, `expenses`,
+  `trash`, `calendar_events`, `subscription_plans`, `products`, `subscriptions`, `staff`,
+  `permission_locks`, `staff_invites`, `sms_categories`, `sms_templates`, `sms_audit_log`,
+  `sms_logs`) call `auth.<fn>()` directly in their `USING`/`WITH CHECK` clauses instead of
+  `(select auth.<fn>())`, forcing Postgres to re-evaluate the auth call per-row instead of once per
+  query. Real, previously-undiscovered, systemic performance issue directly relevant to this
+  session's earlier "why is everything slow" investigation — significant enough in scope (75
+  policies) to warrant its own dedicated pass rather than a quick fix here.
+- **6 unused indexes**, all on SMS-related tables (`sms_templates_org_idx`,
+  `sms_templates_category_idx`, `sms_audit_log_org_idx`, `sms_logs_template_idx`,
+  `sms_logs_org_timestamp_idx`, `sms_logs_org_id_idx`) — low priority, dropping them is safe but not
+  urgent.
+- Auth DB connections not configured as percentage-based — minor operational tuning, not acted on.
+
+Notes:
+- Both migrations were applied directly to production via MCP before being written to this repo;
+  they're now committed for history consistency with every other migration in this session.
+- No code changes needed for the fixed items — pure DB-side hardening, nothing for Vercel to
+  redeploy.
