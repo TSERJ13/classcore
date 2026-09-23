@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -30,9 +30,48 @@ import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { AppLogo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 
+// --- HOOKS ---
+
+/** Fires once when the wrapped element scrolls into view; drives the reveal-on-scroll animation. */
+function useInView<T extends HTMLElement>() {
+    const ref = useRef<T | null>(null);
+    const [inView, setInView] = useState(false);
+
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setInView(true);
+                    observer.disconnect();
+                }
+            },
+            { threshold: 0.15, rootMargin: "0px 0px -60px 0px" }
+        );
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
+    return { ref, inView };
+}
+
+function Reveal({ children, className, delay = 0 }: { children: React.ReactNode, className?: string, delay?: number }) {
+    const { ref, inView } = useInView<HTMLDivElement>();
+    return (
+        <div
+            ref={ref}
+            className={cn(!inView && "opacity-0", inView && "animate-reveal-up", className)}
+            style={inView ? { animationDelay: `${delay}ms` } : undefined}
+        >
+            {children}
+        </div>
+    );
+}
+
 // --- SUB-COMPONENTS ---
 
-function LiveStatBadge({ label, min, max, prefix = "", suffix = "", trend = "up" }: { label: string, min: number, max: number, prefix?: string, suffix?: string, trend?: 'up' | 'down' }) {
+function LiveStatBadge({ label, min, max, prefix = "", suffix = "", trend = "up", style }: { label: string, min: number, max: number, prefix?: string, suffix?: string, trend?: 'up' | 'down', style?: React.CSSProperties }) {
     const [value, setValue] = useState(min);
 
     useEffect(() => {
@@ -49,7 +88,10 @@ function LiveStatBadge({ label, min, max, prefix = "", suffix = "", trend = "up"
     }, [min, max, trend]);
 
     return (
-        <div className="bg-white/95 backdrop-blur-xl border border-indigo-100 px-5 py-3 rounded-2xl shadow-xl flex items-center gap-4 animate-float-slow group transition-all hover:scale-110">
+        <div
+            style={style}
+            className="bg-white/95 backdrop-blur-xl border border-white/60 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 animate-float-slow group transition-transform duration-150 hover:scale-110"
+        >
             <div className={cn(
                 "w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-sm",
                 trend === 'up' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100"
@@ -63,6 +105,97 @@ function LiveStatBadge({ label, min, max, prefix = "", suffix = "", trend = "up"
                 <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest mt-0.5">{label}</p>
             </div>
         </div>
+    );
+}
+
+/** The hero dashboard mockup: tilts in 3D toward the cursor, with badges parallaxing at a different depth. */
+function TiltDashboard({ l }: { l: any }) {
+    const [tilt, setTilt] = useState({ x: 0, y: 0 });
+    const [hovering, setHovering] = useState(false);
+
+    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const px = (e.clientX - rect.left) / rect.width - 0.5;
+        const py = (e.clientY - rect.top) / rect.height - 0.5;
+        setTilt({ x: py * -12, y: px * 16 });
+    }, []);
+
+    const handleLeave = useCallback(() => {
+        setTilt({ x: 0, y: 0 });
+        setHovering(false);
+    }, []);
+
+    return (
+        <div
+            className="relative [perspective:1600px]"
+            onMouseEnter={() => setHovering(true)}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleLeave}
+        >
+            <div
+                className="absolute top-[-6%] left-[-4%] md:top-[-10%] md:left-[-16%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-top-left"
+                style={{ transform: `translate3d(${tilt.y * -1.6}px, ${tilt.x * -1.6}px, 0)`, transition: 'transform 0.2s ease-out' }}
+            >
+                <LiveStatBadge label={l('მოსწავლე', 'Учеников', 'Students')} min={1240} max={1500} trend="up" />
+            </div>
+            <div
+                className="absolute top-[33%] right-[-4%] md:top-[38%] md:right-[-17%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-top-right"
+                style={{ transform: `translate3d(${tilt.y * 1.8}px, ${tilt.x * 1.8}px, 0)`, transition: 'transform 0.2s ease-out' }}
+            >
+                <LiveStatBadge label={l('დასწრება', 'Посещаемость', 'Attendance')} min={92} max={99} suffix="%" trend="down" />
+            </div>
+            <div
+                className="absolute bottom-[-6%] left-[3%] md:bottom-[-12%] md:left-[8%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-bottom-left"
+                style={{ transform: `translate3d(${tilt.y * -1.4}px, ${tilt.x * -1.4}px, 0)`, transition: 'transform 0.2s ease-out' }}
+            >
+                <LiveStatBadge label={l('შემოსავალი', 'Доход', 'Revenue')} min={4500} max={6000} prefix="+" suffix=" GEL" trend="up" />
+            </div>
+
+            <div
+                className="relative p-2 bg-white/10 rounded-3xl md:rounded-[3rem] border border-white/20 shadow-[0_60px_120px_-30px_rgba(79,70,229,0.55)]"
+                style={{
+                    transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${hovering ? 1.02 : 1})`,
+                    transition: 'transform 0.2s ease-out',
+                    transformStyle: 'preserve-3d'
+                }}
+            >
+                <div className="relative aspect-video rounded-2xl md:rounded-[2.5rem] overflow-hidden bg-slate-900">
+                    <Image src="/dashboard_hero_zoomed_out.png" alt="ClassCore Dashboard" fill className="object-cover" priority />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-indigo-950/20 via-transparent to-white/5 pointer-events-none" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/** CTA button whose glow follows the cursor -- a subtle "magnetic" feel without adding motion libraries. */
+function GlowButton({ href, children, variant = "solid", className }: { href: string, children: React.ReactNode, variant?: "solid" | "outline" | "light", className?: string }) {
+    const [pos, setPos] = useState({ x: 50, y: 50 });
+
+    const handleMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setPos({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
+    };
+
+    return (
+        <Link
+            href={href}
+            onMouseMove={handleMove}
+            style={{ '--gx': `${pos.x}%`, '--gy': `${pos.y}%` } as React.CSSProperties}
+            className={cn(
+                "group relative inline-flex items-center justify-center overflow-hidden px-10 py-5 md:px-12 md:py-6 rounded-2xl md:rounded-[2rem] font-black text-xs md:text-sm gap-3 uppercase tracking-widest transition-transform hover:-translate-y-1",
+                variant === "solid" && "bg-indigo-600 text-white shadow-2xl shadow-indigo-600/40",
+                variant === "outline" && "bg-white/5 text-white border-2 border-white/20 backdrop-blur-sm",
+                variant === "light" && "bg-white text-indigo-600 shadow-2xl",
+                className
+            )}
+        >
+            <span
+                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                style={{ background: `radial-gradient(circle at var(--gx) var(--gy), rgba(255,255,255,0.25), transparent 60%)` }}
+            />
+            <span className="relative z-10 flex items-center gap-3">{children}</span>
+        </Link>
     );
 }
 
@@ -125,14 +258,22 @@ function HighlightBillboard({ items }: { items: any[] }) {
     );
 }
 
-function FeatureCard({ icon: Icon, title, desc }: { icon: any, title: string, desc: string }) {
+function BentoCard({ icon: Icon, title, desc, big = false }: { icon: any, title: string, desc: string, big?: boolean }) {
     return (
-        <div className="group relative bg-white border-2 border-slate-100 rounded-[2rem] p-8 space-y-4 hover:border-indigo-200 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 hover:-translate-y-1">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+        <div className={cn(
+            "group relative bg-white border-2 border-slate-100 rounded-[2rem] p-8 space-y-4 hover:border-indigo-200 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 hover:-translate-y-1 overflow-hidden",
+            big && "lg:col-span-2 lg:row-span-1 flex flex-col justify-between"
+        )}>
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors relative z-10">
                 <Icon className="w-7 h-7" />
             </div>
-            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight leading-snug">{title}</h3>
-            <p className="text-sm text-slate-500 font-medium leading-relaxed">{desc}</p>
+            <div className="relative z-10 space-y-3">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight leading-snug">{title}</h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">{desc}</p>
+            </div>
+            {big && (
+                <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-indigo-50 opacity-60 group-hover:scale-125 transition-transform duration-500" />
+            )}
         </div>
     );
 }
@@ -308,11 +449,11 @@ export default function LandingPage() {
     ], [l]);
 
     const featureCards = useMemo(() => [
-        { icon: Users, title: l('მოსწავლეთა ბაზა', 'База учеников', 'Student Database'), desc: l('ყველა მოსწავლის ინფორმაცია, აბონემენტები და ისტორია — ერთ ადგილას.', 'Вся информация об учениках, абонементы и история — в одном месте.', 'All student info, subscriptions and history — in one place.') },
+        { icon: Users, title: l('მოსწავლეთა ბაზა', 'База учеников', 'Student Database'), desc: l('ყველა მოსწავლის ინფორმაცია, აბონემენტები და ისტორია — ერთ ადგილას.', 'Вся информация об учениках, абонементы и история — в одном месте.', 'All student info, subscriptions and history — in one place.'), big: true },
         { icon: Calendar, title: l('ჯგუფები და განრიგი', 'Группы и расписание', 'Groups & Schedule'), desc: l('ჯგუფების, დარბაზების და მასწავლებლების განრიგი ავტომატურად ეწყობა.', 'Расписание групп, залов и преподавателей формируется автоматически.', 'Groups, halls and teacher schedules are organized automatically.') },
         { icon: Wallet, title: l('ფინანსები', 'Финансы', 'Finances'), desc: l('შემოსავალი, ხარჯები და ხელფასები — ცოცხალი, ზუსტი სურათი ყოველდღე.', 'Доходы, расходы и зарплаты — точная картина каждый день.', 'Revenue, expenses and payroll — a live, accurate picture every day.') },
         { icon: MessageSquare, title: l('SMS შეტყობინებები', 'СМС-уведомления', 'SMS Notifications'), desc: l('ავტომატური შეხსენებები დასწრებაზე, გადახდაზე და დაბადების დღეზე.', 'Автоматические напоминания о посещении, оплате и днях рождения.', 'Automatic reminders for attendance, payment and birthdays.') },
-        { icon: Shield, title: l('წვდომის კონტროლი', 'Контроль доступа', 'Access Control'), desc: l('თითო თანამშრომელს — ზუსტად იმდენი წვდომა, რამდენიც სჭირდება.', 'У каждого сотрудника — ровно тот доступ, который нужен.', 'Every staff member gets exactly the access they need.') },
+        { icon: Shield, title: l('წვდომის კონტროლი', 'Контроль доступа', 'Access Control'), desc: l('თითო თანამშრომელს — ზუსტად იმდენი წვდომა, რამდენიც სჭირდება.', 'У каждого сотрудника — ровно тот доступ, который нужен.', 'Every staff member gets exactly the access they need.'), big: true },
         { icon: Smartphone, title: l('ყველგან ხელმისაწვდომი', 'Доступно везде', 'Works Everywhere'), desc: l('კომპიუტერიდან, ტელეფონიდან თუ ტაბლეტიდან — ერთი და იგივე გამოცდილება.', 'С компьютера, телефона или планшета — одинаковый опыт.', 'From computer, phone or tablet — the same experience.') },
     ], [l]);
 
@@ -332,21 +473,21 @@ export default function LandingPage() {
 
     return (
         <div className="min-h-screen bg-white text-slate-900 scroll-smooth selection:bg-indigo-500 selection:text-white">
-            {/* Header */}
-            <header className={cn(
-                "fixed top-0 inset-x-0 z-[110] transition-all duration-500 px-4",
-                scrolled ? "bg-white/90 backdrop-blur-2xl border-b border-indigo-50/50 shadow-xl py-3" : "bg-white/80 backdrop-blur-xl py-6"
-            )}>
+            {/* Floating pill header */}
+            <header className="fixed top-0 inset-x-0 z-[110] px-4 pt-3 md:pt-5">
                 <div style={{ height: 'env(safe-area-inset-top, 0px)' }} />
-                <div className="max-w-7xl mx-auto flex items-center justify-between">
+                <div className={cn(
+                    "max-w-6xl mx-auto flex items-center justify-between transition-all duration-500 rounded-2xl md:rounded-full px-4 md:px-6",
+                    scrolled ? "bg-white/90 backdrop-blur-2xl shadow-xl border border-slate-100 py-2.5" : "bg-white/70 backdrop-blur-xl border border-white/60 py-3.5"
+                )}>
                     <Link href="/" className="flex items-center gap-1 md:gap-1.5 shrink-0">
-                        <AppLogo className="w-5 h-5 md:w-10 md:h-10 rounded-full" transparent />
-                        <span className="text-[15px] md:text-xl font-black tracking-tight">ClassCore</span>
+                        <AppLogo className="w-5 h-5 md:w-9 md:h-9 rounded-full" transparent />
+                        <span className="text-[15px] md:text-lg font-black tracking-tight">ClassCore</span>
                     </Link>
 
-                    <nav className="hidden lg:flex items-center gap-12">
+                    <nav className="hidden lg:flex items-center gap-10">
                         {['features', 'pricing', 'faq', 'about', 'contact'].map(id => (
-                            <a key={id} href={`#${id}`} className="text-xs font-black text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-[0.2em]">
+                            <a key={id} href={`#${id}`} className="text-xs font-black text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-[0.15em]">
                                 {l(
                                     id === 'features' ? 'ფუნქციები' : id === 'pricing' ? 'ფასები' : id === 'faq' ? 'კითხვები' : id === 'about' ? 'ჩვენს შესახებ' : 'კონტაქტი',
                                     id === 'features' ? 'Функции' : id === 'pricing' ? 'Цены' : id === 'faq' ? 'Вопросы' : id === 'about' ? 'О нас' : 'Контакт',
@@ -356,8 +497,8 @@ export default function LandingPage() {
                         ))}
                     </nav>
 
-                    <div className="flex items-center gap-2 md:gap-4 shrink-0">
-                        <Link href={isLoggedIn ? "/dashboard" : "/login"} className="h-8 md:h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-[9px] md:text-[13px] text-white font-black px-3 md:px-8 rounded-lg md:rounded-2xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-wide whitespace-nowrap">
+                    <div className="flex items-center gap-2 md:gap-3 shrink-0">
+                        <Link href={isLoggedIn ? "/dashboard" : "/login"} className="h-8 md:h-10 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-[9px] md:text-[12px] text-white font-black px-3 md:px-6 rounded-lg md:rounded-full shadow-lg shadow-indigo-600/20 transition-all uppercase tracking-wide whitespace-nowrap">
                             {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('შესვლა', 'Войти', 'Login')}
                         </Link>
                         <div className="shrink-0 min-w-[32px] md:min-w-[40px]">
@@ -368,92 +509,106 @@ export default function LandingPage() {
             </header>
 
             <main>
-                {/* Hero */}
-                <section className="pt-48 pb-20 lg:pt-64 lg:pb-40 px-6 bg-slate-50 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.05),transparent_70%)]" />
-                    <div className="max-w-7xl mx-auto grid lg:grid-cols-[1fr_0.9fr] gap-32 items-center relative z-10">
+                {/* Hero — dark, gradient-mesh, 3D tilt dashboard */}
+                <section className="relative pt-40 pb-28 lg:pt-56 lg:pb-40 px-6 bg-slate-950 overflow-hidden">
+                    {/* gradient mesh blobs */}
+                    <div className="absolute inset-0 pointer-events-none">
+                        <div className="absolute top-[-20%] right-[-10%] w-[50rem] h-[50rem] rounded-full bg-indigo-600/30 blur-[120px] animate-blob-drift" />
+                        <div className="absolute bottom-[-25%] left-[-15%] w-[45rem] h-[45rem] rounded-full bg-violet-600/20 blur-[120px] animate-blob-drift-slow" />
+                        <div className="absolute top-[20%] left-[30%] w-[30rem] h-[30rem] rounded-full bg-fuchsia-500/10 blur-[100px] animate-blob-drift" />
+                    </div>
+                    <div className="absolute inset-0 opacity-[0.05] bg-grain pointer-events-none" />
+
+                    <div className="max-w-7xl mx-auto grid lg:grid-cols-[1fr_0.9fr] gap-24 lg:gap-32 items-center relative z-10">
                         <div className="space-y-10 text-center lg:text-left">
-                            <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100">
-                                <Sparkles className="w-3.5 h-3.5" />
-                                {l('შექმნილია საქართველოში, სტუდიებისთვის', 'Создано в Грузии, для студий', 'Made in Georgia, for studios')}
-                            </div>
-                            <h1 className="text-3xl md:text-6xl lg:text-7xl font-black text-slate-900 leading-[1.1] tracking-tight uppercase">
-                                {l('მართეთ სტუდია\nავტოპილოტზე', 'Управляйте студией\nна автопилоте', 'Manage Your\nStudio on Autopilot')}
-                            </h1>
-                            <p className="text-lg text-slate-500 font-medium max-w-xl mx-auto lg:mx-0">
-                                {l('უნივერსალური პლატფორმა, რომელიც აერთიანებს მოსწავლეებს, ჯგუფებს, ფინანსებსა და SMS შეტყობინებებს ერთ სივრცეში.', 'Универсальная платформа, объединяющая учеников, группы, финансы и СМС-уведомления в одном месте.', 'The universal platform that brings students, groups, finances and SMS notifications together in one place.')}
-                            </p>
-                            <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4">
-                                <Link
-                                    href={isLoggedIn ? "/dashboard" : "/registration"}
-                                    className="inline-flex items-center justify-center px-10 py-5 md:px-12 md:py-6 bg-indigo-600 text-white rounded-2xl md:rounded-[2rem] font-black text-xs md:text-sm shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest"
-                                >
-                                    {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაიწყე უფასოდ', 'Начать бесплатно', 'Start for Free')} <ArrowRight className="w-5 h-5" />
-                                </Link>
-                                <a
-                                    href="#features"
-                                    className="inline-flex items-center justify-center px-10 py-5 md:px-12 md:py-6 bg-white text-slate-900 border-2 border-slate-100 rounded-2xl md:rounded-[2rem] font-black text-xs md:text-sm hover:border-indigo-200 hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest"
-                                >
-                                    {l('გაეცანი ფუნქციებს', 'Смотреть функции', 'See Features')}
-                                </a>
-                            </div>
-                            <div className="flex items-center justify-center lg:justify-start gap-8 pt-4 text-slate-400">
-                                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
-                                    <Clock className="w-4 h-4 text-indigo-500" /> {l('სწრაფი დაწყება', 'Быстрый старт', 'Quick Setup')}
+                            <Reveal>
+                                <div className="inline-flex items-center gap-2 bg-white/10 text-white px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/15 backdrop-blur-sm">
+                                    <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
+                                    {l('შექმნილია საქართველოში, სტუდიებისთვის', 'Создано в Грузии, для студий', 'Made in Georgia, for studios')}
                                 </div>
-                                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
-                                    <Shield className="w-4 h-4 text-indigo-500" /> {l('უსაფრთხო მონაცემები', 'Безопасные данные', 'Secure Data')}
+                            </Reveal>
+                            <Reveal delay={80}>
+                                <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white leading-[1.05] tracking-tight uppercase">
+                                    {l('მართეთ სტუდია\nავტოპილოტზე', 'Управляйте студией\nна автопилоте', 'Manage Your\nStudio on Autopilot')}
+                                </h1>
+                            </Reveal>
+                            <Reveal delay={160}>
+                                <p className="text-lg text-slate-400 font-medium max-w-xl mx-auto lg:mx-0">
+                                    {l('უნივერსალური პლატფორმა, რომელიც აერთიანებს მოსწავლეებს, ჯგუფებს, ფინანსებსა და SMS შეტყობინებებს ერთ სივრცეში.', 'Универсальная платформа, объединяющая учеников, группы, финансы и СМС-уведомления в одном месте.', 'The universal platform that brings students, groups, finances and SMS notifications together in one place.')}
+                                </p>
+                            </Reveal>
+                            <Reveal delay={240}>
+                                <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4">
+                                    <GlowButton href={isLoggedIn ? "/dashboard" : "/registration"} variant="solid">
+                                        {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაიწყე უფასოდ', 'Начать бесплатно', 'Start for Free')} <ArrowRight className="w-5 h-5" />
+                                    </GlowButton>
+                                    <a
+                                        href="#features"
+                                        className="inline-flex items-center justify-center px-10 py-5 md:px-12 md:py-6 bg-white/5 text-white border-2 border-white/15 rounded-2xl md:rounded-[2rem] font-black text-xs md:text-sm hover:border-white/30 hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest backdrop-blur-sm"
+                                    >
+                                        {l('გაეცანი ფუნქციებს', 'Смотреть функции', 'See Features')}
+                                    </a>
                                 </div>
-                            </div>
+                            </Reveal>
+                            <Reveal delay={320}>
+                                <div className="flex items-center justify-center lg:justify-start gap-8 pt-2 text-slate-500">
+                                    <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
+                                        <Clock className="w-4 h-4 text-indigo-400" /> {l('სწრაფი დაწყება', 'Быстрый старт', 'Quick Setup')}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
+                                        <Shield className="w-4 h-4 text-indigo-400" /> {l('უსაფრთხო მონაცემები', 'Безопасные данные', 'Secure Data')}
+                                    </div>
+                                </div>
+                            </Reveal>
                         </div>
 
-                        <div className="relative">
-                            <div className="absolute top-[-5%] left-[-2%] md:top-[-10%] md:left-[-15%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-top-left transition-all duration-700">
-                                <LiveStatBadge label={l('მოსწავლე', 'Учеников', 'Students')} min={1240} max={1500} trend="up" />
-                            </div>
-                            <div className="absolute top-[35%] right-[-2%] md:top-[40%] md:right-[-15%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-top-right transition-all duration-700">
-                                <LiveStatBadge label={l('დასწრება', 'Посещаемость', 'Attendance')} min={92} max={99} suffix="%" trend="down" />
-                            </div>
-                            <div className="absolute bottom-[-5%] left-[5%] md:bottom-[-10%] md:left-[10%] z-30 scale-[0.6] sm:scale-[0.8] lg:scale-100 origin-bottom-left transition-all duration-700">
-                                <LiveStatBadge label={l('შემოსავალი', 'Доход', 'Revenue')} min={4500} max={6000} prefix="+" suffix=" GEL" trend="up" />
-                            </div>
-                            <div className="relative p-2 bg-white rounded-3xl md:rounded-[3rem] border-2 border-indigo-100 shadow-2xl md:rotate-1">
-                                <div className="relative aspect-video rounded-2xl md:rounded-[2.5rem] overflow-hidden bg-slate-900">
-                                    <Image src="/dashboard_hero_zoomed_out.png" alt="Hero" fill className="object-cover" priority />
-                                </div>
-                            </div>
+                        <Reveal delay={200}>
+                            <TiltDashboard l={l} />
+                        </Reveal>
+                    </div>
+
+                    {/* scroll hint */}
+                    <div className="hidden md:flex absolute bottom-8 inset-x-0 justify-center pointer-events-none">
+                        <div className="animate-scroll-hint">
+                            <ChevronDown className="w-5 h-5 text-white/40" />
                         </div>
                     </div>
                 </section>
 
-                {/* Features grid */}
+                {/* Features — bento grid */}
                 <section id="features" className="py-32 bg-white">
                     <div className="max-w-7xl mx-auto px-6">
-                        <div className="text-center space-y-4 mb-20">
+                        <Reveal className="text-center space-y-4 mb-20">
                             <h2 className="text-4xl lg:text-5xl font-black text-slate-900 uppercase tracking-tight">{l('პლატფორმის შესაძლებლობები', 'Возможности платформы', 'Platform Features')}</h2>
                             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">{l('ყველა ინსტრუმენტი ერთ სივრცეში', 'Все инструменты в одном месте', 'All tools in one place')}</p>
-                        </div>
+                        </Reveal>
 
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-24">
                             {featureCards.map((f, i) => (
-                                <FeatureCard key={i} icon={f.icon} title={f.title} desc={f.desc} />
+                                <Reveal key={i} delay={i * 60} className={f.big ? "lg:col-span-2" : ""}>
+                                    <BentoCard icon={f.icon} title={f.title} desc={f.desc} big={f.big} />
+                                </Reveal>
                             ))}
                         </div>
 
-                        <HighlightBillboard items={galleryHighlights} />
+                        <Reveal>
+                            <HighlightBillboard items={galleryHighlights} />
+                        </Reveal>
                     </div>
                 </section>
 
                 {/* How it works */}
                 <section className="py-32 bg-slate-50 px-6">
                     <div className="max-w-7xl mx-auto">
-                        <div className="text-center space-y-4 mb-20">
+                        <Reveal className="text-center space-y-4 mb-20">
                             <h2 className="text-4xl lg:text-5xl font-black text-slate-900 uppercase tracking-tight">{l('როგორ მუშაობს', 'Как это работает', 'How It Works')}</h2>
                             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">{l('სამი ნაბიჯი და მზადაა', 'Три шага и готово', 'Three steps and you\'re ready')}</p>
-                        </div>
+                        </Reveal>
                         <div className="grid md:grid-cols-3 gap-16">
                             {steps.map((s, i) => (
-                                <StepCard key={i} number={s.number} title={s.title} desc={s.desc} />
+                                <Reveal key={i} delay={i * 100}>
+                                    <StepCard number={s.number} title={s.title} desc={s.desc} />
+                                </Reveal>
                             ))}
                         </div>
                     </div>
@@ -462,8 +617,9 @@ export default function LandingPage() {
                 {/* Pricing */}
                 <section id="pricing" className="py-32 bg-slate-950 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.1),transparent_50%)]" />
+                    <div className="absolute inset-0 opacity-[0.04] bg-grain pointer-events-none" />
                     <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-20 items-center relative z-10">
-                        <div className="space-y-8">
+                        <Reveal className="space-y-8">
                             <h2 className="text-4xl lg:text-6xl font-black text-white uppercase tracking-tight leading-none">{l('მარტივი და\nგამჭვირვალე ფასი', 'Простая и\nпрозрачная цена', 'Simple and\nTransparent Pricing')}</h2>
                             <p className="text-xl text-slate-400 font-medium">{l('მოიცავს ყველა სერვისს ყოველგვარი ფარული ხარჯების გარეშე.', 'Включает все услуги без скрытых платежей.', 'Includes all services without any hidden fees.')}</p>
                             <div className="grid grid-cols-2 gap-6">
@@ -479,9 +635,9 @@ export default function LandingPage() {
                                     </div>
                                 ))}
                             </div>
-                        </div>
+                        </Reveal>
 
-                        <div className="bg-white p-12 lg:p-16 rounded-[4rem] text-center space-y-10 shadow-[0_40px_100px_-20px_rgba(99,102,241,0.5)]">
+                        <Reveal delay={120} className="bg-white p-12 lg:p-16 rounded-[4rem] text-center space-y-10 shadow-[0_40px_100px_-20px_rgba(99,102,241,0.5)]">
                             <h3 className="text-xl font-black text-indigo-600 uppercase tracking-[0.3em]">{l('პრემიუმ პაკეტი', 'Премиум пакет', 'Premium Plan')}</h3>
                             <div className="flex items-baseline justify-center gap-2">
                                 <span className="text-8xl font-black text-slate-900 tracking-tighter">49</span>
@@ -506,17 +662,17 @@ export default function LandingPage() {
                             >
                                 {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაწყება', 'Начать', 'Start Now')}
                             </Link>
-                        </div>
+                        </Reveal>
                     </div>
                 </section>
 
                 {/* FAQ */}
                 <section id="faq" className="py-32 bg-white px-6">
                     <div className="max-w-4xl mx-auto">
-                        <div className="text-center space-y-4 mb-16">
+                        <Reveal className="text-center space-y-4 mb-16">
                             <h2 className="text-4xl lg:text-5xl font-black text-slate-900 uppercase tracking-tight">{l('ხშირად დასმული კითხვები', 'Часто задаваемые вопросы', 'Frequently Asked Questions')}</h2>
-                        </div>
-                        <div className="bg-slate-50 rounded-[3rem] px-8 md:px-14 border-2 border-slate-100">
+                        </Reveal>
+                        <Reveal delay={100} className="bg-slate-50 rounded-[3rem] px-8 md:px-14 border-2 border-slate-100">
                             {faqs.map((f, i) => (
                                 <FaqItem
                                     key={i}
@@ -526,13 +682,13 @@ export default function LandingPage() {
                                     onToggle={() => setOpenFaq(openFaq === i ? null : i)}
                                 />
                             ))}
-                        </div>
+                        </Reveal>
                     </div>
                 </section>
 
                 {/* About */}
                 <section id="about" className="py-32 bg-slate-50 px-6">
-                    <div className="max-w-4xl mx-auto space-y-12 text-center">
+                    <Reveal className="max-w-4xl mx-auto space-y-12 text-center">
                         <div className="w-24 h-24 bg-indigo-50 rounded-[2rem] flex items-center justify-center mx-auto text-indigo-600 shadow-inner">
                             <Shield className="w-12 h-12" />
                         </div>
@@ -540,13 +696,13 @@ export default function LandingPage() {
                         <p className="text-xl md:text-2xl text-slate-500 font-medium leading-relaxed">
                             {l('ClassCore არის სტუდიების მართვის ინოვაციური პლატფორმა, რომელიც შექმნილია საქართველოში, ადგილობრივი ბიზნესის სპეციფიკის გათვალისწინებით. ჩვენი მიზანია ტექნოლოგიების მეშვეობით გავამარტივოთ ყოველდღიური მენეჯმენტი.', 'ClassCore — это инновационная платформа для управления студиями, созданная в Грузии с учетом специфики местного бизнеса. Наша цель — упростить ежедневное управление с помощью технологий.', 'ClassCore is an innovative studio management platform, created in Georgia with local business specifics in mind. Our goal is to simplify daily management through technology.')}
                         </p>
-                    </div>
+                    </Reveal>
                 </section>
 
                 {/* Contact */}
                 <section id="contact" className="py-32 bg-white">
                     <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-[0.8fr_1.2fr] gap-20 items-center">
-                        <div className="space-y-10">
+                        <Reveal className="space-y-10">
                             <h2 className="text-4xl md:text-6xl font-black text-slate-900 uppercase tracking-tight">{l('მოგვწერეთ', 'Напишите нам', 'Contact Us')}</h2>
                             <p className="text-lg text-slate-500 font-medium">{l('დაგვიკავშირდით ნებისმიერ დროს, ჩვენი გუნდი მზად არის დაგეხმაროთ.', 'Пишите нам в любое время, наша команда готова помочь.', 'Contact us anytime, our team is ready to help.')}</p>
                             <div className="space-y-6">
@@ -559,25 +715,25 @@ export default function LandingPage() {
                                     <div className="text-sm font-bold">+995 555 13 00 13</div>
                                 </div>
                             </div>
-                        </div>
-                        <ContactForm l={l} />
+                        </Reveal>
+                        <Reveal delay={100}>
+                            <ContactForm l={l} />
+                        </Reveal>
                     </div>
                 </section>
 
                 {/* Final CTA */}
                 <section className="py-28 px-6 bg-indigo-600 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.1),transparent_60%)]" />
-                    <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.15),transparent_60%)]" />
+                    <div className="absolute inset-0 opacity-[0.05] bg-grain pointer-events-none" />
+                    <Reveal className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
                         <h2 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tight leading-tight">
                             {l('მზად ხართ სტუდიის\nმართვის გასამარტივებლად?', 'Готовы упростить\nуправление студией?', 'Ready to Simplify\nYour Studio?')}
                         </h2>
-                        <Link
-                            href={isLoggedIn ? "/dashboard" : "/registration"}
-                            className="inline-flex items-center justify-center px-12 py-6 bg-white text-indigo-600 rounded-[2rem] font-black text-sm shadow-2xl hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest"
-                        >
+                        <GlowButton href={isLoggedIn ? "/dashboard" : "/registration"} variant="light">
                             {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაიწყე უფასოდ', 'Начать бесплатно', 'Start for Free')} <ArrowRight className="w-5 h-5" />
-                        </Link>
-                    </div>
+                        </GlowButton>
+                    </Reveal>
                 </section>
             </main>
 
