@@ -167,7 +167,28 @@ function StudentsPageInner() {
     const serverRows: StudentRow[] = useMemo(() => {
         const raw = data?.pages.flatMap(p => p.rows) ?? [];
         if (raw.length === 0) return [];
-        return [...raw].sort((a, b) => compareStudents(a, b, sortBy));
+        let allSubs: any = null;
+        try {
+            allSubs = getSubscriptions() || {};
+        } catch {
+            allSubs = {};
+        }
+        const enriched = raw.map(st => {
+            if (st.subscription) return st;
+            const studentSubs = (allSubs as any)[st.id] || [];
+            const activeSub = studentSubs.find((sub: any) => sub.status === 'active') || studentSubs[0];
+            if (!activeSub) return st;
+            return {
+                ...st,
+                subscription: {
+                    status: activeSub.status,
+                    sessions_total: activeSub.sessions_total ?? null,
+                    sessions_used: activeSub.sessions_used ?? 0,
+                    expires_at: activeSub.expires_at ?? null,
+                }
+            };
+        });
+        return [...enriched].sort((a, b) => compareStudents(a, b, sortBy));
     }, [data, sortBy]);
 
     const rows: StudentRow[] = serverRows.length > 0 ? serverRows : filteredLocalStudents;
@@ -488,6 +509,11 @@ function StudentsPageInner() {
                                                     );
                                                 })()}
                                             </div>
+                                        </div>
+                                    ) : sub && sub.status === 'active' ? (
+                                        <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 font-bold">
+                                            <span>{t.active || 'აქტიური'}</span>
+                                            {sub.expires_at && <span className="text-muted font-normal">({formatDate(sub.expires_at)})</span>}
                                         </div>
                                     ) : (
                                         <span className="text-[10px] text-muted font-bold italic opacity-40">{t.noSubscriptionShort}</span>
