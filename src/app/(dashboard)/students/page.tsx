@@ -43,6 +43,26 @@ const FemaleIcon = (props: any) => (
     </svg>
 );
 
+function compareStudents(a: StudentRow, b: StudentRow, sortBy: string): number {
+    if (sortBy === 'first_name') {
+        const fa = (a.first_name || a.full_name || '').toLowerCase();
+        const fb = (b.first_name || b.full_name || '').toLowerCase();
+        const cmp = fa.localeCompare(fb);
+        if (cmp !== 0) return cmp;
+    } else if (sortBy === 'last_name') {
+        const la = (a.last_name || a.full_name || '').toLowerCase();
+        const lb = (b.last_name || b.full_name || '').toLowerCase();
+        const cmp = la.localeCompare(lb);
+        if (cmp !== 0) return cmp;
+    } else if (sortBy === 'gender') {
+        const ga = String(a.gender || '').toLowerCase();
+        const gb = String(b.gender || '').toLowerCase();
+        const cmp = ga.localeCompare(gb);
+        if (cmp !== 0) return cmp;
+    }
+    return (a.full_name || '').toLowerCase().localeCompare((b.full_name || '').toLowerCase());
+}
+
 function StudentsPageInner() {
     const { t } = useT();
     const { profile } = useUser();
@@ -141,10 +161,15 @@ function StudentsPageInner() {
         if (groupFilter) {
             list = list.filter(s => Array.isArray(s.enrolled_group_ids) && (s.enrolled_group_ids as string[]).includes(groupFilter));
         }
-        return list;
-    }, [localStudents, search, statusFilter, genderFilter, groupFilter]);
+        return [...list].sort((a, b) => compareStudents(a, b, sortBy));
+    }, [localStudents, search, statusFilter, genderFilter, groupFilter, sortBy]);
 
-    const serverRows: StudentRow[] = data?.pages.flatMap(p => p.rows) ?? [];
+    const serverRows: StudentRow[] = useMemo(() => {
+        const raw = data?.pages.flatMap(p => p.rows) ?? [];
+        if (raw.length === 0) return [];
+        return [...raw].sort((a, b) => compareStudents(a, b, sortBy));
+    }, [data, sortBy]);
+
     const rows: StudentRow[] = serverRows.length > 0 ? serverRows : filteredLocalStudents;
     const total = data?.pages[0]?.total ?? (serverRows.length || filteredLocalStudents.length);
 

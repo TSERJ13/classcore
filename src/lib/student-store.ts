@@ -218,8 +218,10 @@ export function getStudents(): Student[] {
             }
         }
 
-        // Filter out deleted IDs
-        const nonDeleted = finalStudents.filter(s => !deletedIds.has(s.id));
+        // Filter out deleted IDs and sort consistently alphabetically
+        const nonDeleted = finalStudents
+            .filter(s => !deletedIds.has(s.id))
+            .sort((a, b) => (a.full_name || '').toLowerCase().localeCompare((b.full_name || '').toLowerCase()));
 
         // 🚨 Filter by Active Branch
         // If activeBranch is 'all' (Manager view), show everyone.
