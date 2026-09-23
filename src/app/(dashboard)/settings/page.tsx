@@ -231,7 +231,18 @@ export default function SettingsPage() {
         if (editingStaffId && editingStaffId !== prevEditingStaffIdRef.current) {
             const member = settings.staff?.find((s: any) => s.id === editingStaffId);
             if (member) {
-                setEditingStaffData(JSON.parse(JSON.stringify(member))); // Deep clone
+                // 🛠️ FIX: pre-filling this field with the staff member's real,
+                // already-stored password meant EVERY save of THIS modal
+                // (role, permissions, phone — anything) resent that same old
+                // value as `password`, and updateStaffAction's password-policy
+                // check re-validates it unconditionally. A password that was
+                // valid when originally set (or predates the policy) but
+                // doesn't meet today's rules made the whole save throw and
+                // roll back — nothing persisted, not just the password.
+                // Leaving it blank here, and stripping it from the save
+                // payload below when left blank, means only an intentionally
+                // typed new password is ever sent.
+                setEditingStaffData({ ...JSON.parse(JSON.stringify(member)), password: '' });
             }
         } else if (!editingStaffId) {
             setEditingStaffData(null);
@@ -1357,7 +1368,17 @@ export default function SettingsPage() {
                                 // while nothing was actually saved.
                                 setStaffSaving(true);
                                 try {
-                                    await updateStaff(member.id, member);
+                                    // 🛠️ FIX: don't send `password` at all when the
+                                    // field was left blank (see the comment on
+                                    // this field's initial value above) — an
+                                    // empty string would still count as "a
+                                    // password was supplied" server-side,
+                                    // either re-triggering the policy check
+                                    // for no reason or, worse, clearing the
+                                    // stored password entirely.
+                                    const payload = { ...member };
+                                    if (!payload.password) delete payload.password;
+                                    await updateStaff(member.id, payload);
                                     setEditingStaffId(null);
                                 } catch {
                                     // Error already surfaced via addNotification inside updateStaff().
