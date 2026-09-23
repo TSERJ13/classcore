@@ -20,6 +20,7 @@ import { AppLogo } from '@/components/ui/Logo';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { getPermissionLocksAction, setPermissionLockAction, clearPermissionLockAction } from '@/app/actions/permission-locks';
 import type { PermissionLock } from '@/lib/permissions/resolve';
+import { validatePasswordPolicy, passwordPolicyMessage } from '@/lib/password-policy';
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
@@ -1359,7 +1360,20 @@ export default function SettingsPage() {
                                 setEditingStaffData({ ...member, ...patch });
                             };
 
+                            // 🛠️ FIX: this modal had no client-side password
+                            // check at all — a weak new password reached the
+                            // server, updateStaffAction's assertPasswordPolicy
+                            // rejected it, and Next.js Server Actions redact
+                            // the real thrown message in production, so all
+                            // the owner ever saw was a bare 500 with no
+                            // indication of what was wrong or how to fix it.
+                            // Validate the same policy here first, so a weak
+                            // password never leaves the browser — shown
+                            // inline, and blocks Save before any request.
+                            const passwordCheck = member.password ? validatePasswordPolicy(member.password) : null;
+
                             const handleSave = async () => {
+                                if (passwordCheck && !passwordCheck.valid) return;
                                 // Await the write and only close on success —
                                 // this used to close immediately after firing
                                 // an unawaited updateStaffAction(), so a
@@ -1492,7 +1506,11 @@ export default function SettingsPage() {
                                                     {showStaffPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
                                                 </button>
                                             </div>
-                                            {member.password && (
+                                            {member.password && passwordCheck && !passwordCheck.valid ? (
+                                                <p className="text-[9px] text-rose-500 font-bold ml-1">
+                                                    {passwordPolicyMessage(passwordCheck.reason, l)}
+                                                </p>
+                                            ) : member.password && (
                                                 <p className="text-[9px] text-muted/50 font-medium ml-1">
                                                     {l('მინ. 8 სიმბოლო, 1 დიდი ასო, 1 ციფრი, 1 სპეც. სიმბოლო', 'Мин. 8 символов, 1 заглавная, 1 цифра, 1 спец. символ', 'Min. 8 chars, 1 uppercase, 1 digit, 1 special char')}
                                                 </p>
@@ -1652,7 +1670,7 @@ export default function SettingsPage() {
                                         </button>
                                         <button
                                             onClick={handleSave}
-                                            disabled={staffSaving}
+                                            disabled={staffSaving || !!(passwordCheck && !passwordCheck.valid)}
                                             className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2 uppercase disabled:opacity-50"
                                         >
                                             {staffSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
