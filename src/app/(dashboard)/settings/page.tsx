@@ -217,6 +217,7 @@ export default function SettingsPage() {
     const [lockValue, setLockValue] = useState(false);
     const [lockSaving, setLockSaving] = useState(false);
     const [staffSaving, setStaffSaving] = useState(false);
+    const [staffSaved, setStaffSaved] = useState(false);
     const [transferTargetId, setTransferTargetId] = useState('');
     const [transferring, setTransferring] = useState(false);
 
@@ -1393,7 +1394,17 @@ export default function SettingsPage() {
                                     const payload = { ...member };
                                     if (!payload.password) delete payload.password;
                                     await updateStaff(member.id, payload);
-                                    setEditingStaffId(null);
+                                    // Brief "Saved" confirmation on the button
+                                    // itself before closing, so a successful
+                                    // save is visibly acknowledged instead of
+                                    // the modal just vanishing.
+                                    setStaffSaving(false);
+                                    setStaffSaved(true);
+                                    setTimeout(() => {
+                                        setStaffSaved(false);
+                                        setEditingStaffId(null);
+                                    }, 900);
+                                    return;
                                 } catch {
                                     // Error already surfaced via addNotification inside updateStaff().
                                 } finally {
@@ -1670,11 +1681,20 @@ export default function SettingsPage() {
                                         </button>
                                         <button
                                             onClick={handleSave}
-                                            disabled={staffSaving || !!(passwordCheck && !passwordCheck.valid)}
-                                            className="flex-[2] py-4 bg-[#6d28d9] text-white text-xs font-black rounded-2xl shadow-xl shadow-violet-500/30 active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2 uppercase disabled:opacity-50"
+                                            disabled={staffSaving || staffSaved || !!(passwordCheck && !passwordCheck.valid)}
+                                            className={cn(
+                                                "flex-[2] py-4 text-white text-xs font-black rounded-2xl shadow-xl active:scale-95 transition-all tracking-widest flex items-center justify-center gap-2 uppercase disabled:opacity-50",
+                                                staffSaved ? "bg-emerald-500 shadow-emerald-500/30" : "bg-[#6d28d9] shadow-violet-500/30"
+                                            )}
                                         >
-                                            {staffSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
-                                            {l('შენახვა', 'Сохранить', 'Save')}
+                                            {staffSaved ? (
+                                                <Check className="w-4 h-4" />
+                                            ) : staffSaving ? (
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            ) : (
+                                                <Save className="w-4 h-4" />
+                                            )}
+                                            {staffSaved ? l('შენახულია', 'Сохранено', 'Saved') : l('შენახვა', 'Сохранить', 'Save')}
                                         </button>
                                     </div>
                                 </>
