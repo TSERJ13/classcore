@@ -2564,3 +2564,60 @@ Notes:
   protection` (an Auth dashboard setting, not a migration), the 7 anon-callable `SECURITY DEFINER`
   RPCs (low risk — each internally checks `auth.uid()`/`org_id` and rejects unauthenticated calls),
   6 unused SMS-table indexes, and Auth DB connections not being percentage-based.
+
+### Closed out the remaining low-priority advisor items + added missing FKs
+
+Owner asked to finish everything still open from the audit above rather than leave it as "low
+priority, not acted on."
+
+- **Revoked `anon` EXECUTE on the 7 SECURITY DEFINER RPCs** (`attendance_daily_counts`,
+  `checkin_deduct_session`, `checkin_refund_session`, `expire_overdue_subscriptions`,
+  `get_dashboard_stats`, `mark_attendance_and_deduct_session`, `search_students`). Confirmed via
+  grep that every real call site goes through a Server Action using either a real authenticated
+  session or the service-role client — never the anon key — so this closes an unused door with
+  zero effect on the app. `authenticated` keeps EXECUTE (the real-auth Server Action path needs it).
+- **Dropped the 6 unused SMS-table indexes** (`sms_templates_org_idx`,
+  `sms_templates_category_idx`, `sms_audit_log_org_idx`, `sms_logs_template_idx`,
+  `sms_logs_org_timestamp_idx`, `sms_logs_org_id_idx`).
+- **`auth_leaked_password_protection`**: could NOT fix this one directly — it's a Supabase Auth
+  dashboard toggle (Authentication → Sign In / Providers → Password), not something reachable via
+  SQL migration or any MCP tool available in this session. Left for the owner to flip manually.
+- **Added missing foreign keys, and in doing so found a real live bug**: checked every
+  entity-reference column in the schema for orphaned rows before adding any constraint. Found:
+  **13 `subscriptions` rows and 5 `attendance` rows already point at student ids that don't exist
+  anymore** — root cause confirmed in `src/app/actions/students.ts`'s `deleteStudentAction`: it
+  hard-deletes the `students` row (`.from('students').delete()`) but never cleans up that
+  student's subscriptions or attendance history, so they're left as permanent dangling zombie
+  rows. Also found several of those `subscriptions.student_id` values are literally two student
+  ids joined with a comma (e.g. `"MU7698233, EA8819242"`) — looks like couple/pair subscriptions
+  were stuffed into a single-student text column instead of a proper two-student design, which is
+  also why they could never have matched a real student id even before either student was
+  deleted. One `subscription_plans` row also had `group_id = ''` (empty string) instead of `NULL`
+  for a group-less "One Time" plan — corrected as part of this migration.
+  - Added FKs with `ON DELETE SET NULL` (never blocks or cascades — the referencing row survives,
+    just with the dangling pointer cleared) for: `attendance.student_id`/`attendance.group_id`,
+    `sales.student_id`, `calendar_events.group_id`/`calendar_events.hall_id`, `groups.coach_id`,
+    `subscriptions.student_id`/`subscriptions.plan_id`, `subscription_plans.group_id`. The two
+    columns with pre-existing orphans (`attendance.student_id`, `subscriptions.student_id`) were
+    added as `NOT VALID` so the migration doesn't touch or fail on that existing bad data — new
+    writes are enforced immediately, the old orphaned rows are simply left as they were.
+  - **Deliberately did NOT add `org_id -> studios.org_id` FKs** across the ~20 tables that have
+    one, even though those columns are otherwise clean (0 orphans, confirmed by checking every
+    single one). Reason: `src/app/api/superadmin/delete-studio/route.ts` deletes a `studios` row
+    without cleaning up any of that studio's own data first — a default FK there would start
+    rejecting that route's deletes outright. This needs an explicit decision from the owner
+    (clean up children first vs. `ON DELETE CASCADE` vs. leave the current silent-ghost-data
+    behavior as-is) rather than a decision made silently inside an unrelated DB-hardening pass.
+  - The 18 already-orphaned rows (13 subscriptions + 5 attendance) were left untouched — they're
+    old zombie data, not actively breaking anything, but the owner may want them cleaned up
+    (nulled or deleted) at some point; not done here since deciding that is a data decision, not
+    a schema one.
+
+Notes:
+- All of the above applied directly to production via `mcp__Supabase__apply_migration`, then
+  written into the repo (`20260923_revoke_anon_rpc_and_drop_unused_indexes.sql`,
+  `20260923_add_safe_entity_foreign_keys.sql`) for history consistency.
+- The couple/pair-subscription comma-joined-student-id pattern is worth a closer look on its own —
+  it means any code that does `subscriptions.student_id === someId` for those rows already
+  silently fails to match either student. Not investigated further in this pass; flagged here for
+  whoever picks up couple-subscription work next.
