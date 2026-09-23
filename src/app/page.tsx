@@ -17,7 +17,13 @@ import {
     TrendingDown,
     ChevronLeft,
     ChevronRight,
-    Send
+    ChevronDown,
+    Send,
+    Clock,
+    Smartphone,
+    Calendar,
+    Wallet,
+    AlertCircle
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
@@ -119,12 +125,68 @@ function HighlightBillboard({ items }: { items: any[] }) {
     );
 }
 
+function FeatureCard({ icon: Icon, title, desc }: { icon: any, title: string, desc: string }) {
+    return (
+        <div className="group relative bg-white border-2 border-slate-100 rounded-[2rem] p-8 space-y-4 hover:border-indigo-200 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 hover:-translate-y-1">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                <Icon className="w-7 h-7" />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight leading-snug">{title}</h3>
+            <p className="text-sm text-slate-500 font-medium leading-relaxed">{desc}</p>
+        </div>
+    );
+}
+
+function StepCard({ number, title, desc }: { number: string, title: string, desc: string }) {
+    return (
+        <div className="relative space-y-4">
+            <div className="text-6xl font-black text-indigo-100 tracking-tighter select-none">{number}</div>
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{title}</h3>
+            <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-xs">{desc}</p>
+        </div>
+    );
+}
+
+function FaqItem({ q, a, isOpen, onToggle }: { q: string, a: string, isOpen: boolean, onToggle: () => void }) {
+    return (
+        <div className="border-b border-slate-100 last:border-0">
+            <button
+                onClick={onToggle}
+                className="w-full flex items-center justify-between gap-6 py-7 text-left group"
+            >
+                <span className="text-base md:text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{q}</span>
+                <div className={cn(
+                    "shrink-0 w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all",
+                    isOpen ? "bg-indigo-600 border-indigo-600 text-white rotate-180" : "border-slate-200 text-slate-400 group-hover:border-indigo-300 group-hover:text-indigo-600"
+                )}>
+                    <ChevronDown className="w-4 h-4" />
+                </div>
+            </button>
+            <div className={cn("overflow-hidden transition-all duration-300", isOpen ? "max-h-64 pb-7" : "max-h-0")}>
+                <p className="text-slate-500 font-medium leading-relaxed pr-14">{a}</p>
+            </div>
+        </div>
+    );
+}
+
 function ContactForm({ l }: { l: any }) {
-    const [status, setStatus] = useState<'idle' | 'sending' | 'success'>('idle');
-    const handleSubmit = (e: any) => {
+    const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+    const [form, setForm] = useState({ name: '', phone: '', message: '' });
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setStatus('sending');
-        setTimeout(() => setStatus('success'), 1500);
+        try {
+            const res = await fetch('/api/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form),
+            });
+            if (!res.ok) throw new Error('failed');
+            setStatus('success');
+        } catch {
+            setStatus('error');
+        }
     };
 
     if (status === 'success') {
@@ -135,7 +197,7 @@ function ContactForm({ l }: { l: any }) {
                 </div>
                 <h3 className="text-3xl font-black uppercase tracking-tight">{l('გაგზავნილია!', 'Отправлено!', 'Message Sent!')}</h3>
                 <p className="font-medium text-indigo-100">{l('მადლობა, ჩვენ მალე დაგიკავშირდებით.', 'Спасибо, мы скоро свяжемся с вами.', 'Thanks, we\'ll contact you soon.')}</p>
-                <button onClick={() => setStatus('idle')} className="mt-8 text-sm font-black uppercase tracking-widest border-b border-indigo-200 hover:text-white transition-colors">{l('ხელახლა გაგზავნა', 'Отправить еще раз', 'Send Another')}</button>
+                <button onClick={() => { setStatus('idle'); setForm({ name: '', phone: '', message: '' }); }} className="mt-8 text-sm font-black uppercase tracking-widest border-b border-indigo-200 hover:text-white transition-colors">{l('ხელახლა გაგზავნა', 'Отправить еще раз', 'Send Another')}</button>
             </div>
         );
     }
@@ -145,17 +207,43 @@ function ContactForm({ l }: { l: any }) {
             <div className="grid md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">{l('თქვენი სახელი', 'Ваше имя', 'Your Name')}</label>
-                    <input required type="text" className="w-full bg-slate-50 border-0 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 font-bold" placeholder="Giorgi ..." />
+                    <input
+                        required
+                        type="text"
+                        value={form.name}
+                        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                        className="w-full bg-slate-50 border-0 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 font-bold"
+                        placeholder="Giorgi ..."
+                    />
                 </div>
                 <div className="space-y-4">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">{l('ელ-ფოსტა', 'Email', 'Email')}</label>
-                    <input required type="email" className="w-full bg-slate-50 border-0 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 font-bold" placeholder="example@studio.com" />
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">{l('ტელეფონი', 'Телефон', 'Phone')}</label>
+                    <input
+                        required
+                        type="tel"
+                        value={form.phone}
+                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                        className="w-full bg-slate-50 border-0 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 font-bold"
+                        placeholder="+995 5__ __ __ __"
+                    />
                 </div>
             </div>
             <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">{l('შეტყობინება', 'Сообщение', 'Message')}</label>
-                <textarea required rows={4} className="w-full bg-slate-50 border-0 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 font-bold resize-none" placeholder="..." />
+                <textarea
+                    rows={4}
+                    value={form.message}
+                    onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+                    className="w-full bg-slate-50 border-0 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 font-bold resize-none"
+                    placeholder="..."
+                />
             </div>
+            {status === 'error' && (
+                <div className="flex items-center gap-3 text-rose-600 bg-rose-50 rounded-2xl px-6 py-4 text-sm font-bold">
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    {l('შეცდომა მოხდა, გთხოვთ სცადოთ ხელახლა ან დაგვირეკოთ.', 'Произошла ошибка, попробуйте еще раз или позвоните нам.', 'Something went wrong, please try again or call us.')}
+                </div>
+            )}
             <button
                 type="submit"
                 disabled={status === 'sending'}
@@ -179,17 +267,18 @@ export default function LandingPage() {
     const [scrolled, setScrolled] = useState(false);
     const [, setMounted] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [openFaq, setOpenFaq] = useState<number | null>(0);
 
     useEffect(() => {
         setMounted(true);
         const handleScroll = () => setScrolled(window.scrollY > 50);
         window.addEventListener("scroll", handleScroll);
-        
+
         // Strict client-side auth detection using actual session verification to bypass cached "Dashboard" buttons
         const checkAuth = () => {
             const hasLocalToken = !!localStorage.getItem('cc_auth_token');
             const hasCookieToken = document.cookie.includes('cc_auth_token');
-            
+
             // Only consider logged in if we have evidence in both or a strong indicator in one
             // This prevents "Dashboard" appearing when cookies are cleared but localStorage is stale
             if (hasLocalToken && hasCookieToken) {
@@ -199,7 +288,7 @@ export default function LandingPage() {
             } else if (hasLocalToken && !hasCookieToken) {
                 // Potential sync issue, but usually means session is valid in client but not SSR
                 // For safety on landing page, we mirror the most restrictive view
-                setIsLoggedIn(false); 
+                setIsLoggedIn(false);
             } else {
                 setIsLoggedIn(false);
             }
@@ -218,6 +307,29 @@ export default function LandingPage() {
         { title: l('შიდა ჩატი', 'Внутренний чат', 'Internal Chat'), desc: l('მარიამი და ლუკა ურთიერთობენ მასწავლებლებთან ერთ სივრცეში.', 'Мариам и Лука общаются с преподавателями в едином пространстве.', 'Mariam and Luka communicate with teachers in one space.'), img: '/gallery/chat.png' }
     ], [l]);
 
+    const featureCards = useMemo(() => [
+        { icon: Users, title: l('მოსწავლეთა ბაზა', 'База учеников', 'Student Database'), desc: l('ყველა მოსწავლის ინფორმაცია, აბონემენტები და ისტორია — ერთ ადგილას.', 'Вся информация об учениках, абонементы и история — в одном месте.', 'All student info, subscriptions and history — in one place.') },
+        { icon: Calendar, title: l('ჯგუფები და განრიგი', 'Группы и расписание', 'Groups & Schedule'), desc: l('ჯგუფების, დარბაზების და მასწავლებლების განრიგი ავტომატურად ეწყობა.', 'Расписание групп, залов и преподавателей формируется автоматически.', 'Groups, halls and teacher schedules are organized automatically.') },
+        { icon: Wallet, title: l('ფინანსები', 'Финансы', 'Finances'), desc: l('შემოსავალი, ხარჯები და ხელფასები — ცოცხალი, ზუსტი სურათი ყოველდღე.', 'Доходы, расходы и зарплаты — точная картина каждый день.', 'Revenue, expenses and payroll — a live, accurate picture every day.') },
+        { icon: MessageSquare, title: l('SMS შეტყობინებები', 'СМС-уведомления', 'SMS Notifications'), desc: l('ავტომატური შეხსენებები დასწრებაზე, გადახდაზე და დაბადების დღეზე.', 'Автоматические напоминания о посещении, оплате и днях рождения.', 'Automatic reminders for attendance, payment and birthdays.') },
+        { icon: Shield, title: l('წვდომის კონტროლი', 'Контроль доступа', 'Access Control'), desc: l('თითო თანამშრომელს — ზუსტად იმდენი წვდომა, რამდენიც სჭირდება.', 'У каждого сотрудника — ровно тот доступ, который нужен.', 'Every staff member gets exactly the access they need.') },
+        { icon: Smartphone, title: l('ყველგან ხელმისაწვდომი', 'Доступно везде', 'Works Everywhere'), desc: l('კომპიუტერიდან, ტელეფონიდან თუ ტაბლეტიდან — ერთი და იგივე გამოცდილება.', 'С компьютера, телефона или планшета — одинаковый опыт.', 'From computer, phone or tablet — the same experience.') },
+    ], [l]);
+
+    const steps = useMemo(() => [
+        { number: '01', title: l('დაიწყე უფასოდ', 'Начните бесплатно', 'Start for Free'), desc: l('დარეგისტრირდი 2 წუთში, ბანკის ბარათის გარეშე.', 'Зарегистрируйтесь за 2 минуты, без банковской карты.', 'Sign up in 2 minutes, no card required.') },
+        { number: '02', title: l('მოაწყვე შენი სტუდია', 'Настройте свою студию', 'Set Up Your Studio'), desc: l('დაამატე ჯგუფები, მასწავლებლები და აბონემენტები.', 'Добавьте группы, преподавателей и абонементы.', 'Add your groups, teachers and subscription plans.') },
+        { number: '03', title: l('მართე ავტოპილოტზე', 'Управляйте на автопилоте', 'Run on Autopilot'), desc: l('დასწრება, გადახდები და ანალიტიკა — თავად ავტომატურად.', 'Посещаемость, платежи и аналитика — всё автоматически.', 'Attendance, payments and analytics — all handled for you.') },
+    ], [l]);
+
+    const faqs = useMemo(() => [
+        { q: l('რამდენი ხანი სჭირდება დაწყებას?', 'Сколько времени нужно, чтобы начать?', 'How long does it take to get started?'), a: l('რეგისტრაცია და პირველადი მოწყობა წუთებში სრულდება — მოსწავლეების და ჯგუფების დამატებას შემდეგ თავად აკონტროლებ.', 'Регистрация и первичная настройка занимают минуты — дальше вы сами добавляете учеников и группы в удобном темпе.', 'Signup and initial setup take just minutes — you add students and groups at your own pace after that.') },
+        { q: l('შემიძლია რამდენიმე ფილიალის მართვა?', 'Могу ли я управлять несколькими филиалами?', 'Can I manage multiple branches?'), a: l('დიახ. ClassCore მხარს უჭერს ერთი ან რამდენიმე ფილიალის ცალ-ცალკე მართვას, ცალკე მოსწავლეებით, ჯგუფებითა და ფინანსებით.', 'Да. ClassCore поддерживает управление одним или несколькими филиалами отдельно, с собственными учениками, группами и финансами.', 'Yes. ClassCore supports managing one or multiple branches separately, each with its own students, groups and finances.') },
+        { q: l('მოსწავლეები ხედავენ საკუთარ ინფორმაციას?', 'Видят ли ученики свою информацию?', 'Can students see their own info?'), a: l('თითოეულ მოსწავლეს აქვს პირადი პორტალი, სადაც ხედავს განრიგს, დასწრებას და აბონემენტის ვადას.', 'У каждого ученика есть личный портал, где видно расписание, посещаемость и срок абонемента.', 'Every student gets a personal portal showing their schedule, attendance and subscription status.') },
+        { q: l('რას აკეთებს SMS სერვისი?', 'Что делает СМС-сервис?', 'What does the SMS service do?'), a: l('ავტომატურად ეგზავნება შეხსენებები გადახდაზე, ვადის გასვლაზე და დაბადების დღეზე — ხელით არაფრის გაკეთება არ გჭირდება.', 'Автоматически отправляются напоминания об оплате, окончании срока и днях рождения — вручную ничего делать не нужно.', 'It automatically sends reminders about payment, expiring subscriptions and birthdays — nothing to do manually.') },
+        { q: l('შემიძლია გამოცდის პერიოდში გავჩერდე?', 'Могу ли я отменить в любой момент?', 'Can I cancel anytime?'), a: l('დიახ, ყოველგვარი ხანგრძლივი ვალდებულების გარეშე — გააკონტროლებ პაკეტს ნებისმიერ დროს პარამეტრებიდან.', 'Да, без долгосрочных обязательств — управляйте пакетом в любое время из настроек.', 'Yes, with no long-term commitment — manage your plan anytime from settings.') },
+    ], [l]);
+
     return (
         <div className="min-h-screen bg-white text-slate-900 scroll-smooth selection:bg-indigo-500 selection:text-white">
             {/* Header */}
@@ -233,8 +345,14 @@ export default function LandingPage() {
                     </Link>
 
                     <nav className="hidden lg:flex items-center gap-12">
-                        {['features', 'pricing', 'about', 'contact'].map(id => (
-                            <a key={id} href={`#${id}`} className="text-xs font-black text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-[0.2em]">{l(id === 'features' ? 'ფუნქციები' : id === 'pricing' ? 'ფასები' : id === 'about' ? 'ჩვენს შესახებ' : 'კონტაქტი', '', '')}</a>
+                        {['features', 'pricing', 'faq', 'about', 'contact'].map(id => (
+                            <a key={id} href={`#${id}`} className="text-xs font-black text-slate-500 hover:text-indigo-600 transition-colors uppercase tracking-[0.2em]">
+                                {l(
+                                    id === 'features' ? 'ფუნქციები' : id === 'pricing' ? 'ფასები' : id === 'faq' ? 'კითხვები' : id === 'about' ? 'ჩვენს შესახებ' : 'კონტაქტი',
+                                    id === 'features' ? 'Функции' : id === 'pricing' ? 'Цены' : id === 'faq' ? 'Вопросы' : id === 'about' ? 'О нас' : 'Контакт',
+                                    id === 'features' ? 'Features' : id === 'pricing' ? 'Pricing' : id === 'faq' ? 'FAQ' : id === 'about' ? 'About' : 'Contact'
+                                )}
+                            </a>
                         ))}
                     </nav>
 
@@ -255,18 +373,38 @@ export default function LandingPage() {
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.05),transparent_70%)]" />
                     <div className="max-w-7xl mx-auto grid lg:grid-cols-[1fr_0.9fr] gap-32 items-center relative z-10">
                         <div className="space-y-10 text-center lg:text-left">
+                            <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100">
+                                <Sparkles className="w-3.5 h-3.5" />
+                                {l('შექმნილია საქართველოში, სტუდიებისთვის', 'Создано в Грузии, для студий', 'Made in Georgia, for studios')}
+                            </div>
                             <h1 className="text-3xl md:text-6xl lg:text-7xl font-black text-slate-900 leading-[1.1] tracking-tight uppercase">
                                 {l('მართეთ სტუდია\nავტოპილოტზე', 'Управляйте студией\nна автопилоте', 'Manage Your\nStudio on Autopilot')}
                             </h1>
                             <p className="text-lg text-slate-500 font-medium max-w-xl mx-auto lg:mx-0">
-                                {l('უნივერსალური პლატფორმა, რომელიც აერთიანებს ყველაფერს რაც თქვენს სტუდიას სჭირდება.', 'Универсальная платформа, объединяющая всё, что нужно вашей студии.', 'The universal platform that brings everything your studio needs together.')}
+                                {l('უნივერსალური პლატფორმა, რომელიც აერთიანებს მოსწავლეებს, ჯგუფებს, ფინანსებსა და SMS შეტყობინებებს ერთ სივრცეში.', 'Универсальная платформа, объединяющая учеников, группы, финансы и СМС-уведомления в одном месте.', 'The universal platform that brings students, groups, finances and SMS notifications together in one place.')}
                             </p>
-                            <Link 
-                                href={isLoggedIn ? "/dashboard" : "/registration"} 
-                                className="inline-flex items-center justify-center px-10 py-5 md:px-12 md:py-6 bg-indigo-600 text-white rounded-2xl md:rounded-[2rem] font-black text-xs md:text-sm shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest"
-                            >
-                                {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაიწყე უფასოდ', 'Начать бесплатно', 'Start for Free')} <ArrowRight className="w-5 h-5" />
-                            </Link>
+                            <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4">
+                                <Link
+                                    href={isLoggedIn ? "/dashboard" : "/registration"}
+                                    className="inline-flex items-center justify-center px-10 py-5 md:px-12 md:py-6 bg-indigo-600 text-white rounded-2xl md:rounded-[2rem] font-black text-xs md:text-sm shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest"
+                                >
+                                    {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაიწყე უფასოდ', 'Начать бесплатно', 'Start for Free')} <ArrowRight className="w-5 h-5" />
+                                </Link>
+                                <a
+                                    href="#features"
+                                    className="inline-flex items-center justify-center px-10 py-5 md:px-12 md:py-6 bg-white text-slate-900 border-2 border-slate-100 rounded-2xl md:rounded-[2rem] font-black text-xs md:text-sm hover:border-indigo-200 hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest"
+                                >
+                                    {l('გაეცანი ფუნქციებს', 'Смотреть функции', 'See Features')}
+                                </a>
+                            </div>
+                            <div className="flex items-center justify-center lg:justify-start gap-8 pt-4 text-slate-400">
+                                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
+                                    <Clock className="w-4 h-4 text-indigo-500" /> {l('სწრაფი დაწყება', 'Быстрый старт', 'Quick Setup')}
+                                </div>
+                                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
+                                    <Shield className="w-4 h-4 text-indigo-500" /> {l('უსაფრთხო მონაცემები', 'Безопасные данные', 'Secure Data')}
+                                </div>
+                            </div>
                         </div>
 
                         <div className="relative">
@@ -288,16 +426,40 @@ export default function LandingPage() {
                     </div>
                 </section>
 
+                {/* Features grid */}
                 <section id="features" className="py-32 bg-white">
                     <div className="max-w-7xl mx-auto px-6">
                         <div className="text-center space-y-4 mb-20">
                             <h2 className="text-4xl lg:text-5xl font-black text-slate-900 uppercase tracking-tight">{l('პლატფორმის შესაძლებლობები', 'Возможности платформы', 'Platform Features')}</h2>
                             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">{l('ყველა ინსტრუმენტი ერთ სივრცეში', 'Все инструменты в одном месте', 'All tools in one place')}</p>
                         </div>
+
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-24">
+                            {featureCards.map((f, i) => (
+                                <FeatureCard key={i} icon={f.icon} title={f.title} desc={f.desc} />
+                            ))}
+                        </div>
+
                         <HighlightBillboard items={galleryHighlights} />
                     </div>
                 </section>
 
+                {/* How it works */}
+                <section className="py-32 bg-slate-50 px-6">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="text-center space-y-4 mb-20">
+                            <h2 className="text-4xl lg:text-5xl font-black text-slate-900 uppercase tracking-tight">{l('როგორ მუშაობს', 'Как это работает', 'How It Works')}</h2>
+                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">{l('სამი ნაბიჯი და მზადაა', 'Три шага и готово', 'Three steps and you\'re ready')}</p>
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-16">
+                            {steps.map((s, i) => (
+                                <StepCard key={i} number={s.number} title={s.title} desc={s.desc} />
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* Pricing */}
                 <section id="pricing" className="py-32 bg-slate-950 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.1),transparent_50%)]" />
                     <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-20 items-center relative z-10">
@@ -309,7 +471,7 @@ export default function LandingPage() {
                                     { t: l('ულიმიტო მოსწავლეები', 'Безлимит учеников', 'Unlimited Students'), i: Users },
                                     { t: l('სმს შეტყობინებები', 'СМС уведомления', 'SMS Notifications'), i: MessageSquare },
                                     { t: l('ფინანსური ანალიტიკა', 'Фин. аналитика', 'Financial Analytics'), i: BarChart3 },
-                                    { t: l('AI ასისტენტი', 'AI Ассиსტენტი', 'AI Assistant'), i: Sparkles }
+                                    { t: l('AI ასისტენტი', 'AI Ассистент', 'AI Assistant'), i: Sparkles }
                                 ].map((item, i) => (
                                     <div key={i} className="flex items-center gap-3 text-slate-300">
                                         <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400"><item.i className="w-4 h-4" /></div>
@@ -338,8 +500,8 @@ export default function LandingPage() {
                                     </li>
                                 ))}
                             </ul>
-                            <Link 
-                                href={isLoggedIn ? "/dashboard" : "/registration"} 
+                            <Link
+                                href={isLoggedIn ? "/dashboard" : "/registration"}
                                 className="block w-full py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] shadow-xl hover:bg-indigo-700 hover:-translate-y-1 transition-all"
                             >
                                 {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაწყება', 'Начать', 'Start Now')}
@@ -348,7 +510,28 @@ export default function LandingPage() {
                     </div>
                 </section>
 
-                <section id="about" className="py-32 bg-white px-6">
+                {/* FAQ */}
+                <section id="faq" className="py-32 bg-white px-6">
+                    <div className="max-w-4xl mx-auto">
+                        <div className="text-center space-y-4 mb-16">
+                            <h2 className="text-4xl lg:text-5xl font-black text-slate-900 uppercase tracking-tight">{l('ხშირად დასმული კითხვები', 'Часто задаваемые вопросы', 'Frequently Asked Questions')}</h2>
+                        </div>
+                        <div className="bg-slate-50 rounded-[3rem] px-8 md:px-14 border-2 border-slate-100">
+                            {faqs.map((f, i) => (
+                                <FaqItem
+                                    key={i}
+                                    q={f.q}
+                                    a={f.a}
+                                    isOpen={openFaq === i}
+                                    onToggle={() => setOpenFaq(openFaq === i ? null : i)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* About */}
+                <section id="about" className="py-32 bg-slate-50 px-6">
                     <div className="max-w-4xl mx-auto space-y-12 text-center">
                         <div className="w-24 h-24 bg-indigo-50 rounded-[2rem] flex items-center justify-center mx-auto text-indigo-600 shadow-inner">
                             <Shield className="w-12 h-12" />
@@ -360,23 +543,40 @@ export default function LandingPage() {
                     </div>
                 </section>
 
-                <section id="contact" className="py-32 bg-slate-50">
+                {/* Contact */}
+                <section id="contact" className="py-32 bg-white">
                     <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-[0.8fr_1.2fr] gap-20 items-center">
                         <div className="space-y-10">
                             <h2 className="text-4xl md:text-6xl font-black text-slate-900 uppercase tracking-tight">{l('მოგვწერეთ', 'Напишите нам', 'Contact Us')}</h2>
                             <p className="text-lg text-slate-500 font-medium">{l('დაგვიკავშირდით ნებისმიერ დროს, ჩვენი გუნდი მზად არის დაგეხმაროთ.', 'Пишите нам в любое время, наша команда готова помочь.', 'Contact us anytime, our team is ready to help.')}</p>
                             <div className="space-y-6">
                                 <div className="flex items-center gap-5">
-                                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-indigo-600"><Mail className="w-6 h-6" /></div>
+                                    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center shadow-sm text-indigo-600"><Mail className="w-6 h-6" /></div>
                                     <div className="text-sm font-bold">support@classcore.ge</div>
                                 </div>
                                 <div className="flex items-center gap-5">
-                                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-indigo-600"><Phone className="w-6 h-6" /></div>
+                                    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center shadow-sm text-indigo-600"><Phone className="w-6 h-6" /></div>
                                     <div className="text-sm font-bold">+995 555 13 00 13</div>
                                 </div>
                             </div>
                         </div>
                         <ContactForm l={l} />
+                    </div>
+                </section>
+
+                {/* Final CTA */}
+                <section className="py-28 px-6 bg-indigo-600 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.1),transparent_60%)]" />
+                    <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
+                        <h2 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tight leading-tight">
+                            {l('მზად ხართ სტუდიის\nმართვის გასამარტივებლად?', 'Готовы упростить\nуправление студией?', 'Ready to Simplify\nYour Studio?')}
+                        </h2>
+                        <Link
+                            href={isLoggedIn ? "/dashboard" : "/registration"}
+                            className="inline-flex items-center justify-center px-12 py-6 bg-white text-indigo-600 rounded-[2rem] font-black text-sm shadow-2xl hover:-translate-y-1 transition-all gap-3 uppercase tracking-widest"
+                        >
+                            {isLoggedIn ? l('დეშბორდი', 'Дашборд', 'Dashboard') : l('დაიწყე უფასოდ', 'Начать бесплатно', 'Start for Free')} <ArrowRight className="w-5 h-5" />
+                        </Link>
                     </div>
                 </section>
             </main>
@@ -390,6 +590,8 @@ export default function LandingPage() {
                         </div>
                     </div>
                     <div className="flex flex-wrap justify-center gap-12 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                        <a href="#features" className="hover:text-indigo-600 transition-colors">{l('ფუნქციები', 'Функции', 'Features')}</a>
+                        <a href="#pricing" className="hover:text-indigo-600 transition-colors">{l('ფასები', 'Цены', 'Pricing')}</a>
                         <Link href="/privacy" className="hover:text-indigo-600 transition-colors">{l('კონფიდენციალურობა', 'Приватность', 'Privacy')}</Link>
                         <Link href="/terms" className="hover:text-indigo-600 transition-colors">{l('წესები', 'Условия', 'Terms')}</Link>
                     </div>
