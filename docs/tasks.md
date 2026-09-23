@@ -2387,3 +2387,37 @@ Notes:
   SQL Editor; no separate code deploy required for this one.
 - Worth re-checking after this lands whether `createStaffAction` (staff CREATE, not just UPDATE)
   now actually persists correctly too, since it hits the same previously-missing columns.
+
+### Fix: staff table was missing FOUR MORE columns (password, salary_percentage, rate_per_hour, rate_per_month)
+
+The first_name/last_name fix above turned out to be one column pair out of several — after it
+deployed, saving a staff edit hit a *new* PostgREST error, `Could not find the 'password' column of
+'staff' in the schema cache`, for the exact same reason. Rather than keep discovering these one at
+a time (each fix only gets far enough into `updateStaffAction`'s `.update()` to reveal the *next*
+missing column), had the owner run the actual ground truth query —
+`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'staff'` — which
+returned all 12 real columns `staff` actually has: `id, org_id, full_name, first_name, last_name,
+email, phone, role, allowed_branch_ids, data, permissions, created_at`.
+
+Comparing that against every column `staff.ts` references as a real top-level field:
+`password`, `salary_percentage`, `rate_per_hour`, and `rate_per_month` are ALSO missing — meaning
+`createStaffAction`/`updateStaffAction` have likely never successfully written any of these four
+fields as real columns for any staff member, ever (they landed in `data` only, via the older
+client-side sync path, same as first_name/last_name did).
+
+Also surfaced in that column list, not acted on: `permissions` already exists as its own real
+`jsonb` column — nothing in `staff.ts` reads or writes it directly today (permissions only ever
+live inside `data.permissions`). Left alone; flagging for whoever eventually reconciles the two.
+
+**Fix**: new migration `20260923_staff_add_remaining_missing_columns.sql` — adds all four missing
+columns (`password text`, the three rate fields `numeric`), backfilled from the `data` JSONB blob
+for existing rows. The numeric backfill guards each cast behind a regex check first (`data` is a
+long-accumulated, hand-written client blob — a single row with an empty string or other
+non-numeric junk in one of these fields would otherwise abort the whole `UPDATE` on a bare
+`::numeric` cast failure).
+
+Notes:
+- Pure SQL, no code change. Same as before — no separate code deploy needed for this one.
+- If yet another "Could not find the 'X' column" error surfaces after this, the same
+  `information_schema.columns` query is the fastest way to get the complete picture again, rather
+  than fixing them one report at a time.
