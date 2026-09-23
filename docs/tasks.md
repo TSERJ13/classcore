@@ -2421,3 +2421,34 @@ Notes:
 - If yet another "Could not find the 'X' column" error surfaces after this, the same
   `information_schema.columns` query is the fastest way to get the complete picture again, rather
   than fixing them one report at a time.
+
+### Fix: updateStaffAction rejected null values for fields the migrations just made real columns
+
+Immediately after the migration above landed, saving a staff edit failed again — this time with a
+`ZodError` thrown before the request even reached the database (visible in Vercel logs as a plain
+`ZodError: [...]` with no SQL/PostgREST error at all, unlike every fix before this one).
+
+Root cause: `updateStaffAction`'s Zod schema declared `full_name`, `first_name`, `last_name`,
+`email`, `phone`, `salary_percentage`, `rate_per_hour`, `rate_per_month`, `password`, and
+`allowedBranchIds` as `.optional()` only. `.optional()` in Zod accepts `undefined` but rejects
+`null`. The Settings edit modal's form state (`member`) is deep-cloned straight from the real
+staff row — and now that `first_name`/`last_name`/`password`/`salary_percentage`/`rate_per_hour`/
+`rate_per_month` are real DB columns (the two migrations above), any staff row that never had one
+of these set carries a genuine SQL `NULL` for it, which becomes JS `null` once read back — and
+resending that unchanged `null` on save failed schema validation outright, blocking the entire
+edit again, one layer earlier than the previous two bugs.
+
+**Fix**: added `.nullable()` to all of the fields above in `staff.ts`'s `staffSchema`, and widened
+`resolveFullName`/`assertPasswordPolicy`/`assertCanGrantBranches`'s parameter types to accept
+`| null` accordingly. `null` for any of these fields is a legitimate "not set" value now that
+they're real columns — this isn't loosening validation, it's correcting a mismatch between what
+the schema expected and what the data actually looks like now.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- Code-only — needs the usual merge + Vercel redeploy, no further SQL.
+- This is the third layer of the same underlying issue (columns the code always assumed were real
+  and non-null, discovered one report at a time): missing columns (×2 migrations) → now, a schema
+  that never accounted for those columns being legitimately empty on existing rows. Worth a closer
+  look at whether `createStaffAction`'s insert has the same null-handling gaps, since it references
+  the identical fields.

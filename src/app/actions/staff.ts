@@ -97,7 +97,7 @@ import { ROLE_DEFAULT_PERMISSIONS, resolveRoleTier } from '@/lib/permissions/rol
  * themselves can see) and never a branch outside their own list.
  * Unrestricted callers (empty own list) can grant anything.
  */
-function assertCanGrantBranches(callerAllowedBranchIds: string[], targetAllowedBranchIds: string[] | undefined): void {
+function assertCanGrantBranches(callerAllowedBranchIds: string[], targetAllowedBranchIds: string[] | null | undefined): void {
     if (callerAllowedBranchIds.length === 0) return;
     if (!targetAllowedBranchIds || targetAllowedBranchIds.length === 0) {
         throw new Error('You can only assign branches you yourself have access to');
@@ -119,28 +119,38 @@ async function getStudioInfo(orgId: string, admin: ReturnType<typeof adminAuthCl
 }
 
 /** docs/authorization-module.md §5 — only checked when a password is actually being set (non-empty); an edit that leaves the password field blank must not be blocked by this. */
-function assertPasswordPolicy(password: string | undefined) {
+function assertPasswordPolicy(password: string | null | undefined) {
     if (!password) return;
     const check = validatePasswordPolicy(password);
     if (!check.valid) throw new Error(`Password does not meet the minimum requirements (${check.reason})`);
 }
 
+// 🛠️ FIX: these fields are all `.nullable()` now, not just `.optional()` —
+// `member` (the client's edit form state) is deep-cloned straight from the
+// real staff row, and now that first_name/last_name/password/
+// salary_percentage/rate_per_hour/rate_per_month are real DB columns
+// (20260923 migrations), any row that never had one set carries a genuine
+// `null` for it. `.optional()` alone only accepts `undefined` — sending
+// back a `null` a save didn't touch failed this schema outright with a
+// ZodError before the request ever reached updateStaffAction's body,
+// blocking the whole save exactly the way the password-policy and
+// missing-column bugs did.
 const staffSchema = z.object({
     id: z.string().optional(),
-    full_name: z.string().trim().min(1).optional(),
-    first_name: z.string().optional(),
-    last_name: z.string().optional(),
-    email: z.string().optional(),
-    phone: z.string().optional(),
+    full_name: z.string().trim().min(1).optional().nullable(),
+    first_name: z.string().optional().nullable(),
+    last_name: z.string().optional().nullable(),
+    email: z.string().optional().nullable(),
+    phone: z.string().optional().nullable(),
     role: z.string().default('teacher'),
-    salary_percentage: z.number().optional(),
-    rate_per_hour: z.number().optional(),
-    rate_per_month: z.number().optional(),
-    password: z.string().optional(),
-    allowedBranchIds: z.array(z.string()).optional(),
+    salary_percentage: z.number().optional().nullable(),
+    rate_per_hour: z.number().optional().nullable(),
+    rate_per_month: z.number().optional().nullable(),
+    password: z.string().optional().nullable(),
+    allowedBranchIds: z.array(z.string()).optional().nullable(),
 }).passthrough();
 
-function resolveFullName(input: { full_name?: string; first_name?: string; last_name?: string }): string {
+function resolveFullName(input: { full_name?: string | null; first_name?: string | null; last_name?: string | null }): string {
     return input.full_name || `${input.first_name || ''} ${input.last_name || ''}`.trim();
 }
 
