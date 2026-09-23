@@ -2356,3 +2356,34 @@ what the owner asked for.
 Notes:
 - `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
 - Code-only, same deploy path.
+
+### Fix: staff.first_name/last_name were never real columns — updateStaffAction always failed
+
+After the two fixes above deployed, saving a staff edit hit a NEW error: `Could not find the
+'first_name' column of 'staff' in the schema cache`. First suspected a stale PostgREST schema
+cache (the owner ran `NOTIFY pgrst, 'reload schema';` — harmless, worth trying first, but didn't
+fix it). Confirmed with `SELECT column_name FROM information_schema.columns WHERE table_name =
+'staff' AND column_name = 'first_name'` returning 0 rows: the column genuinely never existed.
+
+`src/app/actions/staff.ts`'s own header comment asserts `first_name`/`last_name` are real top-level
+columns on `staff`, "confirmed by settings-store.ts's existing syncRecordToCloud('staff', ...)
+payload shape" — i.e. inferred from the shape of the CLIENT's sync payload, never actually checked
+against the live table. `staff` predates this repo's migrations folder (no `CREATE TABLE` for it
+exists anywhere in migration history — `20260918_staff_write_rls.sql` flagged the same gap for a
+different reason), so this was never verifiable by reading the repo. Every real staff row was
+created through the older client-side path (`settings-store.ts` → `syncRecordToCloud`), which only
+ever wrote `first_name`/`last_name` into the `data` JSONB blob — meaning `createStaffAction`'s own
+insert (which references the same nonexistent columns) has likely never actually succeeded either,
+for any staff member created since that Server Action existed.
+
+**Fix**: new migration `20260923_staff_add_first_last_name_columns.sql` — `ALTER TABLE staff ADD
+COLUMN IF NOT EXISTS first_name/last_name text`, backfilled from `data->>'first_name'`/
+`data->>'last_name'` for existing rows (so staff created before this migration don't show blank
+names now that `updateStaffAction`'s `.update()` actually reads/writes the real columns), plus a
+schema-cache reload for good measure.
+
+Notes:
+- Pure SQL — no code change, no `tsc`/`vitest` run needed. Owner runs this directly in Supabase
+  SQL Editor; no separate code deploy required for this one.
+- Worth re-checking after this lands whether `createStaffAction` (staff CREATE, not just UPDATE)
+  now actually persists correctly too, since it hits the same previously-missing columns.
