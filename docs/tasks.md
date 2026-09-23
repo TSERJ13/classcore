@@ -2335,3 +2335,24 @@ Supabase-Auth-linked staff member's password.
 Notes:
 - `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
 - Code-only — needs the same merge + Vercel redeploy as everything else this session, no SQL.
+
+### Follow-up: inline password-policy validation in the Staff & Access edit modal
+
+After the fix above deployed, the owner tried the modal again and hit the same server-side
+"Password does not meet the minimum requirements" rejection — this time because they'd actually
+typed a new, weak password, not because the old one was being resent. The modal has never had
+any client-side password check, so the request went all the way to the server, which rejected it
+with a bare 500 — and Next.js redacts a Server Action's real thrown message in production, so all
+that reached the browser was an unhelpful generic failure with no indication of what to fix. The
+owner asked, reasonably, why the app doesn't just say "enter a stronger password".
+
+**Fix**: wired `validatePasswordPolicy`/`passwordPolicyMessage` (`src/lib/password-policy.ts` —
+already used by registration, reset-password, and the staff-invite flow, just never plugged into
+this specific modal) into the Staff & Access edit modal. While the typed password doesn't meet the
+policy, the exact unmet requirement shows inline in red under the field (not the generic hint), and
+the Save button disables — the request never goes out at all until the password is valid, matching
+what the owner asked for.
+
+Notes:
+- `tsc --noEmit`: clean. `npx vitest run`: 15/15 passing.
+- Code-only, same deploy path.
