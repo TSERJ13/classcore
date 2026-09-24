@@ -2720,3 +2720,42 @@ Notes:
   fighting with scroll — wiring the same for a brand-new selection gesture on mobile was left out
   of this pass to avoid conflicting with normal touch-scrolling on the grid). Mobile taps still
   fall back to the single-click 1-hour-block behavior.
+
+### Calendar follow-up: scroll to the nearest real event, not literal "now"; clean up the toolbar
+
+Owner reported (with screenshots from production, after the above landed) that the auto-scroll
+still opened on a mostly-empty view, and separately that the toolbar row above the grid (hall
+filters, teacher filters, PDF/Add buttons) looked cluttered and needed a visual cleanup.
+
+**Auto-scroll root cause**: centering on the literal clock time (the previous fix) breaks down
+whenever "now" is close to `START_HOUR` (8am) — there isn't enough grid *above* "now" to fill half
+the viewport, so the browser clamps scroll to 0 and the view looks exactly like it did before any
+centering existed: starting near the top, mostly empty, until you scroll down to where the actual
+classes are in the afternoon/evening. Centering the literal clock time was the wrong target from
+the start for a studio whose real activity clusters hours later in the day.
+
+**Fix**: the effect (`src/app/(dashboard)/calendar/page.tsx`'s auto-scroll useEffect) now centers
+on the event nearest to "now" among today's events, falling back to the literal clock time only
+when today has nothing scheduled at all. Also added a real "is today even visible" guard (day view
+must be showing today; week view must include today) — the previous version's only check was
+"is the clock time within the displayed hour range," which doesn't actually mean today is on
+screen. This is exactly the "only show me the part with active lessons" request from earlier in
+this thread, done properly this time instead of the literal-now approximation.
+
+**Toolbar cleanup**: the Hall filter pills and Teacher filter pills previously sat in two separate
+bordered boxes at `h-7`/`h-8` with 7–9px text, visually mismatched against the `h-11` view-switcher
+and date-nav pills above them and the `h-11` PDF/Add buttons beside them — a real "several
+differently-sized floating boxes" look, which is what read as cluttered. Merged both filter groups
+into one shared panel (a single background/border), unified every filter pill to `h-9` with legible
+`10px` text, and added a thin vertical divider between the hall and teacher groups instead of a
+gap between two separate boxes — reads as one coherent toolbar now instead of four.
+
+Notes:
+- `tsc --noEmit`: clean. `next lint`: one new (expected, harmless) `exhaustive-deps` warning for
+  omitting `dayEvents` from the effect's dependency array — `dayEvents` is redefined fresh every
+  render and only reads from `filtered` (already a real dependency), so including it would just
+  make the effect re-run on every render for no reason; this file already has several other
+  effects following the same accepted pattern.
+- Same caveat as the previous entry: could not click-test this in a live logged-in session in this
+  sandbox (`/calendar` is behind auth middleware, no real Supabase session available here) —
+  needs a real look on production.

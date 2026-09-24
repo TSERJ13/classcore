@@ -1627,35 +1627,54 @@ export default function CalendarPage() {
     // Day label  
     const dayLabel = formatDate(anchor, 'long');
 
-    // ── Auto-scroll to Current Time ──────────────────────────────
+    // ── Auto-scroll to today's actual schedule ───────────────────
+    // Centering on the literal clock time falls apart when "now" is close to
+    // START_HOUR (e.g. mid-morning, before the day's classes start) -- there
+    // simply isn't enough grid above it to center against, so the view just
+    // clamps to the top and still looks empty. Centering on the event nearest
+    // to "now" instead means the visible window always lands on real content.
     useEffect(() => {
         const scrollToCurrent = () => {
             const now = new Date();
             const currentMins = now.getHours() * 60 + now.getMinutes();
             const startMins = START_HOUR * 60;
+            const todayStr = toDateStr(now);
 
-            // Only scroll if we are within the displayed range
-            if (currentMins >= startMins && currentMins <= END_HOUR * 60) {
-                const offsetMins = currentMins - startMins;
-                const targetRef = view === 'day' ? dayGridRef : view === 'week' ? weekGridRef : null;
-                const viewportHeight = targetRef?.current?.clientHeight || 400;
-                // Center "now" in the visible viewport, so the user sees some
-                // of the past and some of the upcoming schedule at a glance,
-                // instead of "now" sitting near the very top of the view.
-                const scrollPos = (offsetMins / 15) * 18 - viewportHeight / 2;
+            // Only for day/week views, and only when today is actually one of
+            // the visible dates -- otherwise there's nothing to auto-scroll to.
+            const isTodayVisible = view === 'day'
+                ? toDateStr(anchor) === todayStr
+                : view === 'week'
+                    ? getWeekDates(anchor).some(d => toDateStr(d) === todayStr)
+                    : false;
+            if (!isTodayVisible) return;
 
-                if (view === 'day' && dayGridRef.current) {
-                    dayGridRef.current.scrollTo({ top: scrollPos, behavior: 'smooth' });
-                } else if (view === 'week' && weekGridRef.current) {
-                    weekGridRef.current.scrollTo({ top: scrollPos, behavior: 'smooth' });
+            let targetMins = currentMins;
+            const todaysEvents = dayEvents(todayStr);
+            if (todaysEvents.length > 0) {
+                let nearest = todaysEvents[0];
+                let bestDiff = Infinity;
+                for (const ev of todaysEvents) {
+                    const diff = Math.abs(timeToMins(ev.start_time) - currentMins);
+                    if (diff < bestDiff) { bestDiff = diff; nearest = ev; }
                 }
+                targetMins = timeToMins(nearest.start_time);
+            }
+
+            if (targetMins >= startMins && targetMins <= END_HOUR * 60) {
+                const offsetMins = targetMins - startMins;
+                const targetRef = view === 'day' ? dayGridRef : weekGridRef;
+                const viewportHeight = targetRef.current?.clientHeight || 400;
+                // Center the target in the visible viewport.
+                const scrollPos = Math.max(0, (offsetMins / 15) * 18 - viewportHeight / 2);
+                targetRef.current?.scrollTo({ top: scrollPos, behavior: 'smooth' });
             }
         };
 
-        // Scroll on mount or view change
+        // Scroll on mount or view/date change, once today's events are loaded.
         const timer = setTimeout(scrollToCurrent, 500);
         return () => clearTimeout(timer);
-    }, [view]);
+    }, [view, anchor, filtered]);
 
     // ── Drag & Drop Handlers ──────────────────────────────────
     const touchTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -2446,57 +2465,63 @@ export default function CalendarPage() {
 
             {/* ── Desktop Header Row: Hall filters + PDF + Add Action ── */}
             <div className="hidden md:flex flex-wrap items-center justify-between gap-3">
-                {/* Hall Filters Block */}
-                <div className="flex flex-wrap items-center gap-2 bg-surface/30 border border-border-subtle p-1 rounded-2xl max-w-fit">
-                    <button
-                        onClick={() => setFilterHall('all')}
-                        className={cn('flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-7 sm:h-8 rounded-xl text-[7px] sm:text-[9px] font-bold tracking-widest border transition-all shadow-sm',
-                            filterHall === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60')}
-                    >
-                        <LayoutGrid className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                        {lang === 'ka' ? 'ყველა' : t.allHalls}
-                    </button>
-                    {halls.map((h: any) => (
-                        <button key={h.id}
-                            onClick={() => setFilterHall(filterHall === h.id ? 'all' : h.id)}
-                            className={cn('flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-7 sm:h-8 rounded-xl text-[7px] sm:text-[9px] font-bold tracking-widest border transition-all shadow-sm',
-                                filterHall === h.id ? 'text-white' : 'hover:bg-white/5')}
-                            style={{ 
-                                backgroundColor: filterHall === h.id ? h.color : `${h.color}15`, 
-                                borderColor: h.color + '40', 
-                                color: filterHall === h.id ? 'white' : h.color,
-                                boxShadow: filterHall === h.id ? `0 4px 12px ${h.color}40` : '',
-                            } as any}>
-                            <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", filterHall === h.id ? "bg-white" : "")} 
-                                 style={{ backgroundColor: filterHall === h.id ? 'white' : h.color }} />
-                            {(t as any)[h.name] || h.name}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Teacher Filters Block */}
-                {teachers.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 bg-surface/30 border border-border-subtle p-1 rounded-2xl max-w-fit">
+                {/* One unified filter toolbar — halls and teachers share a single panel,
+                    same pill height and readable text, instead of two separately-boxed,
+                    tiny-text clusters. */}
+                <div className="flex flex-wrap items-center gap-3 bg-surface/30 border border-border-subtle px-2.5 py-1.5 rounded-2xl">
+                    <div className="flex flex-wrap items-center gap-1.5">
                         <button
-                            onClick={() => setFilterTeacher('all')}
-                            className={cn('flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-7 sm:h-8 rounded-xl text-[7px] sm:text-[9px] font-bold tracking-widest border transition-all shadow-sm',
-                                filterTeacher === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60')}
+                            onClick={() => setFilterHall('all')}
+                            className={cn('flex items-center gap-1.5 px-3 h-9 rounded-xl text-[10px] font-bold tracking-wide border transition-all shadow-sm',
+                                filterHall === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60 hover:bg-white/5')}
                         >
-                            <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                            {lang === 'ka' ? 'ყველა' : 'All'}
+                            <LayoutGrid className="w-3 h-3" />
+                            {lang === 'ka' ? 'ყველა' : t.allHalls}
                         </button>
-                        {teachers.map((tc: any) => (
-                            <button key={tc.id}
-                                onClick={() => setFilterTeacher(filterTeacher === tc.id ? 'all' : tc.id)}
-                                className={cn('flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 h-7 sm:h-8 rounded-xl text-[7px] sm:text-[9px] font-bold tracking-widest border transition-all shadow-sm',
-                                    filterTeacher === tc.id ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60 hover:bg-white/5')}
-                            >
-                                <User className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                                {formatShortName(tc.full_name)}
+                        {halls.map((h: any) => (
+                            <button key={h.id}
+                                onClick={() => setFilterHall(filterHall === h.id ? 'all' : h.id)}
+                                className={cn('flex items-center gap-1.5 px-3 h-9 rounded-xl text-[10px] font-bold tracking-wide border transition-all shadow-sm',
+                                    filterHall === h.id ? 'text-white' : 'hover:bg-white/5')}
+                                style={{
+                                    backgroundColor: filterHall === h.id ? h.color : `${h.color}15`,
+                                    borderColor: h.color + '40',
+                                    color: filterHall === h.id ? 'white' : h.color,
+                                    boxShadow: filterHall === h.id ? `0 4px 12px ${h.color}40` : '',
+                                } as any}>
+                                <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", filterHall === h.id ? "bg-white" : "")}
+                                     style={{ backgroundColor: filterHall === h.id ? 'white' : h.color }} />
+                                {(t as any)[h.name] || h.name}
                             </button>
                         ))}
                     </div>
-                )}
+
+                    {teachers.length > 0 && (
+                        <>
+                            <div className="w-px h-6 bg-border-subtle" />
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                <button
+                                    onClick={() => setFilterTeacher('all')}
+                                    className={cn('flex items-center gap-1.5 px-3 h-9 rounded-xl text-[10px] font-bold tracking-wide border transition-all shadow-sm',
+                                        filterTeacher === 'all' ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60 hover:bg-white/5')}
+                                >
+                                    <Users className="w-3 h-3" />
+                                    {lang === 'ka' ? 'ყველა' : 'All'}
+                                </button>
+                                {teachers.map((tc: any) => (
+                                    <button key={tc.id}
+                                        onClick={() => setFilterTeacher(filterTeacher === tc.id ? 'all' : tc.id)}
+                                        className={cn('flex items-center gap-1.5 px-3 h-9 rounded-xl text-[10px] font-bold tracking-wide border transition-all shadow-sm',
+                                            filterTeacher === tc.id ? 'bg-[#6d28d9] border-[#6d28d9] text-white' : 'bg-card border-border-subtle text-muted/60 hover:bg-white/5')}
+                                    >
+                                        <User className="w-3 h-3" />
+                                        {formatShortName(tc.full_name)}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
 
                 <div className="flex items-center gap-2">
                     {/* PDF Export */}
