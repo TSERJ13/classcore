@@ -2789,3 +2789,37 @@ Notes:
 - Verified the visible label renders correctly (no clipping/placeholder-only rendering) in an
   isolated static-HTML mockup of the same markup, since `/calendar` itself is behind auth in this
   sandbox. Still worth a real look on production once deployed.
+
+---
+
+### Tariffs: fix group-type tariffs silently vanishing from the "ჯგუფური" tab
+
+Owner reported (twice, with production screenshots) that the Tariffs page shows nothing under
+the first tab, even after the earlier `plans.ts` dual-auth fix was confirmed live. Checked Vercel
+deployment history (fix was live) and the DB directly (the studio's plans exist, correctly
+org-scoped) — this was not a deploy or caching issue at all.
+
+Root cause: `getPlansAction()` (`src/app/actions/plans.ts`) and the legacy client fallback
+`getPlans()` (`src/lib/plan-store.ts`) both carried a Phase 2 migration rule — any tariff stored
+with `type: 'group'` whose `period` wasn't `'monthly'` got silently reclassified to `'personal'`
+on every read. This studio's real tariffs ("Minimum", "NEW", "One Time", "Standard") are all
+session-count group class packages (`period: 'sessions'`), so all four were being force-relabeled
+to "personal" on load and disappeared from the group tab entirely — not a bug in the new
+Server Action, but a stale migration rule from before per-type creation modals existed (Phase 2b),
+now actively fighting the studio's actual, legitimate use of the `'group'` type.
+
+**Fix**: removed the reclassification in both places — the stored `type` is now trusted as-is,
+matching what Phase 2b's dedicated per-type modals already let staff choose explicitly when
+creating a tariff. Also relabeled the first tab/modal-title from `monthlyShortLabel`
+("ყოველთვიური") to the already-defined-but-unused `groupClass` ("ჯგუფური") string, since the tab
+can now correctly contain non-monthly group tariffs and the old label was actively misleading.
+
+Data fix: two orphaned legacy tariffs ("Basic", "Minimal") had `type: null` from before the
+`type`/`period` fields existed at all — invisible under every tab regardless of this bug. Backfilled
+both to `type: 'group', period: 'sessions'` directly in the DB (matching their existing
+`session_count`/`price` shape) so they're visible again.
+
+Notes:
+- `tsc --noEmit`: clean.
+- Files: `src/app/actions/plans.ts`, `src/lib/plan-store.ts`,
+  `src/app/(dashboard)/subscriptions/plans/page.tsx`.

@@ -214,7 +214,7 @@ export default function PlansManagementPage() {
 
             {/* Tabs */}
             <div className="flex w-full h-12 bg-surface border border-border-subtle rounded-[1.25rem] p-1 gap-1">
-                {([['group', t.monthlyShortLabel, Users], ['personal', t.personalClass, Ticket], ['individual', t.individualClass, User], ['rental', t.rental, Home]] as const)
+                {([['group', t.groupClass, Users], ['personal', t.personalClass, Ticket], ['individual', t.individualClass, User], ['rental', t.rental, Home]] as const)
                     .filter(([v]) => v !== 'personal' || isFeatureEnabled(settings, 'personalPlans'))
                     .filter(([v]) => v !== 'individual' || isFeatureEnabled(settings, 'individualLessons'))
                     .filter(([v]) => v !== 'rental' || isFeatureEnabled(settings, 'hallRental'))
@@ -326,7 +326,7 @@ export default function PlansManagementPage() {
                                         {(() => { const { Icon } = TYPE_META[form.type]; return <Icon className={cn('w-4 h-4', TYPE_META[form.type].iconColor)} />; })()}
                                     </div>
                                     <h3 className="text-base font-bold text-primary">
-                                        {editingPlan ? t.edit : t.add} — {form.type === 'group' ? t.monthlyShortLabel : form.type === 'personal' ? t.personalClass : form.type === 'individual' ? t.individualClass : t.rental}
+                                        {editingPlan ? t.edit : t.add} — {form.type === 'group' ? t.groupClass : form.type === 'personal' ? t.personalClass : form.type === 'individual' ? t.individualClass : t.rental}
                                     </h3>
                                 </div>
                                 <button onClick={() => setShowForm(false)} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-surface text-muted transition-colors">×</button>
