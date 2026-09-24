@@ -6,7 +6,7 @@ import { getTodayCheckins, type CheckinRecord } from '@/lib/checkin-store';
 import { getUniqueSubscriptions, getSubscriptionStatusBucket, type SubscriptionEffectiveStatus } from '@/lib/subscription-store';
 import { getSales } from '@/lib/sales-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, UserPlus, ChevronLeft, ChevronRight, ChevronDown, ShoppingBag, RefreshCcw, ShieldAlert, Sparkles } from 'lucide-react';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, ChevronRight, ChevronDown, RefreshCcw, ShieldAlert, Sparkles } from 'lucide-react';
 import { cn, getLocalISODate, formatCurrency, getScopedKey } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
@@ -23,9 +23,12 @@ import { getPlans } from '@/lib/plan-store';
 import { getDashboardStatsAction } from '@/app/actions/dashboard';
 import StudentModal from '@/components/students/StudentModal';
 import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscriptionModal';
-import { TodayGroupsCard } from '@/components/dashboard/TodayGroupsCard';
-import { CalendarScheduleCard } from '@/components/dashboard/CalendarScheduleCard';
 import { computeNeedsAttention } from '@/lib/needs-attention';
+import {
+    TodayScheduleTimeline, QuickActionsPanel, TodaySummaryPanel,
+    UpcomingEventsCard, RecentActivityCard, GroupProgressCard,
+    type ScheduleItem, type ActivityItem,
+} from '@/components/dashboard/DashboardHomeSections';
 
 // ─── Lightweight SVG Donut Chart Card ──────────────────────────────────────
 
@@ -273,7 +276,11 @@ export default function DashboardPage() {
         newThisMonthStudents: 0,
         monthlySubsRevenue: 0,
         monthlyShopRevenue: 0,
+        todayClassesCount: 0,
     });
+    const [scheduleView, setScheduleView] = useState<'day' | 'week' | 'month'>('day');
+    const [groupProgress, setGroupProgress] = useState<{ id: string; name: string; photo?: string; pct: number }[]>([]);
+    const [recentActivityItems, setRecentActivityItems] = useState<ActivityItem[]>([]);
     const [birthdayStudents, setBirthdayStudents] = useState<Student[]>([]);
     // Needs Attention + Birthdays merged into one collapsible panel; collapse
     // state is a per-browser UI preference, remembered across visits.
@@ -287,7 +294,6 @@ export default function DashboardPage() {
             return next;
         });
     }, []);
-    const [liveActivity, setLiveActivity] = useState<{ action: string; color: string; avatar: string; name: string; group: string; time: string }[]>([]);
     const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
     const [allEvents, setAllEvents] = useState<any[]>([]);
     // 🛠️ FIX: `liveStats` starts at all-zero, and refreshFullDashboard()'s
@@ -309,10 +315,6 @@ export default function DashboardPage() {
         setStatsReady(true);
         try { sessionStorage.setItem('cc_dashboard_stats_seen', '1'); } catch { }
     }, []);
-
-    // Cloud Sync State
-    const [syncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
-    const [lastSyncTime] = useState<number | null>(null);
 
     const [showAddStudent, setShowAddStudent] = useState(false);
     const [showIssueSub, setShowIssueSub] = useState(false);
@@ -444,12 +446,36 @@ export default function DashboardPage() {
 
         // ── Today: expected (enrolled in a group scheduled today) vs attended ──
         let todayExpected = 0;
+        let todayClassesCount = 0;
         try {
             const todayEvents = getTodayEvents().filter((ev: any) => !isTeacher || !visibleGroupIds || (ev.group_id && visibleGroupIds.includes(ev.group_id)));
+            todayClassesCount = todayEvents.length;
             const todayGroupIds = new Set(todayEvents.map((ev: any) => ev.group_id).filter(Boolean));
             if (todayGroupIds.size > 0) {
                 todayExpected = studentsList.filter(s => s.enrolled_group_ids?.some(gid => todayGroupIds.has(gid))).length;
             }
+        } catch { /* ignore */ }
+
+        // ── Group Progress: fill rate (enrolled / capacity) per group, for
+        // groups that actually declare a capacity — capped to the top 5 by
+        // fill %, matching the reference layout's "Group Progress" card. ──
+        try {
+            const allGroupsForProgress = getGroups();
+            const progress = allGroupsForProgress
+                .filter(g => !isTeacher || !visibleGroupIds || visibleGroupIds.includes(g.id))
+                .filter(g => typeof g.capacity === 'number' && g.capacity > 0)
+                .map(g => {
+                    const enrolled = studentsList.filter(s => (s.enrolled_group_ids || []).includes(g.id)).length;
+                    return {
+                        id: g.id,
+                        name: g.name,
+                        photo: getTeacherPhoto(g.teacherId) || undefined,
+                        pct: Math.min(100, Math.round((enrolled / (g.capacity || 1)) * 100)),
+                    };
+                })
+                .sort((a, b) => b.pct - a.pct)
+                .slice(0, 5);
+            setGroupProgress(progress);
         } catch { /* ignore */ }
 
         // ── Pending Bookings / Debt / Birthdays / Expiring-soon — shared with
@@ -515,6 +541,7 @@ export default function DashboardPage() {
             monthlyShopRevenue: sales.filter(s => s.date?.startsWith(currentMonth)).reduce((sum, s) => sum + s.price * s.quantity, 0),
             expiringSoon: attention.expiringSoonCount,
             oneSessionLeft: attention.oneSessionLeftCount,
+            todayClassesCount,
             todayRevenue: sales.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.price * s.quantity, 0) + allSubsList.filter(sub => isSubOnDay(sub, todayStr)).reduce((sum, sub) => sum + subRevenue(sub, planPrices), 0),
         }));
 
@@ -562,20 +589,27 @@ export default function DashboardPage() {
                     teacherName: getTeacherName(tid),
                     teacherPhoto: getTeacherPhoto(tid),
                     hallName: getHallName(ev.hall_id),
-                    studentCount: allStudents.filter(s => (s.enrolled_group_ids || []).includes(ev.group_id || '')).length
+                    studentCount: allStudents.filter(s => (s.enrolled_group_ids || []).includes(ev.group_id || '')).length,
+                    capacity: g?.capacity,
                 };
             });
             setLiveSchedule(scheduleWithDetails);
         });
 
-        // 3. Activity Refresh
-        const activityList: any[] = [];
+        // 3. Recent Activity feed — merges real check-ins (which carry a real
+        // HH:MM time), today's new student registrations, and today's
+        // subscription purchases into one feed, matching the reference
+        // layout's "Recent Activity" card. Registrations/payments only carry
+        // a date (not a time-of-day) in this app's data model, so they're
+        // labeled "today" rather than a fabricated elapsed time.
+        const activityItems: ActivityItem[] = [];
         const teacherStudentIds = isTeacher && visibleGroupIds
             ? new Set(studentsList.filter(s => (s.enrolled_group_ids || []).some(gid => visibleGroupIds.includes(gid))).map(s => s.id))
             : null;
 
         const allStudents = getStudents();
         const allGroups = getGroups();
+        const todayLabel = l('დღეს', 'Сегодня', 'Today');
 
         checkins.forEach((c: CheckinRecord) => {
             if (teacherStudentIds && c.studentId && !teacherStudentIds.has(c.studentId)) return;
@@ -587,19 +621,46 @@ export default function DashboardPage() {
             const groupObj = c.groupId ? allGroups.find(g => g.id === c.groupId) : ((student?.enrolled_group_ids || []).length > 0 ? allGroups.find(g => g.id === (student?.enrolled_group_ids || [])[0]) : null);
             const groupName = groupObj?.name || t.groupSession;
 
-            activityList.push({
+            activityItems.push({
+                id: `checkin-${c.studentId}-${c.time}`,
+                kind: 'checkin',
                 name,
-                action: 'check-in',
-                group: groupName,
-                time: c.time,
-                avatar: name ? name[0] : 'S',
-                color: 'from-indigo-500 to-blue-600'
+                detail: `${l('დასწრება აღინიშნა', 'Отметка посещения', 'Attendance marked')} (${groupName})`,
+                timeLabel: c.time,
             });
         });
 
-        setLiveActivity(activityList.slice(0, 8));
+        studentsList
+            .filter(s => s.created_at?.startsWith(todayStr))
+            .forEach(s => {
+                const groupObj = (s.enrolled_group_ids || []).length > 0 ? allGroups.find(g => g.id === (s.enrolled_group_ids || [])[0]) : null;
+                activityItems.push({
+                    id: `reg-${s.id}`,
+                    kind: 'registration',
+                    name: s.full_name || `${s.first_name} ${s.last_name}`,
+                    detail: `${l('ახალი რეგისტრაცია', 'Новая регистрация', 'New registration')}${groupObj ? ` (${groupObj.name})` : ''}`,
+                    timeLabel: todayLabel,
+                });
+            });
 
-    }, [profile, selectedDate, settings.studioName, t]);
+        allSubsList
+            .filter(sub => isSubOnDay(sub, todayStr))
+            .forEach(sub => {
+                const studentIds = (sub.student_id || '').split(',').map((x: string) => x.trim()).filter(Boolean);
+                const student = allStudents.find(s => studentIds.includes(s.id));
+                const price = subRevenue(sub, planPrices);
+                activityItems.push({
+                    id: `pay-${sub.id}`,
+                    kind: 'payment',
+                    name: student?.full_name || t.studentLabelGeneric,
+                    detail: `${l('გადახდა მიღებულია', 'Платёж получен', 'Payment received')} (${formatCurrency(price, settings.currency)})`,
+                    timeLabel: todayLabel,
+                });
+            });
+
+        setRecentActivityItems(activityItems.slice(0, 8));
+
+    }, [profile, selectedDate, settings.studioName, settings.currency, t, l]);
 
     useEffect(() => {
         refreshFullDashboard();
@@ -688,31 +749,8 @@ export default function DashboardPage() {
     const isDemo = false;
     const isStaffUser = profile?.role === 'teacher' || profile?.role === 'staff' || (typeof window !== 'undefined' && !!localStorage.getItem('cc_staff_session'));
 
-    const getLocalizedDate = (date: Date, t: any) => {
-        const weekdays = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
-        const months = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
-
-        const day = date.getDate();
-        const month = months[date.getMonth()];
-        const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-        const weekday = isMobile ? [t.shortSun, t.shortMon, t.shortTue, t.shortWed, t.shortThu, t.shortFri, t.shortSat][date.getDay()] : weekdays[date.getDay()];
-        const year = date.getFullYear();
-
-        return `${weekday}, ${day} ${month} ${year}`;
-    };
-
-    const dateStr = getLocalizedDate(selectedDate, t);
     const isTeacher = isTeacherRole(profile?.role);
     const canViewRevenue = !isTeacher && (profile?.role === 'owner' || profile?.role === 'admin' || profile?.role === 'manager' || !!profile?.canViewAnalytics || !!profile?.canViewBilling);
-
-    const nowHour = new Date().getHours();
-    const isToday = selectedDate.toDateString() === new Date().toDateString();
-
-    const currentClass = isToday ? (liveSchedule as { start_time: string; title: string }[]).find(s => {
-        if (!s.start_time) return false;
-        const h = parseInt(s.start_time.split(':')[0] || '0');
-        return h <= nowHour && h + 2 > nowHour;
-    }) : null;
 
     const [billing, setBilling] = useState<any>(null);
 
@@ -803,66 +841,6 @@ export default function DashboardPage() {
                     </Link>
                 </div>
             )}
-
-            {/* ─── Top bar ─── */}
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <div className="flex items-center flex-wrap gap-2.5 sm:gap-4">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <h1 className="text-xl sm:text-2xl font-black text-primary tracking-tight flex items-center gap-2">
-                                {t.greeting || 'გამარჯობა'}, {profile?.first_name || profile?.full_name?.split(' ')[0] || ''} <span className="text-xl sm:text-2xl">👋</span>
-                                
-                                {/* Cloud Sync Status Indicator */}
-                                <div 
-                                    className="flex items-center justify-center w-6 h-6 group relative" 
-                                    title={lastSyncTime ? `ბოლო სინქრონიზაცია: ${new Date(lastSyncTime).toLocaleTimeString()}` : 'სინქრონიზაცია ჩართულია'}>
-                                    <div className={cn(
-                                        "w-2 h-2 rounded-full transition-all duration-1000",
-                                        syncStatus === 'synced' ? "bg-emerald-500 animate-pulse-slow" :
-                                        syncStatus === 'syncing' ? "bg-amber-500 animate-pulse" : "bg-red-500 animate-bounce"
-                                    )} />
-                                </div>
-
-                                {settings.plan === 'pro' && (
-                                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 border border-indigo-400/20 animate-in zoom-in-50 duration-700">
-                                        <span className="text-[8px] sm:text-[10px] font-black text-white uppercase tracking-widest leading-none">PRO</span>
-                                    </div>
-                                )}
-                            </h1>
-                        </div>
-                    </div>
-                    {(() => {
-                        const displayStudioName = profile?.studio_name || (settings?.studioName && !/^[0-9a-f-]{20,}$/i.test(settings.studioName) ? settings.studioName : null) || 'ST Dance Studio';
-                        return (
-                            <p className="text-[10px] sm:text-xs text-muted font-black mt-1 tracking-[0.15em] opacity-40">
-                                {displayStudioName} · <span suppressHydrationWarning className="text-indigo-500">{dateStr}</span>
-                            </p>
-                        );
-                    })()}
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0 flex-wrap sm:flex-nowrap">
-                    {currentClass && (
-                        <div className="hidden xl:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            <span className="text-xs font-medium text-emerald-400">{currentClass.title}</span>
-                        </div>
-                    )}
-                    <button
-                        onClick={() => setShowAddStudent(true)}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all active:scale-95 shadow-sm shadow-indigo-500/20 cursor-pointer"
-                    >
-                        <UserPlus className="w-4 h-4" />
-                        <span>{l('სტუდენტის დამატება', 'Добавить студента', 'Add Student')}</span>
-                    </button>
-                    <Link
-                        href="/attendance"
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface hover:bg-card text-primary border border-border-subtle hover:border-indigo-500/30 text-xs font-bold transition-all active:scale-95 shadow-2xs"
-                    >
-                        <CalendarCheck className="w-4 h-4 text-violet-500" />
-                        <span>{l('დასწრება', 'Посещаемость', 'Attendance')}</span>
-                    </Link>
-                </div>
-            </div>
 
             {/* ─── Operations & Analytics (Donut Cards: 2x2 on mobile, 4 in 1 row on desktop) ─── */}
             <div className={cn("grid gap-2.5 sm:gap-4 mb-4 items-stretch", canViewRevenue ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 sm:grid-cols-3")}>
@@ -1095,21 +1073,49 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* ─── Main 2 Windows: Today's Groups + Google Calendar Schedule ─── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch mb-6">
-                {/* Left Window: Today's Groups (Tabs + Expected Students List) */}
-                <TodayGroupsCard
-                    lang={lang}
-                    currentDate={selectedDate}
-                    onRefreshDashboard={refreshFullDashboard}
-                />
+            {/* ─── Today's Schedule + Quick Actions / Today's Summary ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch mb-6">
+                <div className="lg:col-span-2">
+                    <TodayScheduleTimeline
+                        items={liveSchedule as ScheduleItem[]}
+                        selectedDate={selectedDate}
+                        view={scheduleView}
+                        onViewChange={setScheduleView}
+                        onPrev={() => setSelectedDate(d => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; })}
+                        onNext={() => setSelectedDate(d => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; })}
+                        onToday={() => setSelectedDate(new Date())}
+                        l={l}
+                    />
+                </div>
+                <div className="space-y-4">
+                    <QuickActionsPanel
+                        onAddStudent={() => setShowAddStudent(true)}
+                        onCreatePayment={() => setShowIssueSub(true)}
+                        l={l}
+                    />
+                    <TodaySummaryPanel
+                        classesToday={liveStats.todayClassesCount}
+                        attended={liveStats.attendance}
+                        expected={liveStats.todayExpected}
+                        newRegistrations={liveStats.newThisMonthStudents}
+                        paymentsReceived={liveStats.todayRevenue}
+                        currency={settings.currency}
+                        l={l}
+                    />
+                </div>
+            </div>
 
-                {/* Right Window: Google Calendar Schedule (Day / Week / Month) */}
-                <CalendarScheduleCard
-                    lang={lang}
-                    initialDate={selectedDate}
-                    onSelectDate={setSelectedDate}
+            {/* ─── Upcoming Events / Recent Activity / Group Progress ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch mb-6">
+                <UpcomingEventsCard
+                    events={allEvents
+                        .filter((ev: any) => ev.type === 'other' && ev.date > getLocalISODate(new Date()))
+                        .sort((a: any, b: any) => a.date.localeCompare(b.date))
+                        .slice(0, 4)}
+                    l={l}
                 />
+                <RecentActivityCard items={recentActivityItems} l={l} />
+                <GroupProgressCard groups={groupProgress} l={l} />
             </div>
 
             {/* ─── Modals ─── */}

@@ -3,9 +3,10 @@
 import { usePathname } from 'next/navigation';
 import {
     Menu, Bell, X, Trash2, CheckCircle2, MessageSquare, Send, Search, Users,
-    User as UserIcon, ChevronRight, Pin, Plus, Building2,
-    Shield, Paperclip, FileText, Image as ImageIcon, Download
+    User as UserIcon, ChevronRight, ChevronDown, Pin, Plus, Building2,
+    Shield, Paperclip, FileText, Image as ImageIcon, Download, LogOut, UserCog
 } from 'lucide-react';
+import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';
 import { useT } from '@/contexts/LanguageContext';
@@ -54,7 +55,7 @@ const SUPPORT_CHAT_ID = 'classcore_support';
 export function Header() {
     const pathname = usePathname();
     const { toggle } = useMobileMenu();
-    const { profile } = useUser();
+    const { profile, logout } = useUser();
     const { settings, addBranch } = useStudio();
     const { t, lang } = useT();
     const [notifOpen, setNotifOpen] = useState(false);
@@ -62,6 +63,12 @@ export function Header() {
     const [notesOpen, setNotesOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'private' | 'group' | 'support'>('private');
     const [searchQuery, setSearchQuery] = useState('');
+    // Top-bar global search (students/groups) — separate from the messenger
+    // panel's own `searchQuery` above, which filters that panel's chat list.
+    const [topSearch, setTopSearch] = useState('');
+    const [topSearchFocused, setTopSearchFocused] = useState(false);
+    const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+    const profileMenuRef = useRef<HTMLDivElement>(null);
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
@@ -78,6 +85,28 @@ export function Header() {
 
     const students = getStudents();
     const groups = getGroups();
+
+    // Top-bar global search results (students + groups by name), capped so
+    // the dropdown never grows unbounded.
+    const topSearchResults = (() => {
+        const q = topSearch.trim().toLowerCase();
+        if (!q) return { students: [] as typeof students, groups: [] as typeof groups };
+        return {
+            students: students.filter(s => (s.full_name || `${s.first_name} ${s.last_name}`).toLowerCase().includes(q)).slice(0, 5),
+            groups: groups.filter(g => g.name.toLowerCase().includes(q)).slice(0, 5),
+        };
+    })();
+    const hasTopSearchResults = topSearchResults.students.length > 0 || topSearchResults.groups.length > 0;
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+                setProfileMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Calculate unread counts
     const updateUnreadCounts = () => {
@@ -434,6 +463,31 @@ export function Header() {
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
+    // Studio name · date · open/closed subtitle line under the page title —
+    // same weekday/month labels the dashboard page already uses, moved here
+    // since this header is what now shows it (on every page, not just /dashboard).
+    const getLocalizedDate = (date: Date) => {
+        const weekdays = [t.sunday, t.monday, t.tuesday, t.wednesday, t.thursday, t.friday, t.saturday];
+        const months = [t.jan, t.feb, t.mar, t.apr, t.may, t.jun, t.jul, t.aug, t.sep, t.oct, t.nov, t.dec];
+        return `${weekdays[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+    };
+    const displayStudioName = profile?.studio_name || (settings?.studioName && !/^[0-9a-f-]{20,}$/i.test(settings.studioName) ? settings.studioName : null) || 'ClassCore';
+    const isStudioOpen = !settings?.vacationMode?.active;
+
+    // Logged-in user's role label + avatar for the profile chip.
+    const ROLE_DISPLAY: Record<string, { ka: string; ru: string; en: string }> = {
+        owner: { ka: 'დირექტორი', ru: 'Директор', en: 'Director' },
+        administrator: { ka: 'ადმინისტრატორი', ru: 'Администратор', en: 'Administrator' },
+        admin: { ka: 'ადმინისტრატორი', ru: 'Администратор', en: 'Administrator' },
+        manager: { ka: 'მენეჯერი', ru: 'Менеджер', en: 'Manager' },
+        teacher: { ka: 'მასწავლებელი', ru: 'Тренер', en: 'Teacher' },
+        staff: { ka: 'თანამშრომელი', ru: 'Сотрудник', en: 'Staff' },
+    };
+    const roleDisplay = ROLE_DISPLAY[profile?.role || ''] || { ka: 'თანამშრომელი', ru: 'Сотрудник', en: 'Staff' };
+    const roleLabel = lang === 'ka' ? roleDisplay.ka : lang === 'ru' ? roleDisplay.ru : roleDisplay.en;
+    const displayName = profile?.full_name || `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || displayStudioName;
+    const avatarInitials = displayName.trim().split(/\s+/).slice(0, 2).map((p: string) => p[0]).join('').toUpperCase() || 'U';
+
     // Derive page title from t.* translations using pathname
     const PAGE_TITLES: Record<string, string> = {
         '/dashboard': t.dashboard,
@@ -492,73 +546,169 @@ export function Header() {
                     animation: pulse-slow 4s ease-in-out infinite;
                 }
             `}</style>
-            <header className="sticky top-0 z-[30] h-14 md:h-16 bg-white/90 backdrop-blur-lg border-b border-border-subtle flex items-center px-4 md:px-6 transition-all duration-300 w-full flex-shrink-0">
-                <div className="w-full flex items-center justify-between relative">
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={toggle}
-                            className="lg:hidden p-2 -ml-1 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl"
-                            aria-label="Menu"
-                        >
-                            <Menu className="w-6 h-6" />
-                        </button>
+            <header className="sticky top-0 z-[30] min-h-[64px] md:min-h-[76px] bg-white/90 backdrop-blur-lg border-b border-border-subtle flex items-center px-4 md:px-6 py-2.5 md:py-3 transition-all duration-300 w-full flex-shrink-0 gap-3">
+                <button
+                    onClick={toggle}
+                    className="lg:hidden p-2 -ml-1 text-primary/80 hover:text-primary transition-colors bg-surface/50 rounded-xl flex-shrink-0"
+                    aria-label="Menu"
+                >
+                    <Menu className="w-6 h-6" />
+                </button>
+
+                {/* Title + studio/date/status subtitle */}
+                <div className="min-w-0 flex-shrink-0">
+                    <h1 className="text-base md:text-xl font-black text-primary tracking-tight truncate max-w-[160px] md:max-w-[320px]">
+                        {displayTitle || rawTitle || (isDashboard ? t.dashboard : '')}
+                    </h1>
+                    <div className="hidden sm:flex items-center gap-1.5 mt-0.5 text-[11px] font-bold text-muted whitespace-nowrap">
+                        <span className="truncate max-w-[140px]">{displayStudioName}</span>
+                        <span className="opacity-40">·</span>
+                        <span suppressHydrationWarning className="opacity-70">{getLocalizedDate(new Date())}</span>
+                        <span className="opacity-40">·</span>
+                        <span className="flex items-center gap-1">
+                            <span className={cn("w-1.5 h-1.5 rounded-full", isStudioOpen ? "bg-emerald-500 animate-pulse-slow" : "bg-red-400")} />
+                            <span className={isStudioOpen ? "text-emerald-600" : "text-red-500"}>
+                                {isStudioOpen
+                                    ? (lang === 'ka' ? 'სტუდია ღიაა' : lang === 'ru' ? 'Студия открыта' : 'Studio open')
+                                    : (lang === 'ka' ? 'სტუდია დახურულია' : lang === 'ru' ? 'Студия закрыта' : 'Studio closed')}
+                            </span>
+                        </span>
                     </div>
+                </div>
 
-                    {/* Centered Page Title */}
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none whitespace-nowrap">
-                        <h1 className="text-[12px] md:text-sm font-black text-primary tracking-tight md:tracking-wider truncate max-w-[140px] md:max-w-[300px] uppercase">
-                            {displayTitle || rawTitle || (isDashboard ? t.dashboard : '')}
-                        </h1>
-                    </div>
-
-                    <div className="flex items-center gap-0 md:gap-2 pr-0 sm:pr-2">
-                        <button
-                            onClick={() => {
-                                setNotesOpen(true);
-                                setMessengerOpen(false);
-                                setNotifOpen(false);
-                            }}
-                            className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
-                            aria-label="Notes"
-                        >
-                            <Pin className="w-4 h-4 md:w-5 h-5 -rotate-45" />
-                            {uncompletedNotesCount > 0 && (
-                                <span className="absolute top-1.5 right-1.5 md:top-3 md:right-3 w-1 h-1 rounded-full bg-amber-500 ring-2 ring-card shadow-sm" />
+                {/* Global search — students & groups */}
+                <div className="relative flex-1 max-w-md ml-auto hidden md:block">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+                    <input
+                        type="text"
+                        value={topSearch}
+                        onChange={(e) => setTopSearch(e.target.value)}
+                        onFocus={() => setTopSearchFocused(true)}
+                        onBlur={() => setTimeout(() => setTopSearchFocused(false), 150)}
+                        placeholder={lang === 'ka' ? 'მოძებნე მოსწავლეები, ჯგუფები...' : lang === 'ru' ? 'Поиск студентов, групп...' : 'Search students, groups...'}
+                        className="w-full bg-surface border border-border-subtle rounded-xl pl-10 pr-4 py-2 text-xs font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 transition-all"
+                    />
+                    {topSearchFocused && topSearch.trim() && (
+                        <div className="absolute top-full mt-2 left-0 w-full bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                            {!hasTopSearchResults ? (
+                                <p className="px-4 py-3 text-xs font-bold text-muted opacity-60">{lang === 'ka' ? 'შედეგი არ მოიძებნა' : lang === 'ru' ? 'Нет результатов' : 'No results'}</p>
+                            ) : (
+                                <div className="max-h-80 overflow-y-auto divide-y divide-border-subtle/50">
+                                    {topSearchResults.students.map(s => (
+                                        <Link key={s.id} href="/students" onClick={() => setTopSearch('')}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface transition-colors">
+                                            <div className="w-8 h-8 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xs font-black flex-shrink-0 overflow-hidden">
+                                                {s.photo_url ? <img src={s.photo_url} className="w-full h-full object-cover" alt="" /> : (s.full_name || s.first_name || '?')[0]}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold text-primary truncate">{s.full_name || `${s.first_name} ${s.last_name}`}</p>
+                                                <p className="text-[10px] text-muted opacity-60">{t.students}</p>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                    {topSearchResults.groups.map(g => (
+                                        <Link key={g.id} href="/groups" onClick={() => setTopSearch('')}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface transition-colors">
+                                            <div className="w-8 h-8 rounded-full bg-violet-500/10 text-violet-500 flex items-center justify-center text-xs font-black flex-shrink-0">
+                                                {g.name[0]}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold text-primary truncate">{g.name}</p>
+                                                <p className="text-[10px] text-muted opacity-60">{t.groups}</p>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
                             )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-0 md:gap-1.5 flex-shrink-0 ml-auto md:ml-0">
+                    <button
+                        onClick={() => {
+                            setNotesOpen(true);
+                            setMessengerOpen(false);
+                            setNotifOpen(false);
+                        }}
+                        className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        aria-label="Notes"
+                    >
+                        <Pin className="w-4 h-4 md:w-5 h-5 -rotate-45" />
+                        {uncompletedNotesCount > 0 && (
+                            <span className="absolute top-1.5 right-1.5 md:top-3 md:right-3 w-1 h-1 rounded-full bg-amber-500 ring-2 ring-card shadow-sm" />
+                        )}
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            setMessengerOpen(true);
+                            setNotifOpen(false);
+                            setNotesOpen(false);
+                        }}
+                        className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        aria-label="Messenger"
+                    >
+                        <MessageSquare className="w-4 h-4 md:w-5 h-5" />
+                        {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
+                            <span className={cn(
+                                "absolute top-1.5 right-1.5 md:top-3 md:right-3 w-1 h-1 rounded-full ring-2 ring-card shadow-sm",
+                                unreadCounts[SUPPORT_CHAT_ID] ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-emerald-500"
+                            )} />
+                        )}
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            setNotifOpen((v: boolean) => !v);
+                            setMessengerOpen(false);
+                            setNotesOpen(false);
+                        }}
+                        className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        aria-label="Notifications"
+                    >
+                        <Bell className="w-4 h-4 md:w-5 h-5" />
+                        {unreadCount > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 md:top-1.5 md:right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 ring-2 ring-white text-[9px] font-black text-white flex items-center justify-center">
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Profile chip */}
+                    <div className="relative ml-1" ref={profileMenuRef}>
+                        <button
+                            onClick={() => setProfileMenuOpen(v => !v)}
+                            className="flex items-center gap-2 pl-1.5 pr-1 md:pl-2 md:pr-2.5 py-1 md:py-1.5 rounded-xl hover:bg-surface transition-colors"
+                        >
+                            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-black flex-shrink-0 overflow-hidden shadow-sm">
+                                {profile?.photo_url ? <img src={profile.photo_url} className="w-full h-full object-cover" alt="" /> : avatarInitials}
+                            </div>
+                            <div className="hidden md:block text-left leading-tight">
+                                <p className="text-xs font-black text-primary truncate max-w-[110px]">{displayName}</p>
+                                <p className="text-[10px] font-bold text-muted opacity-60">{roleLabel}</p>
+                            </div>
+                            <ChevronDown className="hidden md:block w-3.5 h-3.5 text-muted flex-shrink-0" />
                         </button>
 
-                        <button
-                            onClick={() => {
-                                setMessengerOpen(true);
-                                setNotifOpen(false);
-                                setNotesOpen(false);
-                            }}
-                            className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
-                            aria-label="Messenger"
-                        >
-                            <MessageSquare className="w-4 h-4 md:w-5 h-5" />
-                            {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
-                                <span className={cn(
-                                    "absolute top-1.5 right-1.5 md:top-3 md:right-3 w-1 h-1 rounded-full ring-2 ring-card shadow-sm",
-                                    unreadCounts[SUPPORT_CHAT_ID] ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-emerald-500"
-                                )} />
-                            )}
-                        </button>
-
-                        <button
-                            onClick={() => {
-                                setNotifOpen((v: boolean) => !v);
-                                setMessengerOpen(false);
-                                setNotesOpen(false);
-                            }}
-                            className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
-                            aria-label="Notifications"
-                        >
-                            <Bell className="w-4 h-4 md:w-5 h-5" />
-                            {unreadCount > 0 && (
-                                <span className="absolute top-1.5 right-1.5 md:top-3 md:right-3 w-1 h-1 rounded-full bg-red-500 ring-2 ring-card shadow-sm" />
-                            )}
-                        </button>
+                        {profileMenuOpen && (
+                            <div className="absolute top-full right-0 mt-2 w-56 bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                                <div className="px-4 py-3 border-b border-border-subtle">
+                                    <p className="text-xs font-black text-primary truncate">{displayName}</p>
+                                    <p className="text-[10px] font-bold text-muted opacity-60">{roleLabel}</p>
+                                </div>
+                                <Link href="/profile" onClick={() => setProfileMenuOpen(false)}
+                                    className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-primary hover:bg-surface transition-colors">
+                                    <UserCog className="w-4 h-4 text-muted" />
+                                    {lang === 'ka' ? 'პროფილი' : lang === 'ru' ? 'Профиль' : 'Profile'}
+                                </Link>
+                                <button onClick={() => { setProfileMenuOpen(false); logout(); }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-500/5 transition-colors">
+                                    <LogOut className="w-4 h-4" />
+                                    {t.logout}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </header>
