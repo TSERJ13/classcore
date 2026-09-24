@@ -34,6 +34,7 @@ const ALL_ITEMS: (NavItem & { color: string })[] = [
     { href: '/students', labelKey: 'students', icon: Users, color: 'text-sky-500' },
     { href: '/groups', labelKey: 'groups', icon: BookOpen, color: 'text-purple-500' },
     { href: '/teachers', labelKey: 'teachers', icon: GraduationCap, color: 'text-amber-500' },
+    { href: '/branches', labelKey: 'branches', icon: Building2, color: 'text-lime-500' },
     { href: '/halls', labelKey: 'halls', icon: DoorOpen, color: 'text-rose-500' },
 
     // Section 2: აბონემენტები და ფინანსები
@@ -312,7 +313,7 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
     const sections = [
         { 
             label: l('მთავარი', 'Главное', 'Main'), 
-            items: ['/dashboard', '/attendance', '/calendar', '/students', '/groups', '/teachers', '/halls'] 
+            items: ['/dashboard', '/attendance', '/calendar', '/students', '/groups', '/teachers', '/branches', '/halls']
         },
         { 
             label: l('ფინანსები', 'Финансы', 'Finance'), 
@@ -375,6 +376,9 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
                     // stay Main-Administrator-only (ADMINISTRATOR_DEFAULTS
                     // excludes canViewBilling/manageBilling on purpose).
                     if (item.href === '/settings') {
+                        return isOwnerOrAdmin(profile?.role) || role === 'administrator';
+                    }
+                    if (item.href === '/branches') {
                         return isOwnerOrAdmin(profile?.role) || role === 'administrator';
                     }
                     const adminOnly = ['/billing', '/finance', '/invoices', '/payments'];

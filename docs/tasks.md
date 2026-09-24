@@ -2823,3 +2823,59 @@ Notes:
 - `tsc --noEmit`: clean.
 - Files: `src/app/actions/plans.ts`, `src/lib/plan-store.ts`,
   `src/app/(dashboard)/subscriptions/plans/page.tsx`.
+
+---
+
+### Branches module: dedicated management page (per owner-supplied PRD)
+
+Owner uploaded a Branches module PRD and asked for it to be fully implemented. Before this,
+there was no dedicated page for branches — only the header's 2-field quick-add dropdown
+(kept exactly as-is per the PRD's own note that it's "separate, unchanged by this page") and a
+simple card list on the Profile page's "Branches" tab (no photo/area/comment/hall-count, and its
+delete button had no dependency check at all).
+
+**Discovered while building this**: the real `branches` table had **zero rows** for the studio
+whose data I'd been auditing all session, even though `students.branch_ids`, `groups.branch_id`,
+and `halls.branch_id` (added by the earlier Branch Isolation phase) all default to the string
+`'main'` — meaning every org's implicit default branch was a phantom id with no real row to show,
+rename, or attach anything to. `listBranches()` (`src/lib/logic/branches.ts`) now lazily seeds a
+real `'main'` branch row the first time an org's branch list comes back empty, so that default
+finally has something real behind it.
+
+**New Server Actions** (`src/app/actions/branches.ts` / `src/lib/logic/branches.ts`):
+- `getBranchesAction()` — real list with a live-computed hall count per branch (never a stored
+  number, per PRD §3).
+- `getBranchDeletionImpactAction(id)` — counts of halls/students/staff currently attached.
+- `deleteBranchAction({id, reassignToBranchId?})` — two-step safe delete per PRD §6: moves
+  attached halls/students/staff to the picked branch (or the implicit default if none picked)
+  before deleting only the branch row itself. Refuses to delete an org's last remaining branch
+  (would otherwise reassign onto the very row being deleted). Validates `reassignToBranchId`
+  actually belongs to this org before using it, and the per-row student/staff reassignment updates
+  are `org_id`-scoped too — defensive-in-depth since these Server Actions run against a
+  service-role client with no RLS for staff-token sessions.
+
+**UI** (`src/app/(dashboard)/branches/page.tsx`, `src/components/branches/*`): card grid (photo,
+status badge, live hall count, address, edit/delete), a detail modal (address+"open in map" link,
+area, full halls list — editing/deleting a hall redirects to `/halls`, "where the change actually
+happens" per PRD §4/§5 — plus a "bind existing hall from another branch" action, which is
+genuinely branch-specific and doesn't belong on the halls page), an add/edit form (photo, name,
+area in m², address + optional lat/lng with a working Google Maps link, status
+active/suspended, comment — halls are deliberately not manageable from this form per PRD §5's own
+callout), and the two-step delete dialog with live impact counts + a branch picker.
+
+**Map pin simplification**: no mapping library exists in this project. Rather than fake an
+interactive map, this stores optional lat/lng and builds a real, working "open in Google Maps"
+link from them (or from the address text if no coordinates are set) — not an embedded map widget.
+
+**Sidebar**: added a new "ფილიალები" nav item between Teachers and Halls (per PRD §2), gated the
+same way `/settings` already is — Main Administrator or Administrator-tier only, matching the
+Server Actions' own `requireStudioManager()` gate exactly (no dedicated StaffPermissions flag
+exists for Branches yet, same honesty-over-invention note the original branches.ts already made).
+
+Notes:
+- `tsc --noEmit`: clean. `next dev` compiled `/branches` and `/dashboard` with zero errors.
+- Files: `src/lib/logic/branches.ts`, `src/app/actions/branches.ts`,
+  `src/app/(dashboard)/branches/page.tsx`, `src/components/branches/BranchFormModal.tsx`,
+  `src/components/branches/BranchDetailModal.tsx`, `src/components/branches/DeleteBranchDialog.tsx`,
+  `src/types/index.ts` (extended `Branch`), `src/contexts/StudioContext.tsx` (widened `addBranch`),
+  `src/components/layout/Sidebar.tsx`.

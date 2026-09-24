@@ -22,7 +22,7 @@ interface StudioContextType {
     isSyncing: boolean;
     activeBranchId: string;
     setActiveBranch: (id: string) => void;
-    addBranch: (name: string, address?: string) => void;
+    addBranch: (name: string, address?: string, extra?: Partial<Branch>) => void;
     refreshData: () => Promise<void>;
     
     // Setters required by SettingsPage
@@ -1183,8 +1183,8 @@ export const StudioProvider: React.FC<{ children: React.ReactNode; defaultSlug?:
         });
     }, []);
 
-    const addBranch = useCallback((name: string, address?: string) => {
-        const newBranch: Branch = { id: `br_${Date.now()}`, name, address, is_active: true };
+    const addBranch = useCallback((name: string, address?: string, extra?: Partial<Branch>) => {
+        const newBranch: Branch = { id: `br_${Date.now()}`, name, address, is_active: true, ...extra };
         setSettings(prev => {
             const next = { ...prev, branches: [...prev.branches, newBranch] };
             saveSettings({ branches: next.branches }, prev, prev.studioSlug);

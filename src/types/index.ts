@@ -93,6 +93,11 @@ export interface Branch {
     address?: string;
     is_active: boolean;
     created_at?: string;
+    photo_url?: string;
+    sq_meters?: number;
+    comment?: string;
+    /** Live-computed hall count — only present on rows read from getBranchesAction(), never persisted. */
+    hallCount?: number;
 }
 
 export interface StudioSettings {
