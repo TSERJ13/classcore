@@ -235,9 +235,9 @@ function DragConfirmModal({ ev, newDate, newStart, newEnd, onThisOnly, onAllOccu
 }
 
 /* ─── GridLines internal helper ────────────────────────────────── */
-function GridLines({ onClick }: { onClick: (e: React.MouseEvent<HTMLDivElement>) => void }) {
+function GridLines({ onMouseDown, selection }: { onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void; selection?: { top: number; height: number } | null }) {
     return (
-        <div className="absolute inset-0 cursor-pointer group" onClick={onClick}>
+        <div className="absolute inset-0 cursor-pointer group" onMouseDown={onMouseDown}>
             {TIME_SLOTS.map((slot) => (
                 <div key={slot}
                     className={cn(
@@ -252,6 +252,13 @@ function GridLines({ onClick }: { onClick: (e: React.MouseEvent<HTMLDivElement>)
             <div className="absolute inset-0 bg-[#6d28d9]/[0.00] group-hover:bg-[#6d28d9]/[0.02] transition-colors pointer-events-none" />
             {/* Final bottom line */}
             <div className="absolute bottom-0 left-0 right-0 border-t border-black/40 pointer-events-none" />
+            {/* Click-and-drag time-range selection, Google-Calendar style */}
+            {selection && (
+                <div
+                    className="absolute left-0.5 right-0.5 bg-[#6d28d9]/20 border-2 border-[#6d28d9]/70 rounded-md pointer-events-none z-10"
+                    style={{ top: `${selection.top}px`, height: `${Math.max(selection.height, 4)}px` }}
+                />
+            )}
         </div>
     );
 }
@@ -904,7 +911,7 @@ function EventPopup({ ev, onClose, onDelete, onDeleteAll, onUpdate, onUpdateSeri
 
 const EMPTY_EV = { title: '', type: 'group_class' as EventType, hall_id: 'h1', teacher_id: '', group_id: '', student_id: '', date: '', start_time: '09:00', end_time: '10:30', notes: '', recurring: 'none' as 'none' | 'weekly', reminder_30m: false };
 
-function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, halls, groups }: { defaultDate: string; defaultTime?: string; onClose: () => void; onAdd: (evs: CalendarEvent[]) => void; teachers: any[]; halls: any[]; groups: Group[] }) {
+function AddEventModal({ defaultDate, defaultTime, defaultEndTime, onClose, onAdd, teachers, halls, groups }: { defaultDate: string; defaultTime?: string; defaultEndTime?: string; onClose: () => void; onAdd: (evs: CalendarEvent[]) => void; teachers: any[]; halls: any[]; groups: Group[] }) {
     const { settings } = useStudio();
     const defaultStart = defaultTime || '09:00';
 
@@ -919,18 +926,20 @@ function AddEventModal({ defaultDate, defaultTime, onClose, onAdd, teachers, hal
         ...EMPTY_EV,
         date: defaultDate,
         start_time: defaultStart,
-        end_time: addOneHour(defaultStart)
+        // Comes from a click-and-drag time-range selection on the grid when present.
+        end_time: defaultEndTime || addOneHour(defaultStart)
     });
 
     // Multi-day selection for recurring
+    const defaultEnd = defaultEndTime || addOneHour(defaultStart);
     const [recurringDays, setRecurringDays] = useState<Record<number, { active: boolean, start: string, end: string }>>({
-        1: { active: false, start: defaultStart, end: addOneHour(defaultStart) }, // Mon
-        2: { active: false, start: defaultStart, end: addOneHour(defaultStart) }, // Tue
-        3: { active: false, start: defaultStart, end: addOneHour(defaultStart) }, // Wed
-        4: { active: false, start: defaultStart, end: addOneHour(defaultStart) }, // Thu
-        5: { active: false, start: defaultStart, end: addOneHour(defaultStart) }, // Fri
-        6: { active: false, start: defaultStart, end: addOneHour(defaultStart) }, // Sat
-        0: { active: false, start: defaultStart, end: addOneHour(defaultStart) }  // Sun
+        1: { active: false, start: defaultStart, end: defaultEnd }, // Mon
+        2: { active: false, start: defaultStart, end: defaultEnd }, // Tue
+        3: { active: false, start: defaultStart, end: defaultEnd }, // Wed
+        4: { active: false, start: defaultStart, end: defaultEnd }, // Thu
+        5: { active: false, start: defaultStart, end: defaultEnd }, // Fri
+        6: { active: false, start: defaultStart, end: defaultEnd }, // Sat
+        0: { active: false, start: defaultStart, end: defaultEnd }  // Sun
     });
 
     // Auto-active the day from defaultDate
@@ -1564,6 +1573,8 @@ export default function CalendarPage() {
     const [selectedEv, setSelectedEv] = useState<CalendarEvent | null>(null);
     const [addDate, setAddDate] = useState<string | null>(null);
     const [addTime, setAddTime] = useState<string | null>(null);
+    const [addEndTime, setAddEndTime] = useState<string | null>(null);
+    const [selectDrag, setSelectDrag] = useState<{ dateStr: string; top: number; height: number } | null>(null);
     const [fabOpen, setFabOpen] = useState(false);
     const [fabHallOpen, setFabHallOpen] = useState(false);
     const [fabTeacherOpen, setFabTeacherOpen] = useState(false);
@@ -1626,7 +1637,12 @@ export default function CalendarPage() {
             // Only scroll if we are within the displayed range
             if (currentMins >= startMins && currentMins <= END_HOUR * 60) {
                 const offsetMins = currentMins - startMins;
-                const scrollPos = (offsetMins / 15) * 18 - 100; // Subtract some px to see the hour label clearly
+                const targetRef = view === 'day' ? dayGridRef : view === 'week' ? weekGridRef : null;
+                const viewportHeight = targetRef?.current?.clientHeight || 400;
+                // Center "now" in the visible viewport, so the user sees some
+                // of the past and some of the upcoming schedule at a glance,
+                // instead of "now" sitting near the very top of the view.
+                const scrollPos = (offsetMins / 15) * 18 - viewportHeight / 2;
 
                 if (view === 'day' && dayGridRef.current) {
                     dayGridRef.current.scrollTo({ top: scrollPos, behavior: 'smooth' });
@@ -1782,6 +1798,63 @@ export default function CalendarPage() {
         target.addEventListener('touchmove', cancelTouch, { once: true });
         target.addEventListener('touchend', cancelTouch, { once: true });
     }, [view, weekDates, anchor, canEdit]);
+
+    // ── Click-and-drag time-range selection (Google-Calendar style) ──────
+    // Mirrors startDrag's coordinate math (18px per 15 minutes) but creates a
+    // NEW event instead of moving an existing one. A plain click (no real
+    // drag) still falls back to the old single-click behavior: a 1-hour
+    // block starting at the clicked slot.
+    const yToTimeStr = (y: number) => {
+        const totalMins = (y / 72) * 60;
+        const snappedMins = Math.max(0, Math.floor(totalMins / 15) * 15);
+        const h = START_HOUR + Math.floor(snappedMins / 60);
+        const m = snappedMins % 60;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
+
+    const handleSelectMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>, dateStr: string) => {
+        if (!canEdit) return;
+        if (e.button !== 0) return; // left click only
+        const rect = e.currentTarget.getBoundingClientRect();
+        const startY = e.clientY - rect.top;
+        let hasMoved = false;
+        let currentY = startY;
+
+        setSelectDrag({ dateStr, top: startY, height: 0 });
+
+        const onMove = (clientY: number) => {
+            currentY = Math.max(0, Math.min(clientY - rect.top, rect.height));
+            if (!hasMoved && Math.abs(currentY - startY) > 5) hasMoved = true;
+            setSelectDrag({ dateStr, top: Math.min(startY, currentY), height: Math.abs(currentY - startY) });
+        };
+
+        const onEnd = () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            setSelectDrag(null);
+
+            const startTime = yToTimeStr(Math.min(startY, currentY));
+            let endTime: string;
+            if (hasMoved && Math.abs(currentY - startY) >= 18) {
+                endTime = yToTimeStr(Math.max(startY, currentY));
+                if (endTime === startTime) endTime = yToTimeStr(Math.max(startY, currentY) + 18);
+            } else {
+                // Plain click, no meaningful drag — default to a 1-hour block.
+                const [h, m] = startTime.split(':').map(Number);
+                endTime = `${((h + 1) % 24).toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+            }
+
+            setAddDate(dateStr);
+            setAddTime(startTime);
+            setAddEndTime(endTime);
+        };
+
+        const handleMouseMove = (em: MouseEvent) => onMove(em.clientY);
+        const handleMouseUp = () => onEnd();
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+    }, [canEdit]);
 
     // Sync to localStorage so Header can display the date range
     useEffect(() => {
@@ -2797,16 +2870,10 @@ export default function CalendarPage() {
 
                             {/* Day Column */}
                             <div className="relative border-r border-border-subtle">
-                                <GridLines onClick={(e) => {
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    const y = e.clientY - rect.top;
-                                    const totalMins = (y / 72) * 60;
-                                    const snappedMins = Math.floor(totalMins / 15) * 15;
-                                    const h = 8 + Math.floor(snappedMins / 60);
-                                    const m = snappedMins % 60;
-                                    setAddDate(toDateStr(anchor));
-                                    setAddTime(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
-                                }} />
+                                <GridLines
+                                    onMouseDown={(e) => handleSelectMouseDown(e, toDateStr(anchor))}
+                                    selection={selectDrag && selectDrag.dateStr === toDateStr(anchor) ? { top: selectDrag.top, height: selectDrag.height } : null}
+                                />
 
                                 {/* Events Layer */}
                                 <div className="absolute inset-0 pointer-events-none">
@@ -2899,17 +2966,10 @@ export default function CalendarPage() {
 
                                 return (
                                     <div key={di} className={cn("relative border-r border-border-subtle/40 last:border-r-0", (isToday && hasMounted) ? "bg-[#6d28d9]/[0.02]" : "")}>
-                                        <GridLines onClick={(e) => {
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            const y = e.clientY - rect.top;
-                                            const totalMins = (y / 72) * 60;
-                                            const snappedMins = Math.floor(totalMins / 15) * 15;
-                                            const h = 8 + Math.floor(snappedMins / 60);
-                                            const m = snappedMins % 60;
-                                            if (!canEdit) return;
-                                            setAddDate(dateStr);
-                                            setAddTime(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
-                                        }} />
+                                        <GridLines
+                                            onMouseDown={(e) => handleSelectMouseDown(e, dateStr)}
+                                            selection={selectDrag && selectDrag.dateStr === dateStr ? { top: selectDrag.top, height: selectDrag.height } : null}
+                                        />
 
                                         {/* Events Layer */}
                                         <div className="absolute inset-0 pointer-events-none">
@@ -3049,8 +3109,9 @@ export default function CalendarPage() {
                 <AddEventModal
                     defaultDate={addDate}
                     defaultTime={addTime || undefined}
-                    onClose={() => { setAddDate(null); setAddTime(null); }}
-                    onAdd={(evs) => { addEvents(evs); setAddDate(null); setAddTime(null); }}
+                    defaultEndTime={addEndTime || undefined}
+                    onClose={() => { setAddDate(null); setAddTime(null); setAddEndTime(null); }}
+                    onAdd={(evs) => { addEvents(evs); setAddDate(null); setAddTime(null); setAddEndTime(null); }}
                     teachers={teachers}
                     halls={halls}
                     groups={groups}

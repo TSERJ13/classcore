@@ -2672,3 +2672,51 @@ Notes:
 - `tsc --noEmit`: clean. `next lint` on all touched files: no new warnings (pre-existing
   `no-explicit-any` findings elsewhere in `Sidebar.tsx` predate this change).
 - No DB/migration changes needed for any of these three fixes — all code-only.
+
+### Calendar: center "now" in the auto-scroll, add click-and-drag time-range selection
+
+Owner flagged that the calendar always opens with mostly-empty hours in view, needing a manual
+scroll to reach the actual scheduled classes, and asked (a) for the current-time auto-scroll to
+land in the middle of the visible viewport (some past, some upcoming, at a glance) instead of near
+the top, and (b) for clicking-and-dragging on an empty grid cell to visually select a time range
+(Google-Calendar-style highlighted selection box) and open the same "Add" flow already used
+elsewhere, with both the start and end time pre-filled from the drag.
+
+**Centering fix** (`src/app/(dashboard)/calendar/page.tsx`'s `scrollToCurrent` effect): the scroll
+target was `offsetMins-based position minus a fixed 100px`, which put "now" near the top of the
+viewport. Changed to subtract half of the grid container's actual `clientHeight` instead, so "now"
+lands in the vertical center of whatever's currently visible.
+
+**Click-and-drag time-range selection**: the grid already had click-to-add (a single click opened
+`AddEventModal` with that time as the start, hardcoded to a 1-hour block) — this pass adds a
+proper drag interadction on top of it, mirroring the coordinate math (18px per 15 minutes) already
+used by the existing drag-to-move-an-event handlers (`startDrag`/`handleDragStart`) rather than
+reinventing it:
+- New `handleSelectMouseDown` (mousedown on `GridLines`, global `mousemove`/`mouseup` while
+  dragging, same idiom as the existing event-drag code) tracks the drag range and calls
+  `setAddDate`/`setAddTime`/the new `setAddEndTime` on release.
+- `GridLines` now renders a live highlighted selection box (`selection` prop) while dragging, in
+  the same purple as the rest of the calendar's accent color — the "same kind of highlight
+  Google Calendar has" the owner asked for.
+- A plain click with no real drag (movement under ~18px, i.e. less than one 15-minute row) still
+  falls back to the original single-click behavior (1-hour block at that time), so quick single
+  clicks keep working exactly as before.
+- `AddEventModal` gained an optional `defaultEndTime` prop, used for both the plain form and the
+  per-day recurring-time defaults, instead of always deriving end time as start+1h.
+- No new "Add Group" flow was built — `AddEventModal` already supports picking `group_class` as
+  the event type and creating a brand-new group inline (`isNewGroup`/`newGroupName`), which is
+  exactly the "same process as adding a group elsewhere, just with the time pre-picked" the owner
+  asked for; this pass only had to make sure both ends of that time range come from the drag.
+
+Notes:
+- `tsc --noEmit`: clean. `next lint`: no new findings (this file's large pre-existing
+  `no-explicit-any` list is untouched by these changes).
+- Could not visually test this one in a browser in this sandbox: `/calendar` sits behind the
+  dashboard's auth middleware and redirects to `/login` with no real Supabase session available
+  here. The logic is a close mirror of the already-proven drag-to-move-event code in the same
+  file, but this is worth a real click-through on production before considering it fully verified.
+- Desktop-only for the drag gesture (mouse events only, matching this file's existing
+  proven-safe touch-drag approach for moving events, which uses a long-press timer to avoid
+  fighting with scroll — wiring the same for a brand-new selection gesture on mobile was left out
+  of this pass to avoid conflicting with normal touch-scrolling on the grid). Mobile taps still
+  fall back to the single-click 1-hour-block behavior.
