@@ -2759,3 +2759,33 @@ Notes:
 - Same caveat as the previous entry: could not click-test this in a live logged-in session in this
   sandbox (`/calendar` is behind auth middleware, no real Supabase session available here) —
   needs a real look on production.
+
+### Calendar: fix the broken nav date field (was showing raw "dd.mm.yyyy" placeholder text)
+
+Owner pointed at the date field in the calendar's top nav (`< today [date] >`) — production
+screenshots showed it literally rendering the placeholder pattern `dd.mm.yyyy` instead of the real
+date, unreadable, and "something in the way" of clicking it.
+
+Root cause: that field used `StandardDatePicker` (a wrapper around a native `<input type="date">`)
+with a pile of `!important` Tailwind overrides (`[&_input]:!p-0 [&_input]:!h-auto
+[&_input]:!w-24 ...`) to force it into an ultra-compact 24-char-wide slot in the nav bar. A native
+date input's displayed text is rendered entirely by the browser/OS itself based on locale — it is
+not stylable via CSS, and squeezing its internal width down to `w-24` with zero padding made
+Chrome unable to render the actual formatted value, falling back to showing only its empty-state
+placeholder pattern (`dd.mm.yyyy`) instead.
+
+**Fix**: replaced it with a small purpose-built widget instead of fighting the native input's
+rendering: a plain, fully custom-styled `<span>` displays the date as static text
+(`24.09.2026`, numeric, matching this app's existing date convention), with a native
+`<input type="date">` absolutely positioned on top at `opacity-0` handling the actual click-to-open
+picker interaction. Since the visible label is now ordinary HTML/CSS instead of a native input's
+own internal rendering, none of the previous clipping/placeholder issues can happen — the browser's
+date-picker dropdown itself still opens exactly as before (that part was never broken, only the
+*display* of the current value was). `StandardDatePicker`'s import was removed from this file since
+this was its only use here (the component itself is untouched, other pages still use it normally).
+
+Notes:
+- `tsc --noEmit` and `next lint`: clean, no new findings.
+- Verified the visible label renders correctly (no clipping/placeholder-only rendering) in an
+  isolated static-HTML mockup of the same markup, since `/calendar` itself is behind auth in this
+  sandbox. Still worth a real look on production once deployed.

@@ -25,7 +25,6 @@ import { saveSubscription, getSubscriptions, type SubscriptionInfo } from '@/lib
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { getStudents } from '@/lib/student-store';
 import { generateTimeOptions, generateDayOptions, generateMonthOptions, generateYearOptions } from '@/lib/date-utils';
-import { StandardDatePicker } from '@/components/ui/StandardDatePicker';
 import { isOwnerOrAdmin } from '@/lib/access';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 
@@ -2413,15 +2412,29 @@ export default function CalendarPage() {
                             {t.todayBtn}
                         </button>
                         <div className="w-px h-3 bg-border-subtle mx-0.5" />
-                        <div className="flex items-center cursor-pointer active:scale-95 transition-transform overflow-hidden px-1">
-                            <StandardDatePicker
+                        {/* Custom compact date trigger: a plain, fully-styled text label with
+                            an invisible native <input type="date"> overlaid on top to handle the
+                            actual picking. A native date input's displayed text is rendered by the
+                            browser/OS itself (locale-dependent, not stylable) -- forcing it into a
+                            tiny custom width via CSS overrides (the previous approach here) made
+                            Chrome clip the real value and show only its "dd.mm.yyyy" placeholder
+                            pattern. Decoupling the visible label from the native input sidesteps
+                            that entirely. */}
+                        <div className="relative flex items-center justify-center h-full px-3 min-w-[92px] group/navdate">
+                            <Calendar className="w-3.5 h-3.5 mr-1.5 text-muted/50 group-hover/navdate:text-[#6d28d9] transition-colors pointer-events-none" />
+                            <span className="text-[11px] font-black text-primary tracking-tight tabular-nums whitespace-nowrap pointer-events-none group-hover/navdate:text-[#6d28d9] transition-colors">
+                                {anchor.getDate().toString().padStart(2, '0')}.{(anchor.getMonth() + 1).toString().padStart(2, '0')}.{anchor.getFullYear()}
+                            </span>
+                            <input
+                                type="date"
                                 value={toDateStr(anchor)}
-                                onChange={(val) => {
-                                    const d = new Date(val);
+                                onChange={(e) => {
+                                    if (!e.target.value) return;
+                                    const d = new Date(`${e.target.value}T00:00:00`);
                                     if (!isNaN(d.getTime())) setAnchor(d);
                                 }}
-                                hideIcon
-                                className="[&_label]:hidden [&>div]:!bg-transparent [&>div]:!border-none [&>div]:!shadow-none [&_input]:!p-0 [&_input]:!h-auto [&_input]:!text-[11px] [&_input]:!font-black [&_input]:!text-primary [&_input]:text-center [&_input]:!w-24 [&_input]:!bg-transparent"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                aria-label={lang === 'ka' ? 'აირჩიეთ თარიღი' : 'Select date'}
                             />
                         </div>
                         <div className="w-px h-3 bg-border-subtle mx-0.5 hidden sm:block" />
