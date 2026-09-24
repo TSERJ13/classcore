@@ -2879,3 +2879,59 @@ Notes:
   `src/components/branches/BranchDetailModal.tsx`, `src/components/branches/DeleteBranchDialog.tsx`,
   `src/types/index.ts` (extended `Branch`), `src/contexts/StudioContext.tsx` (widened `addBranch`),
   `src/components/layout/Sidebar.tsx`.
+
+---
+
+### Dashboard follow-up: fix capacity-ratio bug, real Day/Week/Month, new Events feature
+
+Owner sent production screenshots showing the new "Today's Schedule"/"Group Progress" cards
+missing capacity ratios and category pills, and asked for pixel-fidelity to the reference photo,
+plus a real (not just cosmetic) Day/Week/Month toggle, plus flagged that individual lessons never
+seem to count as "classes".
+
+**Root cause of the missing capacity ratios** (`typeof g.capacity === 'number'` in both
+`TodayScheduleTimeline` and the dashboard's Group Progress computation): every one of this
+studio's groups DOES have a real `capacity` value in the DB (checked directly) — but it comes back
+from the JSONB `data` blob as whatever type was stored, not guaranteed to be a JS `number`. The
+strict `typeof` check silently failed and hid the ratio/filtered every group out of Group
+Progress. Fixed to a loose `Number(...) > 0` check in both places instead, and to actually coerce
+to a number when building `ScheduleItem.capacity`.
+
+**Individual lessons "not counted"**: checked directly in the DB — this studio currently has
+**zero** `calendar_events` rows of `type: 'individual'`, only `group_class` (all from
+recurring `schedule_slots`). Their individual-lesson subscription plans exist as purchasable
+credits, but no actual booking has ever created a real calendar row for one, so there's nothing
+for any calendar-based count to include yet — not a filtering bug in the new dashboard code, which
+already counts every event type for a non-teacher viewer with no type exclusion. Once an individual
+lesson is actually booked onto a specific date (via the 7B booking flow or a manual Calendar entry),
+it will show and count the same as any other event.
+
+**Real Day/Week/Month**: `dashboard/page.tsx`'s schedule-refresh block now builds the enriched
+event list per date via a shared `buildForDate()` helper, then assembles either one day, the
+selected week (Mon–Sun), or every day-with-events in the selected month, passed to
+`TodayScheduleTimeline` as `{date, items}[]` groups with a date header per group outside Day view.
+Prev/Today/Next now step by the matching unit (day/week/month) instead of always ±1 day. Also
+fixed a real bug found while touching this: the schedule_slots virtual-fallback path used to cap
+at `.slice(0, 6)` groups, silently dropping the rest of a studio's schedule past 6 concurrent
+groups on a day with no explicit calendar rows.
+
+**Category pill**: was rendering the raw event `type` string unstyled (e.g. literally
+"group_class"); now translated to a real label (ჯგუფური/ინდივიდუალური/გაქირავება/სხვა) colored by
+the event/group's own color — this studio's real data is all `group_class` today so the label
+repeats, which is correct (there's no separate "age group" field in this schema to tag classes
+with, unlike the reference mockup's invented categories).
+
+**New Events feature** (`src/app/(dashboard)/events/page.tsx`): owner noted there was no way to
+create the "Upcoming Events"-style entries (campaigns, term starts, competitions) the dashboard
+card is meant to show. Added a dedicated page (title, date, description, color; add/edit/delete),
+backed by the same `calendar_events` table/store the Calendar page already writes to
+(`event-store.ts` — that module hasn't moved to Server Actions yet), filtered to `type: 'other'`.
+New sidebar nav item "ღონისძიებები" in Tools, positioned above Shop per the owner's request. The
+dashboard's Upcoming Events card already read this same `type: 'other'` data, so it now has a real
+source once the owner adds entries.
+
+Notes:
+- `tsc --noEmit`: clean. `next dev` compiled `/dashboard`, `/events`, `/branches` with zero errors.
+- Files: `src/app/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/DashboardHomeSections.tsx`,
+  `src/app/(dashboard)/events/page.tsx` (new), `src/components/layout/Sidebar.tsx`,
+  `src/lib/i18n/{types,ka,ru,en}.ts` (added `events` key).

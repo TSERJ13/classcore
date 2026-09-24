@@ -35,6 +35,7 @@ export interface Translations {
     payments: string;
     billing: string;
     sms_manager: string;
+    events: string;
     // Nav sections
     navSectionLearning: string;
     navSectionStructure: string;

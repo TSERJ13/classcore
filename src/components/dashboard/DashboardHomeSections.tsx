@@ -47,10 +47,19 @@ function eventStatus(item: ScheduleItem, isToday: boolean, nowMinutes: number, l
     return { label: l('მოსალოდნელი', 'Скоро', 'Upcoming'), cls: 'bg-amber-500/10 text-amber-600 border-amber-500/20' };
 }
 
+function typeLabel(type: string | undefined, l: (ka: string, ru: string, en: string) => string): string {
+    switch (type) {
+        case 'group_class': case 'group': return l('ჯგუფური', 'Групповое', 'Group');
+        case 'individual': return l('ინდივიდუალური', 'Индивидуальное', 'Individual');
+        case 'rental': return l('გაქირავება', 'Аренда', 'Rental');
+        default: return l('სხვა', 'Другое', 'Other');
+    }
+}
+
 export function TodayScheduleTimeline({
-    items, selectedDate, onPrev, onNext, onToday, view, onViewChange, l,
+    groups, selectedDate, onPrev, onNext, onToday, view, onViewChange, l,
 }: {
-    items: ScheduleItem[];
+    groups: { date: string; items: ScheduleItem[] }[];
     selectedDate: Date;
     onPrev: () => void;
     onNext: () => void;
@@ -59,9 +68,9 @@ export function TodayScheduleTimeline({
     onViewChange: (v: 'day' | 'week' | 'month') => void;
     l: (ka: string, ru: string, en: string) => string;
 }) {
-    const isToday = selectedDate.toDateString() === new Date().toDateString();
+    const todayStr = new Date().toISOString().slice(0, 10);
     const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-    const sorted = [...items].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
+    const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0);
 
     return (
         <div className="bg-card border border-border-subtle rounded-2xl p-4 sm:p-5 h-full flex flex-col">
@@ -84,7 +93,9 @@ export function TodayScheduleTimeline({
             </div>
             <div className="flex items-center justify-between mb-4">
                 <p className="text-[11px] font-bold text-muted opacity-60">
-                    {selectedDate.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    {view === 'day'
+                        ? selectedDate.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                        : selectedDate.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { month: 'long', year: 'numeric' })}
                 </p>
                 <div className="flex items-center gap-1">
                     <button onClick={onPrev} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-primary transition-colors">
@@ -99,54 +110,69 @@ export function TodayScheduleTimeline({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 max-h-[420px]">
-                {sorted.length === 0 ? (
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1 max-h-[420px]">
+                {totalItems === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center py-10 text-muted opacity-40">
                         <CalendarIcon className="w-8 h-8 mb-2" />
-                        <p className="text-xs font-bold">{l('დღეს არაფერია დაგეგმილი', 'На сегодня ничего не запланировано', 'Nothing scheduled today')}</p>
+                        <p className="text-xs font-bold">{l('არაფერია დაგეგმილი', 'Ничего не запланировано', 'Nothing scheduled')}</p>
                     </div>
-                ) : sorted.map(item => {
-                    const status = eventStatus(item, isToday, nowMinutes, l);
+                ) : groups.map(group => {
+                    const isGroupToday = group.date === todayStr;
+                    const sorted = [...group.items].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
                     return (
-                        <div key={item.id} className="flex items-start gap-3">
-                            <div className="w-12 flex-shrink-0 text-right pt-1">
-                                <p className="text-[11px] font-black text-primary leading-none">{item.start_time}</p>
-                                <p className="text-[9px] font-bold text-muted opacity-50 leading-none mt-0.5">{item.end_time}</p>
-                            </div>
-                            <div className="relative flex-shrink-0 flex flex-col items-center pt-1.5">
-                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color || '#6d28d9' }} />
-                                <span className="w-px flex-1 bg-border-subtle mt-1" />
-                            </div>
-                            <div className="flex-1 min-w-0 bg-surface/60 border border-border-subtle rounded-xl p-2.5 hover:border-indigo-500/20 transition-colors">
-                                <div className="flex items-center gap-2 mb-1">
-                                    {item.type && (
-                                        <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide"
-                                            style={{ backgroundColor: `${item.color || '#6d28d9'}1a`, color: item.color || '#6d28d9' }}>
-                                            {item.type}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <div className="w-7 h-7 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-[10px] font-black flex-shrink-0 overflow-hidden">
-                                            {item.teacherPhoto ? <img src={item.teacherPhoto} className="w-full h-full object-cover" alt="" /> : (item.teacherName || item.title)[0]}
+                        <div key={group.date}>
+                            {view !== 'day' && (
+                                <p className="text-[10px] font-black text-muted uppercase tracking-wide mb-2 opacity-60">
+                                    {new Date(`${group.date}T00:00:00`).toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { weekday: 'short', day: 'numeric', month: 'short' })}
+                                    {isGroupToday && <span className="ml-1.5 text-indigo-500">· {l('დღეს', 'сегодня', 'today')}</span>}
+                                </p>
+                            )}
+                            <div className="space-y-2.5">
+                                {sorted.map(item => {
+                                    const status = eventStatus(item, isGroupToday, nowMinutes, l);
+                                    const hasCapacity = item.capacity != null && Number(item.capacity) > 0;
+                                    return (
+                                        <div key={item.id} className="flex items-start gap-3">
+                                            <div className="w-12 flex-shrink-0 text-right pt-1">
+                                                <p className="text-[11px] font-black text-primary leading-none">{item.start_time}</p>
+                                                <p className="text-[9px] font-bold text-muted opacity-50 leading-none mt-0.5">{item.end_time}</p>
+                                            </div>
+                                            <div className="relative flex-shrink-0 flex flex-col items-center pt-1.5">
+                                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color || '#6d28d9' }} />
+                                                <span className="w-px flex-1 bg-border-subtle mt-1" />
+                                            </div>
+                                            <div className="flex-1 min-w-0 bg-surface/60 border border-border-subtle rounded-xl p-2.5 hover:border-indigo-500/20 transition-colors">
+                                                <div className="flex items-center gap-2 mb-1.5">
+                                                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide"
+                                                        style={{ backgroundColor: `${item.color || '#6d28d9'}1a`, color: item.color || '#6d28d9' }}>
+                                                        {typeLabel(item.type, l)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <div className="w-7 h-7 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-[10px] font-black flex-shrink-0 overflow-hidden">
+                                                            {item.teacherPhoto ? <img src={item.teacherPhoto} className="w-full h-full object-cover" alt="" /> : (item.teacherName || item.title)[0]}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs font-bold text-primary truncate">{item.title}</p>
+                                                            <p className="text-[10px] text-muted opacity-60 truncate">{item.teacherName}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        {hasCapacity && (
+                                                            <span className="text-[10px] font-bold text-muted opacity-60 tabular-nums">
+                                                                {item.studentCount ?? 0} / {item.capacity}
+                                                            </span>
+                                                        )}
+                                                        <span className={cn('px-2 py-0.5 rounded-lg text-[9px] font-bold border whitespace-nowrap', status.cls)}>
+                                                            {status.label}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-bold text-primary truncate">{item.title}</p>
-                                            <p className="text-[10px] text-muted opacity-60 truncate">{item.teacherName}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        {typeof item.capacity === 'number' && item.capacity > 0 && (
-                                            <span className="text-[10px] font-bold text-muted opacity-60 tabular-nums">
-                                                {item.studentCount ?? 0} / {item.capacity}
-                                            </span>
-                                        )}
-                                        <span className={cn('px-2 py-0.5 rounded-lg text-[9px] font-bold border whitespace-nowrap', status.cls)}>
-                                            {status.label}
-                                        </span>
-                                    </div>
-                                </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     );
@@ -175,11 +201,11 @@ export function QuickActionsPanel({ onAddStudent, onCreatePayment, l }: { onAddS
                 </div>
                 <h3 className="text-sm font-bold text-primary">{l('სასწრაფო მოქმედებები', 'Быстрые действия', 'Quick Actions')}</h3>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
                 {actions.map((a, i) => {
                     const content = (
                         <>
-                            <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', a.color)}>
+                            <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0', a.color)}>
                                 <a.icon className="w-4 h-4" />
                             </div>
                             <span className="flex-1 text-xs font-bold text-primary text-left">{a.label}</span>
@@ -187,11 +213,11 @@ export function QuickActionsPanel({ onAddStudent, onCreatePayment, l }: { onAddS
                         </>
                     );
                     return a.href ? (
-                        <Link key={i} href={a.href} className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-surface transition-colors">
+                        <Link key={i} href={a.href} className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-surface/60 hover:bg-surface transition-colors">
                             {content}
                         </Link>
                     ) : (
-                        <button key={i} onClick={a.onClick} className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-surface transition-colors">
+                        <button key={i} onClick={a.onClick} className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-surface/60 hover:bg-surface transition-colors">
                             {content}
                         </button>
                     );

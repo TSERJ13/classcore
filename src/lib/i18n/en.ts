@@ -35,6 +35,7 @@ export const en: Translations = {
     payments: 'Payments',
     billing: 'Billing',
     sms_manager: 'SMS Manager',
+    events: 'Events',
     // Nav sections
     navSectionLearning: 'Learning',
     navSectionStructure: 'Structure',

@@ -35,6 +35,7 @@ export const ru: Translations = {
     payments: 'Платежи',
     billing: 'Биллинг',
     sms_manager: 'SMS Менеджер',
+    events: 'События',
     // Nav sections
     navSectionLearning: 'Учебный',
     navSectionStructure: 'Структура',

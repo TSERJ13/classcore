@@ -294,7 +294,7 @@ export default function DashboardPage() {
             return next;
         });
     }, []);
-    const [liveSchedule, setLiveSchedule] = useState<any[]>([]);
+    const [scheduleGroups, setScheduleGroups] = useState<{ date: string; items: ScheduleItem[] }[]>([]);
     const [allEvents, setAllEvents] = useState<any[]>([]);
     // 🛠️ FIX: `liveStats` starts at all-zero, and refreshFullDashboard()'s
     // very first call (on mount) runs against whatever local student/
@@ -463,14 +463,15 @@ export default function DashboardPage() {
             const allGroupsForProgress = getGroups();
             const progress = allGroupsForProgress
                 .filter(g => !isTeacher || !visibleGroupIds || visibleGroupIds.includes(g.id))
-                .filter(g => typeof g.capacity === 'number' && g.capacity > 0)
+                .filter(g => g.capacity != null && Number(g.capacity) > 0)
                 .map(g => {
+                    const capacity = Number(g.capacity);
                     const enrolled = studentsList.filter(s => (s.enrolled_group_ids || []).includes(g.id)).length;
                     return {
                         id: g.id,
                         name: g.name,
                         photo: getTeacherPhoto(g.teacherId) || undefined,
-                        pct: Math.min(100, Math.round((enrolled / (g.capacity || 1)) * 100)),
+                        pct: Math.min(100, Math.round((enrolled / capacity) * 100)),
                     };
                 })
                 .sort((a, b) => b.pct - a.pct)
@@ -547,53 +548,79 @@ export default function DashboardPage() {
 
         // 2. Refresh Schedule & Activity
         import('@/lib/event-store').then(mod => {
-            const dateStr = getLocalISODate(selectedDate);
-            const dayOfWeek = (selectedDate.getDay() + 6) % 7;
-            let events = mod.getEventsByDate(dateStr).filter(ev => {
-                if (isTeacher && visibleGroupIds && ev.group_id && !visibleGroupIds.includes(ev.group_id)) return false;
-                return true;
-            });
-
             const allStudents = getStudents();
             const groups = getGroups();
 
-            // Fallback: If no explicit calendar events on date, pull from group schedule_slots or assigned groups!
-            if (events.length === 0 && groups.length > 0) {
-                events = groups
-                    .filter(g => {
-                        if (isTeacher && visibleGroupIds && !visibleGroupIds.includes(g.id)) return false;
-                        return true;
-                    })
-                    .slice(0, 6)
-                    .map(g => {
-                        const slot = g.schedule_slots?.find(s => s.dayOfWeek === dayOfWeek);
-                        return {
-                            id: `virt-dash-${g.id}`,
-                            group_id: g.id,
-                            title: g.name,
-                            type: 'group',
-                            color: g.color || '#6d28d9',
-                            start_time: slot?.startTime || '18:00',
-                            end_time: slot?.endTime || '19:00',
-                            teacher_id: g.teacherId || '',
-                            hall_id: g.hall_id || ''
-                        };
-                    }) as any;
+            // One date's enriched schedule — shared by day/week/month below so
+            // all three views build rows the exact same way.
+            const buildForDate = (d: Date) => {
+                const dateStr = getLocalISODate(d);
+                const dayOfWeek = (d.getDay() + 6) % 7;
+                let events = mod.getEventsByDate(dateStr).filter(ev => {
+                    if (isTeacher && visibleGroupIds && ev.group_id && !visibleGroupIds.includes(ev.group_id)) return false;
+                    return true;
+                });
+
+                // Fallback: if no explicit calendar events on this date, pull from
+                // every visible group's own recurring schedule_slots instead —
+                // previously capped at 6 groups, silently dropping the rest of a
+                // studio's schedule once it had more than 6 running that day.
+                if (events.length === 0 && groups.length > 0) {
+                    events = groups
+                        .filter(g => {
+                            if (isTeacher && visibleGroupIds && !visibleGroupIds.includes(g.id)) return false;
+                            return !!g.schedule_slots?.some(s => s.dayOfWeek === dayOfWeek);
+                        })
+                        .map(g => {
+                            const slot = g.schedule_slots!.find(s => s.dayOfWeek === dayOfWeek)!;
+                            return {
+                                id: `virt-dash-${g.id}-${dateStr}`,
+                                group_id: g.id,
+                                title: g.name,
+                                type: 'group_class',
+                                color: g.color || '#6d28d9',
+                                start_time: slot.startTime || '18:00',
+                                end_time: slot.endTime || '19:00',
+                                teacher_id: g.teacherId || '',
+                                hall_id: g.hall_id || ''
+                            };
+                        }) as any;
+                }
+
+                return events.map(ev => {
+                    const g = groups.find(x => x.id === ev.group_id);
+                    const tid = ev.teacher_id || g?.teacherId;
+                    const capacity = g?.capacity != null ? Number(g.capacity) : undefined;
+                    return {
+                        ...ev,
+                        teacherName: getTeacherName(tid),
+                        teacherPhoto: getTeacherPhoto(tid),
+                        hallName: getHallName(ev.hall_id),
+                        studentCount: allStudents.filter(s => (s.enrolled_group_ids || []).includes(ev.group_id || '')).length,
+                        capacity: capacity && capacity > 0 ? capacity : undefined,
+                    };
+                }).sort((a: any, b: any) => a.start_time.localeCompare(b.start_time));
+            };
+
+            let dates: Date[];
+            if (scheduleView === 'day') {
+                dates = [selectedDate];
+            } else if (scheduleView === 'week') {
+                const dow = (selectedDate.getDay() + 6) % 7; // Mon=0
+                const monday = new Date(selectedDate);
+                monday.setDate(selectedDate.getDate() - dow);
+                dates = Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
+            } else {
+                const year = selectedDate.getFullYear();
+                const month = selectedDate.getMonth();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                dates = Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1));
             }
 
-            const scheduleWithDetails = events.map(ev => {
-                const g = groups.find(x => x.id === ev.group_id);
-                const tid = ev.teacher_id || g?.teacherId;
-                return {
-                    ...ev,
-                    teacherName: getTeacherName(tid),
-                    teacherPhoto: getTeacherPhoto(tid),
-                    hallName: getHallName(ev.hall_id),
-                    studentCount: allStudents.filter(s => (s.enrolled_group_ids || []).includes(ev.group_id || '')).length,
-                    capacity: g?.capacity,
-                };
-            });
-            setLiveSchedule(scheduleWithDetails);
+            const groupsForView = dates
+                .map(d => ({ date: getLocalISODate(d), items: buildForDate(d) }))
+                .filter(g => scheduleView === 'day' || g.items.length > 0);
+            setScheduleGroups(groupsForView as unknown as { date: string; items: ScheduleItem[] }[]);
         });
 
         // 3. Recent Activity feed — merges real check-ins (which carry a real
@@ -660,7 +687,7 @@ export default function DashboardPage() {
 
         setRecentActivityItems(activityItems.slice(0, 8));
 
-    }, [profile, selectedDate, settings.studioName, settings.currency, t, l]);
+    }, [profile, selectedDate, scheduleView, settings.studioName, settings.currency, t, l]);
 
     useEffect(() => {
         refreshFullDashboard();
@@ -1077,12 +1104,24 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch mb-6">
                 <div className="lg:col-span-2">
                     <TodayScheduleTimeline
-                        items={liveSchedule as ScheduleItem[]}
+                        groups={scheduleGroups}
                         selectedDate={selectedDate}
                         view={scheduleView}
                         onViewChange={setScheduleView}
-                        onPrev={() => setSelectedDate(d => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; })}
-                        onNext={() => setSelectedDate(d => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; })}
+                        onPrev={() => setSelectedDate(d => {
+                            const n = new Date(d);
+                            if (scheduleView === 'week') n.setDate(n.getDate() - 7);
+                            else if (scheduleView === 'month') n.setMonth(n.getMonth() - 1);
+                            else n.setDate(n.getDate() - 1);
+                            return n;
+                        })}
+                        onNext={() => setSelectedDate(d => {
+                            const n = new Date(d);
+                            if (scheduleView === 'week') n.setDate(n.getDate() + 7);
+                            else if (scheduleView === 'month') n.setMonth(n.getMonth() + 1);
+                            else n.setDate(n.getDate() + 1);
+                            return n;
+                        })}
                         onToday={() => setSelectedDate(new Date())}
                         l={l}
                     />

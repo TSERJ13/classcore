@@ -35,6 +35,7 @@ export const ka: Translations = {
     payments: 'გადახდები',
     billing: 'ბილინგი',
     sms_manager: 'SMS მენეჯერი',
+    events: 'ღონისძიებები',
     // Nav sections
     navSectionLearning: 'სასწავლო',
     navSectionStructure: 'სტრუქტურა',

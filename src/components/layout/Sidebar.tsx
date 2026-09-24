@@ -7,7 +7,7 @@ import {
     CreditCard, Receipt, GraduationCap, BarChart2,
     CalendarDays, DoorOpen, ChevronRight, LucideIcon, ShoppingBag, MessageSquare,
     Building2, Plus, Check, LogOut, Zap, Ticket, TrendingUp, FileText, Banknote,
-    ShieldAlert, X, Gift, Clock
+    ShieldAlert, X, Gift, Clock, Megaphone
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useT } from '@/contexts/LanguageContext';
@@ -47,6 +47,7 @@ const ALL_ITEMS: (NavItem & { color: string })[] = [
     { href: '/payments', labelKey: 'payments', icon: Banknote, color: 'text-teal-400' },
 
     // Section 3: დამატებითი ინსტრუმენტები
+    { href: '/events', labelKey: 'events', icon: Megaphone, color: 'text-orange-400' },
     { href: '/shop', labelKey: 'shop', icon: ShoppingBag, color: 'text-pink-500' },
     { href: '/history', labelKey: 'history', icon: Receipt, color: 'text-zinc-400' },
     { href: '/sms-manager', labelKey: 'sms_manager', icon: MessageSquare, color: 'text-cyan-500' },
@@ -319,9 +320,9 @@ function NavItems({ exp, isMobile, profile, pathname, theme, t, close, defaultRo
             label: l('ფინანსები', 'Финансы', 'Finance'), 
             items: ['/subscriptions', '/subscriptions/plans', '/analytics', '/finance', '/billing', '/invoices', '/payments'] 
         },
-        { 
-            label: l('ინსტრუმენტები', 'Инструменты', 'Tools'), 
-            items: ['/shop', '/history', '/sms-manager'] 
+        {
+            label: l('ინსტრუმენტები', 'Инструменты', 'Tools'),
+            items: ['/events', '/shop', '/history', '/sms-manager']
         },
         { 
             label: l('სისტემა', 'Система', 'System'), 
