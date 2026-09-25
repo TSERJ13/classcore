@@ -106,8 +106,9 @@ export interface StudioSettings {
     studioName: string;
     studioSlug: string;
     isWizardCompleted?: boolean;
-    /** Which widget key occupies each dashboard slot — studio-wide, owner/admin-managed. Missing slots fall back to DEFAULT_DASHBOARD_LAYOUT (src/lib/dashboard-widgets.ts). */
     dashboardWidgets?: Record<string, string>;
+    /** Ordered list of active quick action IDs on dashboard, owner/admin-managed. Missing falls back to DEFAULT_QUICK_ACTIONS. */
+    dashboardQuickActions?: string[];
     logoDataUrl: string | null;   // base64 image or null
     plan?: 'trial' | 'pro' | 'custom';
     trialStartDate?: string;

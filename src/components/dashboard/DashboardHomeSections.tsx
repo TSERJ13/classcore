@@ -14,7 +14,7 @@ import Link from 'next/link';
 import {
     Calendar as CalendarIcon, ChevronLeft, ChevronRight, UserPlus, CalendarCheck,
     CreditCard, MessageSquare, Zap, Trophy, Megaphone, TrendingUp, Users, Settings2, Check,
-    Send, BarChart2, Activity,
+    Send, BarChart2, Activity, ArrowUp, ArrowDown, Trash2, Plus, RotateCcw,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { Group } from '@/lib/group-store';
@@ -44,20 +44,20 @@ export function WidgetSlot({
             </div>
             <button
                 onClick={() => setOpen(v => !v)}
-                className="absolute top-2 right-2 z-20 w-7 h-7 rounded-lg bg-white shadow-md border border-border-subtle flex items-center justify-center text-muted hover:text-indigo-500 transition-colors"
+                className="absolute top-2 right-2 z-20 w-7 h-7 rounded-lg bg-white shadow-md border border-border-subtle flex items-center justify-center text-muted hover:text-indigo-500 transition-colors cursor-pointer"
             >
                 <Settings2 className="w-3.5 h-3.5" />
             </button>
             {open && (
                 <>
                     <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-                    <div className="absolute top-10 right-2 z-30 w-52 bg-card border border-border-subtle rounded-xl shadow-xl overflow-hidden">
+                    <div className="absolute top-10 right-2 z-30 w-56 max-h-72 overflow-y-auto bg-card border border-border-subtle rounded-xl shadow-xl divide-y divide-border-subtle/50">
                         {options.map(o => (
                             <button key={o.key}
                                 onClick={() => { onChange(o.key); setOpen(false); }}
-                                className={cn('w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-xs font-bold hover:bg-surface transition-colors',
+                                className={cn('w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-xs font-bold hover:bg-surface transition-colors cursor-pointer',
                                     o.key === currentKey ? 'text-indigo-500 bg-indigo-500/5' : 'text-primary')}>
-                                {o.label[lang]}
+                                <span className="truncate">{o.label[lang]}</span>
                                 {o.key === currentKey && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
                             </button>
                         ))}
@@ -384,45 +384,224 @@ export function TodayScheduleTimeline({
 
 // ─── Quick Actions ──────────────────────────────────────────────────────────
 
-export function QuickActionsPanel({ onAddStudent, onCreatePayment, l }: { onAddStudent: () => void; onCreatePayment: () => void; l: (ka: string, ru: string, en: string) => string }) {
-    const actions = [
-        { icon: UserPlus, label: l('სტუდენტის დამატება', 'Добавить студента', 'Add New Student'), bg: 'bg-[#6366f1]', onClick: onAddStudent },
-        { icon: CalendarCheck, label: l('დასწრების აღრიცხვა', 'Отметить посещаемость', 'Register Attendance'), bg: 'bg-[#10b981]', href: '/attendance' },
-        { icon: CreditCard, label: l('გადახდის შექმნა', 'Создать платёж', 'Create Payment'), bg: 'bg-[#0ea5e9]', onClick: onCreatePayment },
-        { icon: CalendarIcon, label: l('განრიგის ნახვა', 'Посмотреть расписание', 'View Schedule'), bg: 'bg-[#8b5cf6]', href: '/calendar' },
-        { icon: Send, label: l('შეტყობინების გაგზავნა', 'Отправить сообщение', 'Send Message'), bg: 'bg-[#f43f5e]', href: '/sms-manager' },
-    ];
+export const DEFAULT_QUICK_ACTIONS = ['addStudent', 'attendance', 'createPayment', 'viewSchedule', 'sendMessage'];
+
+export interface QuickActionsPanelProps {
+    onAddStudent: () => void;
+    onCreatePayment: () => void;
+    l: (ka: string, ru: string, en: string) => string;
+    editMode?: boolean;
+    actionIds?: string[];
+    onUpdateActions?: (ids: string[]) => void;
+}
+
+export function QuickActionsPanel({
+    onAddStudent,
+    onCreatePayment,
+    l,
+    editMode = false,
+    actionIds,
+    onUpdateActions,
+}: QuickActionsPanelProps) {
+    const allActions: Record<string, {
+        id: string;
+        icon: any;
+        label: string;
+        bg: string;
+        onClick?: () => void;
+        href?: string;
+    }> = {
+        addStudent: {
+            id: 'addStudent',
+            icon: UserPlus,
+            label: l('სტუდენტის დამატება', 'Добавить студента', 'Add New Student'),
+            bg: 'bg-[#6366f1]',
+            onClick: onAddStudent,
+        },
+        attendance: {
+            id: 'attendance',
+            icon: CalendarCheck,
+            label: l('დასწრების აღრიცხვა', 'Отметить посещаемость', 'Register Attendance'),
+            bg: 'bg-[#10b981]',
+            href: '/attendance',
+        },
+        createPayment: {
+            id: 'createPayment',
+            icon: CreditCard,
+            label: l('გადახდის შექმნა', 'Создать платёж', 'Create Payment'),
+            bg: 'bg-[#0ea5e9]',
+            onClick: onCreatePayment,
+        },
+        viewSchedule: {
+            id: 'viewSchedule',
+            icon: CalendarIcon,
+            label: l('განრიგის ნახვა', 'Посмотреть расписание', 'View Schedule'),
+            bg: 'bg-[#8b5cf6]',
+            href: '/calendar',
+        },
+        sendMessage: {
+            id: 'sendMessage',
+            icon: Send,
+            label: l('შეტყობინების გაგზავნა', 'Отправить сообщение', 'Send Message'),
+            bg: 'bg-[#f43f5e]',
+            href: '/sms-manager',
+        },
+    };
+
+    const currentIds = (actionIds && actionIds.length > 0)
+        ? actionIds.filter(id => allActions[id])
+        : DEFAULT_QUICK_ACTIONS;
+
+    const visibleActions = currentIds.map(id => allActions[id]).filter(Boolean);
+    const hiddenActions = Object.values(allActions).filter(a => !currentIds.includes(a.id));
+
+    const moveUp = (index: number) => {
+        if (index <= 0 || !onUpdateActions) return;
+        const next = [...currentIds];
+        const temp = next[index - 1];
+        next[index - 1] = next[index];
+        next[index] = temp;
+        onUpdateActions(next);
+    };
+
+    const moveDown = (index: number) => {
+        if (index >= currentIds.length - 1 || !onUpdateActions) return;
+        const next = [...currentIds];
+        const temp = next[index + 1];
+        next[index + 1] = next[index];
+        next[index] = temp;
+        onUpdateActions(next);
+    };
+
+    const removeAction = (id: string) => {
+        if (!onUpdateActions) return;
+        onUpdateActions(currentIds.filter(x => x !== id));
+    };
+
+    const addAction = (id: string) => {
+        if (!onUpdateActions) return;
+        onUpdateActions([...currentIds, id]);
+    };
+
+    const resetActions = () => {
+        if (!onUpdateActions) return;
+        onUpdateActions(DEFAULT_QUICK_ACTIONS);
+    };
 
     return (
-        <div className="bg-card border border-border-subtle rounded-2xl p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
-                    <Zap className="w-4 h-4" />
-                </div>
-                <h3 className="text-sm font-bold text-primary">{l('სასწრაფო მოქმედებები', 'Быстрые действия', 'Quick Actions')}</h3>
-            </div>
-            <div className="space-y-2">
-                {actions.map((a, i) => {
-                    const content = (
-                        <>
-                            <div className={cn('w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs', a.bg)}>
-                                <a.icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-                            </div>
-                            <span className="flex-1 text-xs font-bold text-slate-800 dark:text-slate-100 text-left">{a.label}</span>
-                            <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                        </>
-                    );
-                    return a.href ? (
-                        <Link key={i} href={a.href} className="w-full flex items-center gap-3 px-3 py-2 sm:py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-100/80 dark:bg-slate-800/40 dark:hover:bg-slate-800/70 border border-slate-100/80 dark:border-slate-800/60 transition-colors">
-                            {content}
-                        </Link>
-                    ) : (
-                        <button key={i} onClick={a.onClick} className="w-full flex items-center gap-3 px-3 py-2 sm:py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-100/80 dark:bg-slate-800/40 dark:hover:bg-slate-800/70 border border-slate-100/80 dark:border-slate-800/60 transition-colors">
-                            {content}
+        <div className="bg-card border border-border-subtle rounded-2xl p-4 sm:p-5 flex flex-col justify-between h-full">
+            <div>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
+                            <Zap className="w-4 h-4" />
+                        </div>
+                        <h3 className="text-sm font-bold text-primary">{l('სასწრაფო მოქმედებები', 'Быстрые действия', 'Quick Actions')}</h3>
+                    </div>
+                    {editMode && onUpdateActions && (
+                        <button
+                            type="button"
+                            onClick={resetActions}
+                            title={l('ნაგულისხმევზე დაბრუნება', 'Сбросить по умолчанию', 'Reset to default')}
+                            className="text-[11px] font-semibold text-muted hover:text-indigo-600 flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                            <RotateCcw className="w-3 h-3" />
+                            <span className="hidden sm:inline">{l('ნაგულისხმევი', 'Сброс', 'Reset')}</span>
                         </button>
-                    );
-                })}
+                    )}
+                </div>
+
+                {visibleActions.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-muted">
+                        {l('ყველა მოქმედება დამალულია', 'Все действия скрыты', 'All actions are hidden')}
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {visibleActions.map((a, i) => {
+                            const innerContent = (
+                                <>
+                                    <div className={cn('w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs', a.bg)}>
+                                        <a.icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                                    </div>
+                                    <span className="flex-1 text-xs font-bold text-slate-800 dark:text-slate-100 text-left truncate">{a.label}</span>
+                                </>
+                            );
+
+                            return (
+                                <div
+                                    key={a.id}
+                                    className="w-full flex items-center gap-2 px-3 py-2 sm:py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-100/80 dark:bg-slate-800/40 dark:hover:bg-slate-800/70 border border-slate-100/80 dark:border-slate-800/60 transition-colors group"
+                                >
+                                    {editMode ? (
+                                        <>
+                                            {innerContent}
+                                            <div className="flex items-center gap-1 flex-shrink-0">
+                                                <button
+                                                    type="button"
+                                                    disabled={i === 0}
+                                                    onClick={() => moveUp(i)}
+                                                    className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:opacity-20 disabled:hover:text-slate-400 disabled:hover:bg-transparent cursor-pointer"
+                                                    title={l('ზევით', 'Вверх', 'Move up')}
+                                                >
+                                                    <ArrowUp className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={i === visibleActions.length - 1}
+                                                    onClick={() => moveDown(i)}
+                                                    className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:opacity-20 disabled:hover:text-slate-400 disabled:hover:bg-transparent cursor-pointer"
+                                                    title={l('ქვევით', 'Вниз', 'Move down')}
+                                                >
+                                                    <ArrowDown className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeAction(a.id)}
+                                                    className="p-1 rounded-md text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                                    title={l('წაშლა', 'Удалить', 'Remove')}
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : a.href ? (
+                                        <Link href={a.href} className="w-full flex items-center justify-between gap-3">
+                                            {innerContent}
+                                            <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                        </Link>
+                                    ) : (
+                                        <button type="button" onClick={a.onClick} className="w-full flex items-center justify-between gap-3 cursor-pointer">
+                                            {innerContent}
+                                            <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
+
+            {editMode && onUpdateActions && hiddenActions.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border-subtle/50 space-y-1.5">
+                    <p className="text-[11px] font-semibold text-muted">
+                        {l('დამატება:', 'Добавить:', 'Add:')}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                        {hiddenActions.map(a => (
+                            <button
+                                key={a.id}
+                                type="button"
+                                onClick={() => addAction(a.id)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 transition-colors cursor-pointer"
+                            >
+                                <Plus className="w-3 h-3" />
+                                <span>{a.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -442,7 +621,7 @@ export function TodaySummaryPanel({
 }) {
     const attendedPct = expected > 0 ? Math.min(100, Math.round((attended / expected) * 100)) : 0;
     return (
-        <div className="bg-card border border-border-subtle rounded-2xl p-4 sm:p-5">
+        <div className="bg-card border border-border-subtle rounded-2xl p-4 sm:p-5 flex flex-col justify-between h-full">
             <div className="flex items-center gap-2 mb-3.5">
                 <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
                     <BarChart2 className="w-4 h-4" />

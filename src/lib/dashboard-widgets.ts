@@ -28,27 +28,31 @@ export const SLOT_SIZES: Record<SlotId, WidgetSlotSize> = {
     bottom1: 'bottom', bottom2: 'bottom', bottom3: 'bottom',
 };
 
+export type WidgetCategory = 'stat' | 'large' | 'content';
+
 export interface WidgetDef {
     key: string;
-    size: WidgetSlotSize;
+    category: WidgetCategory;
     label: { ka: string; ru: string; en: string };
 }
 
 export const WIDGET_CATALOG: WidgetDef[] = [
     // stat-sized (the 4 top donut cards)
-    { key: 'students', size: 'stat', label: { ka: 'სტუდენტები', ru: 'Студенты', en: 'Students' } },
-    { key: 'revenue', size: 'stat', label: { ka: 'თვის შემოსავალი', ru: 'Доход за месяц', en: 'Monthly Revenue' } },
-    { key: 'subscriptions', size: 'stat', label: { ka: 'აბონემენტები', ru: 'Абонементы', en: 'Subscriptions' } },
-    { key: 'attendance', size: 'stat', label: { ka: 'დღევანდელი დასწრება', ru: 'Посещаемость сегодня', en: "Today's Attendance" } },
-    // large slot
-    { key: 'todaySchedule', size: 'large', label: { ka: 'დღევანდელი განრიგი', ru: 'Расписание', en: "Today's Schedule" } },
-    // side slots
-    { key: 'quickActions', size: 'side', label: { ka: 'სასწრაფო მოქმედებები', ru: 'Быстрые действия', en: 'Quick Actions' } },
-    { key: 'todaySummary', size: 'side', label: { ka: 'დღევანდელი შედეგები', ru: 'Итоги дня', en: "Today's Summary" } },
-    // bottom slots
-    { key: 'upcomingEvents', size: 'bottom', label: { ka: 'მოსალოდნელი ღონისძიებები', ru: 'Ближайшие события', en: 'Upcoming Events' } },
-    { key: 'recentActivity', size: 'bottom', label: { ka: 'ბოლო აქტივობა', ru: 'Последняя активность', en: 'Recent Activity' } },
-    { key: 'groupProgress', size: 'bottom', label: { ka: 'ჯგუფების დატვირთვა', ru: 'Заполненность групп', en: 'Group Progress' } },
+    { key: 'students', category: 'stat', label: { ka: 'სტუდენტები', ru: 'Студенты', en: 'Students' } },
+    { key: 'revenue', category: 'stat', label: { ka: 'თვის შემოსავალი', ru: 'Доход за месяц', en: 'Monthly Revenue' } },
+    { key: 'subscriptions', category: 'stat', label: { ka: 'აბონემენტები', ru: 'Абонементы', en: 'Subscriptions' } },
+    { key: 'attendance', category: 'stat', label: { ka: 'დღევანდელი დასწრება', ru: 'Посещаемость сегодня', en: "Today's Attendance" } },
+
+    // Large-only widgets (cannot go into small side/bottom slots)
+    { key: 'todaySchedule', category: 'large', label: { ka: 'დღევანდელი განრიგი', ru: 'Расписание', en: "Today's Schedule" } },
+    { key: 'todayAttendance', category: 'large', label: { ka: 'დასწრება (ჯგუფები)', ru: 'Посещаемость (группы)', en: 'Attendance (Groups)' } },
+
+    // Content widgets (can go into side slots, bottom slots, and large slot)
+    { key: 'quickActions', category: 'content', label: { ka: 'სასწრაფო მოქმედებები', ru: 'Быстрые действия', en: 'Quick Actions' } },
+    { key: 'todaySummary', category: 'content', label: { ka: 'დღევანდელი შედეგები', ru: 'Итоги дня', en: "Today's Summary" } },
+    { key: 'upcomingEvents', category: 'content', label: { ka: 'მოსალოდნელი ღონისძიებები', ru: 'Ближайшие события', en: 'Upcoming Events' } },
+    { key: 'recentActivity', category: 'content', label: { ka: 'ბოლო აქტივობა', ru: 'Последняя активность', en: 'Recent Activity' } },
+    { key: 'groupProgress', category: 'content', label: { ka: 'ჯგუფების დატვირთვა', ru: 'Заполненность групп', en: 'Group Progress' } },
 ];
 
 export const DEFAULT_DASHBOARD_LAYOUT: Record<SlotId, string> = {
@@ -63,7 +67,15 @@ export function resolveSlotWidget(dashboardWidgets: Record<string, string> | und
 }
 
 export function widgetsForSize(size: WidgetSlotSize): WidgetDef[] {
-    return WIDGET_CATALOG.filter(w => w.size === size);
+    if (size === 'stat') {
+        return WIDGET_CATALOG.filter(w => w.category === 'stat');
+    }
+    if (size === 'large') {
+        // Large slot accepts large widgets AND all content widgets (per owner spec: "ეს პატარები დიდში ხვდებოდეს")
+        return WIDGET_CATALOG.filter(w => w.category === 'large' || w.category === 'content');
+    }
+    // Side and bottom slots accept all content widgets (per owner spec: "პატარებში ის დიდი ვერ ხვდებოდეს")
+    return WIDGET_CATALOG.filter(w => w.category === 'content');
 }
 
 export function widgetLabel(key: string, lang: 'ka' | 'ru' | 'en'): string {

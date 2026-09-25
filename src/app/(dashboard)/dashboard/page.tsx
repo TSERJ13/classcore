@@ -28,6 +28,7 @@ import {
     UpcomingEventsCard, RecentActivityCard, GroupProgressCard, WidgetSlot,
     type ScheduleItem, type ActivityItem,
 } from '@/components/dashboard/DashboardHomeSections';
+import { TodayGroupsCard } from '@/components/dashboard/TodayGroupsCard';
 import { resolveSlotWidget } from '@/lib/dashboard-widgets';
 
 // ─── Lightweight SVG Donut Chart Card ──────────────────────────────────────
@@ -990,12 +991,23 @@ export default function DashboardPage() {
                         l={l}
                     />
                 );
+            case 'todayAttendance':
+                return (
+                    <TodayGroupsCard
+                        lang={lang}
+                        onRefreshDashboard={refreshFullDashboard}
+                        currentDate={selectedDate}
+                    />
+                );
             case 'quickActions':
                 return (
                     <QuickActionsPanel
                         onAddStudent={() => setShowAddStudent(true)}
                         onCreatePayment={() => setShowIssueSub(true)}
                         l={l}
+                        editMode={dashboardEditMode}
+                        actionIds={settings?.dashboardQuickActions}
+                        onUpdateActions={(ids) => updateSettings({ dashboardQuickActions: ids })}
                     />
                 );
             case 'todaySummary':
