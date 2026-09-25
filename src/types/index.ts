@@ -106,6 +106,8 @@ export interface StudioSettings {
     studioName: string;
     studioSlug: string;
     isWizardCompleted?: boolean;
+    /** Which widget key occupies each dashboard slot — studio-wide, owner/admin-managed. Missing slots fall back to DEFAULT_DASHBOARD_LAYOUT (src/lib/dashboard-widgets.ts). */
+    dashboardWidgets?: Record<string, string>;
     logoDataUrl: string | null;   // base64 image or null
     plan?: 'trial' | 'pro' | 'custom';
     trialStartDate?: string;
