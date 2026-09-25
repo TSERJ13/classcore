@@ -510,12 +510,6 @@ export function QuickActionsPanel({
         setPickerSlotIndex(null);
     };
 
-    const resetActions = () => {
-        if (!onUpdateActions) return;
-        onUpdateActions([...DEFAULT_QUICK_ACTIONS]);
-        setPickerSlotIndex(null);
-    };
-
     // Outside edit mode: show only active (non-null) slots
     const activeSlots = slots
         .map((id, index) => ({ id, index }))
@@ -523,26 +517,26 @@ export function QuickActionsPanel({
 
     return (
         <div className="bg-card border border-border-subtle rounded-2xl p-4 sm:p-5 flex flex-col justify-between h-full relative">
-            {/* iOS Jiggle Keyframes when in edit mode */}
+            {/* iOS Icon-only Jiggle Keyframes when in edit mode */}
             {editMode && (
                 <style>{`
                     @keyframes ios-jiggle-even {
-                        0% { transform: rotate(-1.2deg) translate3d(-0.4px, 0.4px, 0); }
-                        50% { transform: rotate(1.2deg) translate3d(0.4px, -0.4px, 0); }
-                        100% { transform: rotate(-1.2deg) translate3d(-0.4px, 0.4px, 0); }
+                        0% { transform: rotate(-2deg); }
+                        50% { transform: rotate(2deg); }
+                        100% { transform: rotate(-2deg); }
                     }
                     @keyframes ios-jiggle-odd {
-                        0% { transform: rotate(1.2deg) translate3d(0.4px, -0.4px, 0); }
-                        50% { transform: rotate(-1.2deg) translate3d(-0.4px, 0.4px, 0); }
-                        100% { transform: rotate(1.2deg) translate3d(0.4px, -0.4px, 0); }
+                        0% { transform: rotate(2deg); }
+                        50% { transform: rotate(-2deg); }
+                        100% { transform: rotate(2deg); }
                     }
                     .animate-ios-jiggle-even {
-                        animation: ios-jiggle-even 0.22s infinite ease-in-out;
+                        animation: ios-jiggle-even 0.28s infinite ease-in-out;
                         transform-origin: 50% 50%;
                     }
                     .animate-ios-jiggle-odd {
-                        animation: ios-jiggle-odd 0.26s infinite ease-in-out;
-                        animation-delay: -0.11s;
+                        animation: ios-jiggle-odd 0.32s infinite ease-in-out;
+                        animation-delay: -0.14s;
                         transform-origin: 50% 50%;
                     }
                 `}</style>
@@ -574,17 +568,6 @@ export function QuickActionsPanel({
                             )}
                         </div>
                     </div>
-                    {editMode && onUpdateActions && (
-                        <button
-                            type="button"
-                            onClick={resetActions}
-                            title={l('ნაგულისხმევზე დაბრუნება', 'Сбросить по умолчанию', 'Reset to default')}
-                            className="text-[11px] font-semibold text-muted hover:text-indigo-600 flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                            <RotateCcw className="w-3 h-3" />
-                            <span className="hidden sm:inline">{l('ნაგულისხმევი', 'Сброс', 'Reset')}</span>
-                        </button>
-                    )}
                 </div>
 
                 {/* Slots List */}
@@ -671,31 +654,35 @@ export function QuickActionsPanel({
                                         }}
                                         className={cn(
                                             "relative rounded-2xl select-none transition-all cursor-grab active:cursor-grabbing",
-                                            index % 2 === 0 ? "animate-ios-jiggle-even" : "animate-ios-jiggle-odd",
                                             isDragging && "opacity-40 scale-95 ring-2 ring-indigo-400",
-                                            isDragOver && !isDragging && "ring-2 ring-indigo-500 ring-offset-2 scale-[1.02]"
+                                            isDragOver && !isDragging && "ring-2 ring-indigo-500 ring-offset-2 scale-[1.01]"
                                         )}
-                                        style={isDragging ? { animation: 'none' } : undefined}
                                     >
-                                        {/* iOS style Minus Delete Badge */}
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                clearSlot(index);
-                                            }}
-                                            className="absolute -top-1.5 -left-1.5 z-20 w-5 h-5 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center shadow-md border-2 border-white dark:border-slate-900 transition-transform cursor-pointer"
-                                            title={l('სლოტის გასუფთავება', 'Освободить слот', 'Free up slot')}
-                                        >
-                                            <Minus className="w-2.5 h-2.5 stroke-[3.5]" />
-                                        </button>
-
-                                        {/* Row Body */}
+                                        {/* Row Body — stays still */}
                                         <div className="w-full flex items-center justify-between gap-3 px-3 py-2 sm:py-2.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
                                             <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                <div className={cn('w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs', a.bg)}>
+                                                {/* ONLY the icon box jiggles! Minus badge is on the icon */}
+                                                <div
+                                                    className={cn(
+                                                        'relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs',
+                                                        a.bg,
+                                                        index % 2 === 0 ? 'animate-ios-jiggle-even' : 'animate-ios-jiggle-odd'
+                                                    )}
+                                                    style={isDragging ? { animation: 'none' } : undefined}
+                                                >
                                                     <a.icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            clearSlot(index);
+                                                        }}
+                                                        className="absolute -top-1.5 -left-1.5 z-20 w-4.5 h-4.5 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center shadow-md border-2 border-white dark:border-slate-900 transition-transform cursor-pointer"
+                                                        title={l('სლოტის გასუფთავება', 'Освободить слот', 'Free up slot')}
+                                                    >
+                                                        <Minus className="w-2.5 h-2.5 stroke-[3.5]" />
+                                                    </button>
                                                 </div>
                                                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{a.label}</span>
                                             </div>
