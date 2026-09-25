@@ -9,12 +9,13 @@
  * this were explicitly kept as-is per the owner's request.
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
     Calendar as CalendarIcon, ChevronLeft, ChevronRight, UserPlus, CalendarCheck,
     CreditCard, MessageSquare, Zap, Trophy, Megaphone, TrendingUp, Users, Settings2, Check,
     Send, BarChart2, Activity, ArrowUp, ArrowDown, Trash2, Plus, RotateCcw,
+    Minus, GripVertical,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { Group } from '@/lib/group-store';
@@ -385,6 +386,7 @@ export function TodayScheduleTimeline({
 // ─── Quick Actions ──────────────────────────────────────────────────────────
 
 export const DEFAULT_QUICK_ACTIONS = ['addStudent', 'attendance', 'createPayment', 'viewSchedule', 'sendMessage'];
+export const TOTAL_QUICK_ACTION_SLOTS = 5;
 
 export interface QuickActionsPanelProps {
     onAddStudent: () => void;
@@ -448,55 +450,129 @@ export function QuickActionsPanel({
         },
     };
 
-    const currentIds = (actionIds && actionIds.length > 0)
-        ? actionIds.filter(id => allActions[id])
-        : DEFAULT_QUICK_ACTIONS;
+    // 5 fixed slots. Null or empty string means the slot is freed / empty.
+    const slots: (string | null)[] = useMemo(() => {
+        if (!actionIds) {
+            return [...DEFAULT_QUICK_ACTIONS];
+        }
+        const list: (string | null)[] = [];
+        for (let i = 0; i < TOTAL_QUICK_ACTION_SLOTS; i++) {
+            const val = actionIds[i];
+            if (val && val.trim() !== '' && allActions[val]) {
+                list.push(val);
+            } else {
+                list.push(null);
+            }
+        }
+        return list;
+    }, [actionIds, allActions]);
 
-    const visibleActions = currentIds.map(id => allActions[id]).filter(Boolean);
-    const hiddenActions = Object.values(allActions).filter(a => !currentIds.includes(a.id));
+    const usedActionIds = useMemo(() => {
+        const set = new Set<string>();
+        slots.forEach(s => { if (s) set.add(s); });
+        return set;
+    }, [slots]);
 
-    const moveUp = (index: number) => {
-        if (index <= 0 || !onUpdateActions) return;
-        const next = [...currentIds];
-        const temp = next[index - 1];
-        next[index - 1] = next[index];
-        next[index] = temp;
-        onUpdateActions(next);
-    };
+    const unusedActions = useMemo(() => {
+        return Object.values(allActions).filter(a => !usedActionIds.has(a.id));
+    }, [allActions, usedActionIds]);
 
-    const moveDown = (index: number) => {
-        if (index >= currentIds.length - 1 || !onUpdateActions) return;
-        const next = [...currentIds];
-        const temp = next[index + 1];
-        next[index + 1] = next[index];
-        next[index] = temp;
-        onUpdateActions(next);
-    };
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+    const [pickerSlotIndex, setPickerSlotIndex] = useState<number | null>(null);
 
-    const removeAction = (id: string) => {
+    const updateSlots = (nextSlots: (string | null)[]) => {
         if (!onUpdateActions) return;
-        onUpdateActions(currentIds.filter(x => x !== id));
+        onUpdateActions(nextSlots.map(s => s || ''));
     };
 
-    const addAction = (id: string) => {
-        if (!onUpdateActions) return;
-        onUpdateActions([...currentIds, id]);
+    const clearSlot = (slotIdx: number) => {
+        const next = [...slots];
+        next[slotIdx] = null;
+        updateSlots(next);
+        if (pickerSlotIndex === slotIdx) setPickerSlotIndex(null);
+    };
+
+    const assignAction = (slotIdx: number, actionId: string) => {
+        const next = [...slots];
+        next[slotIdx] = actionId;
+        updateSlots(next);
+        setPickerSlotIndex(null);
+    };
+
+    const handleDrop = (fromIdx: number, toIdx: number) => {
+        if (fromIdx === toIdx || fromIdx == null || toIdx == null) return;
+        const next = [...slots];
+        const temp = next[fromIdx];
+        next[fromIdx] = next[toIdx];
+        next[toIdx] = temp;
+        updateSlots(next);
+        setPickerSlotIndex(null);
     };
 
     const resetActions = () => {
         if (!onUpdateActions) return;
-        onUpdateActions(DEFAULT_QUICK_ACTIONS);
+        onUpdateActions([...DEFAULT_QUICK_ACTIONS]);
+        setPickerSlotIndex(null);
     };
 
+    // Outside edit mode: show only active (non-null) slots
+    const activeSlots = slots
+        .map((id, index) => ({ id, index }))
+        .filter(item => item.id !== null && allActions[item.id]);
+
     return (
-        <div className="bg-card border border-border-subtle rounded-2xl p-4 sm:p-5 flex flex-col justify-between h-full">
+        <div className="bg-card border border-border-subtle rounded-2xl p-4 sm:p-5 flex flex-col justify-between h-full relative">
+            {/* iOS Jiggle Keyframes when in edit mode */}
+            {editMode && (
+                <style>{`
+                    @keyframes ios-jiggle-even {
+                        0% { transform: rotate(-1.2deg) translate3d(-0.4px, 0.4px, 0); }
+                        50% { transform: rotate(1.2deg) translate3d(0.4px, -0.4px, 0); }
+                        100% { transform: rotate(-1.2deg) translate3d(-0.4px, 0.4px, 0); }
+                    }
+                    @keyframes ios-jiggle-odd {
+                        0% { transform: rotate(1.2deg) translate3d(0.4px, -0.4px, 0); }
+                        50% { transform: rotate(-1.2deg) translate3d(-0.4px, 0.4px, 0); }
+                        100% { transform: rotate(1.2deg) translate3d(0.4px, -0.4px, 0); }
+                    }
+                    .animate-ios-jiggle-even {
+                        animation: ios-jiggle-even 0.22s infinite ease-in-out;
+                        transform-origin: 50% 50%;
+                    }
+                    .animate-ios-jiggle-odd {
+                        animation: ios-jiggle-odd 0.26s infinite ease-in-out;
+                        animation-delay: -0.11s;
+                        transform-origin: 50% 50%;
+                    }
+                `}</style>
+            )}
+
+            {/* Backdrop to close slot picker when clicking anywhere outside */}
+            {pickerSlotIndex !== null && (
+                <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setPickerSlotIndex(null)}
+                />
+            )}
+
             <div>
-                <div className="flex items-center justify-between gap-2 mb-3">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-2 mb-3.5">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
                             <Zap className="w-4 h-4" />
                         </div>
-                        <h3 className="text-sm font-bold text-primary">{l('სასწრაფო მოქმედებები', 'Быстрые действия', 'Quick Actions')}</h3>
+                        <div>
+                            <h3 className="text-sm font-bold text-primary leading-none">
+                                {l('სასწრაფო მოქმედებები', 'Быстрые действия', 'Quick Actions')}
+                            </h3>
+                            {editMode && (
+                                <p className="text-[10px] font-semibold text-indigo-500 dark:text-indigo-400 mt-0.5">
+                                    {l('გადაიტანეთ დრაგ-ენ-დროპით', 'Перетаскивайте для смены', 'Drag and drop to reorder')}
+                                </p>
+                            )}
+                        </div>
                     </div>
                     {editMode && onUpdateActions && (
                         <button
@@ -511,97 +587,214 @@ export function QuickActionsPanel({
                     )}
                 </div>
 
-                {visibleActions.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-muted">
-                        {l('ყველა მოქმედება დამალულია', 'Все действия скрыты', 'All actions are hidden')}
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        {visibleActions.map((a, i) => {
-                            const innerContent = (
-                                <>
-                                    <div className={cn('w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs', a.bg)}>
-                                        <a.icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-                                    </div>
-                                    <span className="flex-1 text-xs font-bold text-slate-800 dark:text-slate-100 text-left truncate">{a.label}</span>
-                                </>
-                            );
+                {/* Slots List */}
+                <div className="space-y-2.5">
+                    {!editMode ? (
+                        activeSlots.length === 0 ? (
+                            <div className="py-8 text-center text-xs text-muted">
+                                {l('მოქმედებები არ არის არჩეული', 'Действия не выбраны', 'No actions selected')}
+                            </div>
+                        ) : (
+                            activeSlots.map(({ id, index }) => {
+                                const a = allActions[id!];
+                                if (!a) return null;
+                                const innerContent = (
+                                    <>
+                                        <div className={cn('w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs', a.bg)}>
+                                            <a.icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                                        </div>
+                                        <span className="flex-1 text-xs font-bold text-slate-800 dark:text-slate-100 text-left truncate">{a.label}</span>
+                                        <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                    </>
+                                );
+                                return a.href ? (
+                                    <Link
+                                        key={a.id}
+                                        href={a.href}
+                                        className="w-full flex items-center gap-3 px-3 py-2 sm:py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-100/80 dark:bg-slate-800/40 dark:hover:bg-slate-800/70 border border-slate-100/80 dark:border-slate-800/60 transition-colors"
+                                    >
+                                        {innerContent}
+                                    </Link>
+                                ) : (
+                                    <button
+                                        key={a.id}
+                                        type="button"
+                                        onClick={a.onClick}
+                                        className="w-full flex items-center gap-3 px-3 py-2 sm:py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-100/80 dark:bg-slate-800/40 dark:hover:bg-slate-800/70 border border-slate-100/80 dark:border-slate-800/60 transition-colors cursor-pointer"
+                                    >
+                                        {innerContent}
+                                    </button>
+                                );
+                            })
+                        )
+                    ) : (
+                        slots.map((actionId, index) => {
+                            const a = actionId ? allActions[actionId] : null;
 
+                            // ─── Occupied Slot (iOS jiggling card with drag handle & delete badge) ───
+                            if (a) {
+                                const isDragging = draggedIndex === index;
+                                const isDragOver = dragOverIndex === index;
+                                return (
+                                    <div
+                                        key={`slot-${index}-${a.id}`}
+                                        draggable={true}
+                                        onDragStart={(e) => {
+                                            e.dataTransfer.setData('text/plain', String(index));
+                                            e.dataTransfer.effectAllowed = 'move';
+                                            setDraggedIndex(index);
+                                        }}
+                                        onDragOver={(e) => {
+                                            e.preventDefault();
+                                            e.dataTransfer.dropEffect = 'move';
+                                        }}
+                                        onDragEnter={(e) => {
+                                            e.preventDefault();
+                                            setDragOverIndex(index);
+                                        }}
+                                        onDragLeave={(e) => {
+                                            e.preventDefault();
+                                            if (dragOverIndex === index) setDragOverIndex(null);
+                                        }}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            if (draggedIndex !== null && draggedIndex !== index) {
+                                                handleDrop(draggedIndex, index);
+                                            }
+                                            setDraggedIndex(null);
+                                            setDragOverIndex(null);
+                                        }}
+                                        onDragEnd={() => {
+                                            setDraggedIndex(null);
+                                            setDragOverIndex(null);
+                                        }}
+                                        className={cn(
+                                            "relative rounded-2xl select-none transition-all cursor-grab active:cursor-grabbing",
+                                            index % 2 === 0 ? "animate-ios-jiggle-even" : "animate-ios-jiggle-odd",
+                                            isDragging && "opacity-40 scale-95 ring-2 ring-indigo-400",
+                                            isDragOver && !isDragging && "ring-2 ring-indigo-500 ring-offset-2 scale-[1.02]"
+                                        )}
+                                        style={isDragging ? { animation: 'none' } : undefined}
+                                    >
+                                        {/* iOS style Minus Delete Badge */}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                clearSlot(index);
+                                            }}
+                                            className="absolute -top-1.5 -left-1.5 z-20 w-5 h-5 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center shadow-md border-2 border-white dark:border-slate-900 transition-transform cursor-pointer"
+                                            title={l('სლოტის გასუფთავება', 'Освободить слот', 'Free up slot')}
+                                        >
+                                            <Minus className="w-2.5 h-2.5 stroke-[3.5]" />
+                                        </button>
+
+                                        {/* Row Body */}
+                                        <div className="w-full flex items-center justify-between gap-3 px-3 py-2 sm:py-2.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-xs">
+                                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                <div className={cn('w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs', a.bg)}>
+                                                    <a.icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                                                </div>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{a.label}</span>
+                                            </div>
+                                            <GripVertical className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // ─── Empty Slot (freed slot, drop target, click to pick action) ───
+                            const isDragOver = dragOverIndex === index;
+                            const isPickerOpen = pickerSlotIndex === index;
                             return (
                                 <div
-                                    key={a.id}
-                                    className="w-full flex items-center gap-2 px-3 py-2 sm:py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-100/80 dark:bg-slate-800/40 dark:hover:bg-slate-800/70 border border-slate-100/80 dark:border-slate-800/60 transition-colors group"
+                                    key={`empty-slot-${index}`}
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        e.dataTransfer.dropEffect = 'move';
+                                    }}
+                                    onDragEnter={(e) => {
+                                        e.preventDefault();
+                                        setDragOverIndex(index);
+                                    }}
+                                    onDragLeave={(e) => {
+                                        e.preventDefault();
+                                        if (dragOverIndex === index) setDragOverIndex(null);
+                                    }}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (draggedIndex !== null && draggedIndex !== index) {
+                                            handleDrop(draggedIndex, index);
+                                        }
+                                        setDraggedIndex(null);
+                                        setDragOverIndex(null);
+                                    }}
+                                    className="relative"
                                 >
-                                    {editMode ? (
-                                        <>
-                                            {innerContent}
-                                            <div className="flex items-center gap-1 flex-shrink-0">
-                                                <button
-                                                    type="button"
-                                                    disabled={i === 0}
-                                                    onClick={() => moveUp(i)}
-                                                    className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:opacity-20 disabled:hover:text-slate-400 disabled:hover:bg-transparent cursor-pointer"
-                                                    title={l('ზევით', 'Вверх', 'Move up')}
-                                                >
-                                                    <ArrowUp className="w-3.5 h-3.5" />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    disabled={i === visibleActions.length - 1}
-                                                    onClick={() => moveDown(i)}
-                                                    className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:opacity-20 disabled:hover:text-slate-400 disabled:hover:bg-transparent cursor-pointer"
-                                                    title={l('ქვევით', 'Вниз', 'Move down')}
-                                                >
-                                                    <ArrowDown className="w-3.5 h-3.5" />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeAction(a.id)}
-                                                    className="p-1 rounded-md text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                                                    title={l('წაშლა', 'Удалить', 'Remove')}
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPickerSlotIndex(isPickerOpen ? null : index)}
+                                        className={cn(
+                                            "w-full flex items-center justify-center gap-2.5 px-3 py-2.5 sm:py-3 rounded-2xl border-2 border-dashed transition-all cursor-pointer group",
+                                            isDragOver
+                                                ? "border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/50 ring-2 ring-indigo-500/30 scale-[1.01]"
+                                                : isPickerOpen
+                                                    ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30"
+                                                    : "border-slate-200/90 dark:border-slate-800/80 hover:border-indigo-400 dark:hover:border-indigo-500 bg-slate-50/40 dark:bg-slate-900/30 hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                                        )}
+                                    >
+                                        <div className="w-7 h-7 rounded-xl bg-slate-200/60 dark:bg-slate-800 group-hover:bg-indigo-500 group-hover:text-white text-slate-400 flex items-center justify-center transition-colors shadow-xs">
+                                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                            {l('სლოტი თავისუფალია — დამატება', 'Свободный слот — добавить', 'Empty Slot — Click to add')}
+                                        </span>
+                                    </button>
+
+                                    {/* Action Picker Popover for this empty slot */}
+                                    {isPickerOpen && (
+                                        <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-card border border-border-subtle rounded-2xl shadow-2xl p-2 animate-in fade-in zoom-in-95 divide-y divide-border-subtle/50">
+                                            <div className="px-2 py-1 text-[11px] font-bold text-muted">
+                                                {l('აირჩიეთ მოქმედება:', 'Выберите действие:', 'Select action:')}
                                             </div>
-                                        </>
-                                    ) : a.href ? (
-                                        <Link href={a.href} className="w-full flex items-center justify-between gap-3">
-                                            {innerContent}
-                                            <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                                        </Link>
-                                    ) : (
-                                        <button type="button" onClick={a.onClick} className="w-full flex items-center justify-between gap-3 cursor-pointer">
-                                            {innerContent}
-                                            <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                                        </button>
+                                            <div className="pt-1 space-y-1">
+                                                {unusedActions.length > 0 ? (
+                                                    unusedActions.map(action => (
+                                                        <button
+                                                            key={action.id}
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                assignAction(index, action.id);
+                                                            }}
+                                                            className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-surface text-left transition-colors cursor-pointer group"
+                                                        >
+                                                            <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-xs", action.bg)}>
+                                                                <action.icon className="w-4 h-4" />
+                                                            </div>
+                                                            <span className="text-xs font-bold text-primary group-hover:text-indigo-600 transition-colors flex-1 truncate">
+                                                                {action.label}
+                                                            </span>
+                                                            <Plus className="w-3.5 h-3.5 text-muted group-hover:text-indigo-600 flex-shrink-0" />
+                                                        </button>
+                                                    ))
+                                                ) : (
+                                                    <div className="px-3 py-2 text-xs text-muted text-center">
+                                                        {l('ყველა მოქმედება გამოყენებულია', 'Все действия использованы', 'All actions are in use')}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             );
-                        })}
-                    </div>
-                )}
-            </div>
-
-            {editMode && onUpdateActions && hiddenActions.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border-subtle/50 space-y-1.5">
-                    <p className="text-[11px] font-semibold text-muted">
-                        {l('დამატება:', 'Добавить:', 'Add:')}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                        {hiddenActions.map(a => (
-                            <button
-                                key={a.id}
-                                type="button"
-                                onClick={() => addAction(a.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 transition-colors cursor-pointer"
-                            >
-                                <Plus className="w-3 h-3" />
-                                <span>{a.label}</span>
-                            </button>
-                        ))}
-                    </div>
+                        })
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 }
