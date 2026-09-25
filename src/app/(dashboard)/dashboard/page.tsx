@@ -12,11 +12,10 @@ import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
 import { getTodayEvents, getEvents } from '@/lib/event-store';
 import { getStudents, updateStudent } from '@/lib/student-store';
-import { getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
+import { getTeacher, getTeachers, getTeacherName, getTeacherPhoto } from '@/lib/teacher-store';
 import { getHallName } from '@/lib/hall-store';
 import type { Student } from '@/types';
 import { getGroups } from '@/lib/group-store';
-import { getTeachers } from '@/lib/teacher-store';
 import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
 import { pctChange, buildPlanPrices, subRevenue, isSubInMonth, isSubOnDay } from '@/lib/studio-stats';
 import { getPlans } from '@/lib/plan-store';
@@ -590,11 +589,25 @@ export default function DashboardPage() {
                 return events.map(ev => {
                     const g = groups.find(x => x.id === ev.group_id);
                     const tid = ev.teacher_id || g?.teacherId;
+                    const teacher = getTeacher(tid);
                     const capacity = g?.capacity != null ? Number(g.capacity) : undefined;
+                    const teacherStyle = teacher?.specialty?.[0] || teacher?.bio || getHallName(ev.hall_id) || '';
+
+                    let categoryLabel = g?.type;
+                    if (!categoryLabel || categoryLabel === 'group' || categoryLabel === 'group_class') {
+                        categoryLabel = g?.difficulty || l('ჯგუფური', 'Группа', 'Group');
+                    }
+
+                    const subtitleParts = [g?.type, g?.difficulty].filter(Boolean);
+                    const groupSubtitle = subtitleParts.length > 0 ? subtitleParts.join(' • ') : (getHallName(ev.hall_id) || l('ჯგუფური', 'Группа', 'Group'));
+
                     return {
                         ...ev,
                         teacherName: getTeacherName(tid),
                         teacherPhoto: getTeacherPhoto(tid),
+                        teacherStyle,
+                        categoryLabel,
+                        groupSubtitle,
                         hallName: getHallName(ev.hall_id),
                         studentCount: allStudents.filter(s => (s.enrolled_group_ids || []).includes(ev.group_id || '')).length,
                         capacity: capacity && capacity > 0 ? capacity : undefined,
@@ -652,6 +665,7 @@ export default function DashboardPage() {
                 id: `checkin-${c.studentId}-${c.time}`,
                 kind: 'checkin',
                 name,
+                photo_url: student?.photo_url,
                 detail: `${l('დასწრება აღინიშნა', 'Отметка посещения', 'Attendance marked')} (${groupName})`,
                 timeLabel: c.time,
             });
@@ -665,6 +679,7 @@ export default function DashboardPage() {
                     id: `reg-${s.id}`,
                     kind: 'registration',
                     name: s.full_name || `${s.first_name} ${s.last_name}`,
+                    photo_url: s.photo_url,
                     detail: `${l('ახალი რეგისტრაცია', 'Новая регистрация', 'New registration')}${groupObj ? ` (${groupObj.name})` : ''}`,
                     timeLabel: todayLabel,
                 });
@@ -680,6 +695,7 @@ export default function DashboardPage() {
                     id: `pay-${sub.id}`,
                     kind: 'payment',
                     name: student?.full_name || t.studentLabelGeneric,
+                    photo_url: student?.photo_url,
                     detail: `${l('გადახდა მიღებულია', 'Платёж получен', 'Payment received')} (${formatCurrency(price, settings.currency)})`,
                     timeLabel: todayLabel,
                 });
@@ -1101,8 +1117,8 @@ export default function DashboardPage() {
             )}
 
             {/* ─── Today's Schedule + Quick Actions / Today's Summary ─── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch mb-6">
-                <div className="lg:col-span-2">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch mb-6">
+                <div className="xl:col-span-8">
                     <TodayScheduleTimeline
                         groups={scheduleGroups}
                         selectedDate={selectedDate}
@@ -1126,7 +1142,7 @@ export default function DashboardPage() {
                         l={l}
                     />
                 </div>
-                <div className="space-y-4">
+                <div className="xl:col-span-4 flex flex-col gap-5 justify-between">
                     <QuickActionsPanel
                         onAddStudent={() => setShowAddStudent(true)}
                         onCreatePayment={() => setShowIssueSub(true)}
@@ -1145,7 +1161,7 @@ export default function DashboardPage() {
             </div>
 
             {/* ─── Upcoming Events / Recent Activity / Group Progress ─── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-stretch mb-6">
                 <UpcomingEventsCard
                     events={allEvents
                         .filter((ev: any) => ev.type === 'other' && ev.date > getLocalISODate(new Date()))
