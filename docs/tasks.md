@@ -2968,3 +2968,32 @@ the header.
 Notes:
 - `tsc --noEmit`: clean. `next dev` compiled `/dashboard` with zero errors.
 - Files: `src/components/dashboard/DashboardHomeSections.tsx`, `src/components/layout/Header.tsx`.
+
+---
+
+### CRITICAL FIX: dashboard infinite render loop froze the whole app (nav dead everywhere)
+
+Owner reported the entire app frozen — clicking any sidebar menu item did nothing, no navigation
+anywhere. Root cause: the previous "dashboard follow-up" commit added `l` (the page's inline
+`(ka,ru,en) => ...` translation helper) to `refreshFullDashboard`'s `useCallback` dependency
+array, to build the new Recent Activity feed's labels. `l` was a plain arrow function recreated
+fresh on every render (no `useCallback`), so `refreshFullDashboard`'s own memoized identity also
+changed every render. The mount `useEffect` depends on `refreshFullDashboard`'s identity, so it
+re-ran on every render — and `refreshFullDashboard()` itself calls several `setState`s
+synchronously, triggering another render, recreating `l` again, and so on forever. A tight
+render → effect → setState → render loop pins the main JS thread, which is exactly what makes an
+entire page — not just one button — look "frozen": every click handler across the whole app
+(including the sidebar's `<Link>`-based navigation, which needs the JS thread free to route) never
+gets a chance to run.
+
+Fix: wrapped `l` in `useCallback(..., [lang])` so its identity is stable unless the language
+actually changes, breaking the loop. Checked every other file touched this session for the same
+`const l = (ka,ru,en) => ...` pattern captured inside a hook's dependency array — this is a
+pervasive, otherwise-harmless convention across ~30 existing files in this codebase (it only
+becomes a bug when captured in a dependency array that also feeds a setState cascade); confirmed
+`events/page.tsx` and `branches/page.tsx`'s own effects both use empty `[]` deps and were never
+at risk, and `DashboardHomeSections.tsx` has no hooks at all. This was the only occurrence.
+
+Notes:
+- `tsc --noEmit`: clean.
+- File: `src/app/(dashboard)/dashboard/page.tsx`.
