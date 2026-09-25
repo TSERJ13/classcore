@@ -120,7 +120,7 @@ function typeLabel(type: string | undefined, l: (ka: string, ru: string, en: str
     }
 }
 
-/** Day view: one tinted row per class, matching the reference layout exactly. */
+/** Day view: one tinted row per class, responsive for mobile & matching reference layout on desktop. */
 function DayRow({ item, index, isToday, nowMinutes, l }: { item: ScheduleItem; index: number; isToday: boolean; nowMinutes: number; l: (ka: string, ru: string, en: string) => string }) {
     const status = eventStatus(item, isToday, nowMinutes, l);
     const hasCapacity = item.capacity != null && Number(item.capacity) > 0;
@@ -131,90 +131,141 @@ function DayRow({ item, index, isToday, nowMinutes, l }: { item: ScheduleItem; i
     const pillBg = isCustomColor ? `${item.color}20` : palette.pillBg;
 
     return (
-        <div className="flex items-center gap-2 sm:gap-3 group">
-            {/* 1. Time Column */}
-            <div className="w-[84px] sm:w-[98px] flex-shrink-0 text-right pr-1">
-                <p className="text-xs sm:text-[13px] font-bold text-slate-700 dark:text-slate-200 tabular-nums whitespace-nowrap tracking-tight">
+        <div className="flex items-center gap-1.5 sm:gap-3 group">
+            {/* 1. Time Column: Stacked on mobile (<sm), inline range on desktop (>=sm) */}
+            <div className="w-12 sm:w-[98px] flex-shrink-0 text-right pr-0.5 sm:pr-1">
+                {/* Mobile time stack */}
+                <div className="sm:hidden leading-none text-right">
+                    <p className="text-[11px] font-black text-slate-800 dark:text-slate-100 tabular-nums">
+                        {item.start_time}
+                    </p>
+                    <p className="text-[9px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums mt-0.5">
+                        {item.end_time}
+                    </p>
+                </div>
+                {/* Desktop time range */}
+                <p className="hidden sm:block text-xs sm:text-[13px] font-bold text-slate-700 dark:text-slate-200 tabular-nums whitespace-nowrap tracking-tight">
                     {item.start_time} – {item.end_time}
                 </p>
             </div>
 
             {/* 2. Timeline Bullet Node */}
-            <div className="relative flex items-center justify-center w-5 sm:w-6 flex-shrink-0">
+            <div className="relative flex items-center justify-center w-4 sm:w-6 flex-shrink-0">
                 <div
-                    className="w-2.5 h-2.5 rounded-full ring-4 ring-card z-10 transition-transform group-hover:scale-125"
+                    className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ring-2 sm:ring-4 ring-card z-10 transition-transform group-hover:scale-125"
                     style={{ backgroundColor: color }}
                 />
             </div>
 
-            {/* 3. Class Card with Fixed/Aligned Columns matching reference layout */}
+            {/* 3. Class Card: 2-line layout on mobile, 5 aligned columns on desktop */}
             <div
-                className="flex-1 min-w-0 rounded-2xl py-2.5 px-3.5 sm:px-5 flex items-center gap-3 sm:gap-5 transition-all duration-200 hover:shadow-xs border border-black/[0.02] dark:border-white/[0.04]"
+                className="flex-1 min-w-0 rounded-2xl py-2 px-3 sm:py-2.5 sm:px-5 transition-all duration-200 hover:shadow-xs border border-black/[0.02] dark:border-white/[0.04]"
                 style={{ backgroundColor: rowBg }}
             >
-                {/* Column A: Category Pill */}
-                <div className="flex-shrink-0 w-[85px] sm:w-[105px] text-center">
-                    <span
-                        className="inline-block px-3 py-1 rounded-xl text-[10px] sm:text-[11px] font-black tracking-wide truncate max-w-full"
-                        style={{ backgroundColor: pillBg, color }}
-                    >
-                        {item.categoryLabel || typeLabel(item.type, l)}
-                    </span>
-                </div>
+                {/* ─── Mobile Layout (< sm) ─── */}
+                <div className="sm:hidden flex flex-col gap-1.5">
+                    {/* Line 1: Title + Status */}
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                        <p className="text-xs font-black text-slate-900 dark:text-white truncate">
+                            {item.title}
+                        </p>
+                        <span className={cn('flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap flex-shrink-0 shadow-2xs', status.cls)}>
+                            <span className={cn('w-1 h-1 rounded-full flex-shrink-0', status.dot)} />
+                            {status.label}
+                        </span>
+                    </div>
 
-                {/* Column B: Group / Class Name + Subtitle */}
-                <div className="min-w-0 flex-1 max-w-[130px] sm:max-w-[170px]">
-                    <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate leading-tight">
-                        {item.title}
-                    </p>
-                    <p className="text-[10px] sm:text-[11px] font-semibold text-slate-400 dark:text-slate-400 truncate leading-tight mt-0.5">
-                        {item.groupSubtitle || item.hallName || l('ჯგუფური', 'Группа', 'Group')}
-                    </p>
-                </div>
+                    {/* Line 2: Category Pill + Teacher / Hall + Capacity */}
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 flex-wrap">
+                        <span
+                            className="inline-block px-2 py-0.5 rounded-lg text-[9px] font-black tracking-wide truncate max-w-[85px]"
+                            style={{ backgroundColor: pillBg, color }}
+                        >
+                            {item.categoryLabel || typeLabel(item.type, l)}
+                        </span>
 
-                {/* Column C: Teacher Avatar + Name + Discipline */}
-                <div className="hidden md:flex items-center gap-2.5 min-w-0 flex-1 max-w-[160px] sm:max-w-[210px]">
-                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 shadow-xs border border-white/60 dark:border-white/10 bg-indigo-500/10 flex items-center justify-center text-xs font-black text-indigo-600">
-                        {item.teacherPhoto ? (
-                            <img src={item.teacherPhoto} className="w-full h-full object-cover" alt="" />
-                        ) : (
-                            (item.teacherName || item.title || 'T')[0]
+                        {(item.teacherName || item.hallName) && (
+                            <span className="truncate max-w-[110px] font-semibold text-slate-600 dark:text-slate-300">
+                                {item.teacherName || item.hallName}
+                            </span>
+                        )}
+
+                        {hasCapacity && (
+                            <span className="flex items-center gap-1 font-bold text-slate-600 dark:text-slate-300 ml-auto tabular-nums">
+                                <Users className="w-3 h-3 text-slate-400" />
+                                {item.studentCount ?? 0} / {item.capacity}
+                            </span>
                         )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-[13px] font-black text-slate-800 dark:text-slate-100 truncate leading-tight">
-                            {item.teacherName || l('მასწავლებელი', 'Преподаватель', 'Teacher')}
+                </div>
+
+                {/* ─── Desktop Layout (>= sm) ─── */}
+                <div className="hidden sm:flex items-center gap-3 sm:gap-5 w-full">
+                    {/* Column A: Category Pill */}
+                    <div className="flex-shrink-0 w-[85px] sm:w-[105px] text-center">
+                        <span
+                            className="inline-block px-3 py-1 rounded-xl text-[10px] sm:text-[11px] font-black tracking-wide truncate max-w-full"
+                            style={{ backgroundColor: pillBg, color }}
+                        >
+                            {item.categoryLabel || typeLabel(item.type, l)}
+                        </span>
+                    </div>
+
+                    {/* Column B: Group / Class Name + Subtitle */}
+                    <div className="min-w-0 flex-1 max-w-[130px] sm:max-w-[170px]">
+                        <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate leading-tight">
+                            {item.title}
                         </p>
-                        <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 dark:text-slate-400 truncate leading-tight mt-0.5">
-                            {item.teacherStyle || item.hallName || ''}
+                        <p className="text-[10px] sm:text-[11px] font-semibold text-slate-400 dark:text-slate-400 truncate leading-tight mt-0.5">
+                            {item.groupSubtitle || item.hallName || l('ჯგუფური', 'Группа', 'Group')}
                         </p>
                     </div>
-                </div>
 
-                {/* Column D: Capacity (People Icon + Student Count / Total) */}
-                <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0 w-16 sm:w-20 justify-center text-slate-600 dark:text-slate-300">
-                    <Users className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <span className="text-xs font-bold tabular-nums">
-                        {item.studentCount ?? 0}{hasCapacity ? ` / ${item.capacity}` : ''}
-                    </span>
-                </div>
+                    {/* Column C: Teacher Avatar + Name + Discipline */}
+                    <div className="hidden md:flex items-center gap-2.5 min-w-0 flex-1 max-w-[160px] sm:max-w-[210px]">
+                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 shadow-xs border border-white/60 dark:border-white/10 bg-indigo-500/10 flex items-center justify-center text-xs font-black text-indigo-600">
+                            {item.teacherPhoto ? (
+                                <img src={item.teacherPhoto} className="w-full h-full object-cover" alt="" />
+                            ) : (
+                                (item.teacherName || item.title || 'T')[0]
+                            )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-[13px] font-black text-slate-800 dark:text-slate-100 truncate leading-tight">
+                                {item.teacherName || l('მასწავლებელი', 'Преподаватель', 'Teacher')}
+                            </p>
+                            <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 dark:text-slate-400 truncate leading-tight mt-0.5">
+                                {item.teacherStyle || item.hallName || ''}
+                            </p>
+                        </div>
+                    </div>
 
-                {/* Column E: Status Pill */}
-                <div className="flex-shrink-0 ml-auto">
-                    <span className={cn('flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold border whitespace-nowrap shadow-2xs', status.cls)}>
-                        <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', status.dot)} />
-                        {status.label}
-                    </span>
+                    {/* Column D: Capacity (People Icon + Student Count / Total) */}
+                    <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0 w-16 sm:w-20 justify-center text-slate-600 dark:text-slate-300">
+                        <Users className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                        <span className="text-xs font-bold tabular-nums">
+                            {item.studentCount ?? 0}{hasCapacity ? ` / ${item.capacity}` : ''}
+                        </span>
+                    </div>
+
+                    {/* Column E: Status Pill */}
+                    <div className="flex-shrink-0 ml-auto">
+                        <span className={cn('flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold border whitespace-nowrap shadow-2xs', status.cls)}>
+                            <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', status.dot)} />
+                            {status.label}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
 
-/** Week view: 7-column grid, each day a stack of compact colored chips. */
+/** Week view: 7-column grid, each day a stack of compact colored chips with mobile scroll. */
 function WeekGrid({ groups, todayStr, l }: { groups: { date: string; items: ScheduleItem[] }[]; todayStr: string; l: (ka: string, ru: string, en: string) => string }) {
     return (
-        <div className="grid grid-cols-7 gap-2 h-full">
+        <div className="overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0">
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2 min-w-[500px] sm:min-w-0 h-full">
             {groups.map(g => {
                 const isToday = g.date === todayStr;
                 const d = new Date(`${g.date}T00:00:00`);
@@ -238,6 +289,7 @@ function WeekGrid({ groups, todayStr, l }: { groups: { date: string; items: Sche
                     </div>
                 );
             })}
+            </div>
         </div>
     );
 }
@@ -265,35 +317,37 @@ function MonthGrid({ groups, todayStr, l }: { groups: { date: string; items: Sch
     }
 
     return (
-        <div className="flex flex-col h-full">
-            <div className="grid grid-cols-7 gap-1 mb-1">
-                {weekdayLabels.map(w => (
-                    <p key={w} className="text-[9px] font-black text-muted uppercase opacity-50 text-center">{w}</p>
-                ))}
-            </div>
-            <div className="grid grid-cols-7 gap-1 flex-1">
-                {cells.map((cell, i) => {
-                    if (!cell.date) return <div key={i} />;
-                    const isToday = cell.date === todayStr;
-                    const items = cell.items || [];
-                    const dayNum = Number(cell.date.slice(-2));
-                    return (
-                        <div key={i} className={cn('rounded-lg border p-1 min-h-[64px] flex flex-col', isToday ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-border-subtle/60 bg-surface/30')}>
-                            <p className={cn('text-[10px] font-black mb-0.5', isToday ? 'text-indigo-500' : 'text-primary opacity-70')}>{dayNum}</p>
-                            <div className="space-y-0.5 flex-1 overflow-hidden">
-                                {items.slice(0, 2).map(item => (
-                                    <p key={item.id} className="text-[8px] font-bold truncate rounded px-1 py-0.5"
-                                        style={{ backgroundColor: `${item.color || '#6d28d9'}18`, color: item.color || '#6d28d9' }}>
-                                        {item.title}
-                                    </p>
-                                ))}
-                                {items.length > 2 && (
-                                    <p className="text-[8px] font-bold text-muted opacity-50 px-1">+{items.length - 2}</p>
-                                )}
+        <div className="overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0">
+            <div className="flex flex-col h-full min-w-[500px] sm:min-w-0">
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                    {weekdayLabels.map(w => (
+                        <p key={w} className="text-[9px] font-black text-muted uppercase opacity-50 text-center">{w}</p>
+                    ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1 flex-1">
+                    {cells.map((cell, i) => {
+                        if (!cell.date) return <div key={i} />;
+                        const isToday = cell.date === todayStr;
+                        const items = cell.items || [];
+                        const dayNum = Number(cell.date.slice(-2));
+                        return (
+                            <div key={i} className={cn('rounded-lg border p-1 min-h-[64px] flex flex-col', isToday ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-border-subtle/60 bg-surface/30')}>
+                                <p className={cn('text-[10px] font-black mb-0.5', isToday ? 'text-indigo-500' : 'text-primary opacity-70')}>{dayNum}</p>
+                                <div className="space-y-0.5 flex-1 overflow-hidden">
+                                    {items.slice(0, 2).map(item => (
+                                        <p key={item.id} className="text-[8px] font-bold truncate rounded px-1 py-0.5"
+                                            style={{ backgroundColor: `${item.color || '#6d28d9'}18`, color: item.color || '#6d28d9' }}>
+                                            {item.title}
+                                        </p>
+                                    ))}
+                                    {items.length > 2 && (
+                                        <p className="text-[8px] font-bold text-muted opacity-50 px-1">+{items.length - 2}</p>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );
@@ -316,46 +370,46 @@ export function TodayScheduleTimeline({
     const dayItems = view === 'day' ? [...(groups[0]?.items || [])].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time)) : [];
 
     return (
-        <div className="bg-card border border-border-subtle rounded-2xl p-4 sm:p-5 h-full flex flex-col">
-            <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
-                <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center flex-shrink-0">
-                        <CalendarIcon className="w-4.5 h-4.5" />
+        <div className="bg-card border border-border-subtle rounded-2xl p-3 sm:p-5 h-full flex flex-col">
+            <div className="flex items-center justify-between gap-2.5 mb-2 sm:mb-1 flex-wrap">
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center flex-shrink-0">
+                        <CalendarIcon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                     </div>
                     <div>
-                        <h3 className="text-base font-black text-primary leading-tight">{l("დღევანდელი განრიგი", "Расписание", "Today's Schedule")}</h3>
-                        <p className="text-[11px] font-bold text-muted opacity-60">
+                        <h3 className="text-sm sm:text-base font-black text-primary leading-tight">{l("დღევანდელი განრიგი", "Расписание", "Today's Schedule")}</h3>
+                        <p className="text-[10px] sm:text-[11px] font-bold text-muted opacity-60">
                             {view === 'day'
                                 ? selectedDate.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
                                 : selectedDate.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { month: 'long', year: 'numeric' })}
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center bg-surface border border-border-subtle rounded-full p-1">
+                <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 w-full sm:w-auto">
+                    <div className="flex items-center bg-surface border border-border-subtle rounded-full p-0.5 sm:p-1">
                         {(['day', 'week', 'month'] as const).map(v => (
                             <button key={v} onClick={() => onViewChange(v)}
-                                className={cn('px-3 py-1.5 rounded-full text-[11px] font-bold transition-colors',
+                                className={cn('px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] font-bold transition-colors',
                                     view === v ? 'bg-indigo-500 text-white shadow-sm' : 'text-muted hover:text-primary')}>
                                 {v === 'day' ? l('დღე', 'День', 'Day') : v === 'week' ? l('კვირა', 'Неделя', 'Week') : l('თვე', 'Месяц', 'Month')}
                             </button>
                         ))}
                     </div>
-                    <div className="flex items-center gap-1">
-                        <button onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface text-muted hover:text-primary transition-colors">
-                            <ChevronLeft className="w-4 h-4" />
+                    <div className="flex items-center gap-0.5 sm:gap-1">
+                        <button onClick={onPrev} className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full hover:bg-surface text-muted hover:text-primary transition-colors">
+                            <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </button>
-                        <button onClick={onToday} className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-surface border border-border-subtle text-indigo-500 hover:bg-indigo-500/10 transition-colors">
+                        <button onClick={onToday} className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-surface border border-border-subtle text-indigo-500 hover:bg-indigo-500/10 transition-colors">
                             {l('დღეს', 'Сегодня', 'Today')}
                         </button>
-                        <button onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface text-muted hover:text-primary transition-colors">
-                            <ChevronRight className="w-4 h-4" />
+                        <button onClick={onNext} className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full hover:bg-surface text-muted hover:text-primary transition-colors">
+                            <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 mt-3 overflow-y-auto pr-1 max-h-[460px]">
+            <div className="flex-1 mt-2 sm:mt-3 overflow-y-auto pr-1 max-h-[460px]">
                 {view === 'day' ? (
                     dayItems.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center py-10 text-muted opacity-40">
@@ -365,7 +419,7 @@ export function TodayScheduleTimeline({
                     ) : (
                         <div className="relative">
                             {/* Continuous vertical timeline connector line */}
-                            <div className="absolute left-[101px] sm:left-[121px] top-4 bottom-4 w-0.5 bg-slate-200/80 dark:bg-slate-800 pointer-events-none" />
+                            <div className="absolute left-[61px] sm:left-[121px] top-4 bottom-4 w-0.5 bg-slate-200/80 dark:bg-slate-800 pointer-events-none" />
                             <div className="space-y-2">
                                 {dayItems.map((item, idx) => (
                                     <DayRow key={item.id} item={item} index={idx} isToday={true} nowMinutes={nowMinutes} l={l} />
