@@ -29,6 +29,8 @@ import {
     type ScheduleItem, type ActivityItem,
 } from '@/components/dashboard/DashboardHomeSections';
 import { TodayGroupsCard } from '@/components/dashboard/TodayGroupsCard';
+import { CalendarScheduleCard } from '@/components/dashboard/CalendarScheduleCard';
+import { AIAnalyticsCard } from '@/components/dashboard/AIAnalyticsCard';
 import { resolveSlotWidget } from '@/lib/dashboard-widgets';
 
 // ─── Lightweight SVG Donut Chart Card ──────────────────────────────────────
@@ -997,6 +999,23 @@ export default function DashboardPage() {
                         lang={lang}
                         onRefreshDashboard={refreshFullDashboard}
                         currentDate={selectedDate}
+                    />
+                );
+            case 'calendar':
+                return (
+                    <CalendarScheduleCard
+                        lang={lang}
+                        initialDate={selectedDate}
+                    />
+                );
+            case 'aiAnalytics':
+                return (
+                    <AIAnalyticsCard
+                        lang={lang}
+                        liveStats={liveStats}
+                        groupProgress={groupProgress}
+                        currency={settings?.currency}
+                        canViewRevenue={canViewRevenue}
                     />
                 );
             case 'quickActions':

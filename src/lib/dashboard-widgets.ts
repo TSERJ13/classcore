@@ -44,10 +44,12 @@ export const WIDGET_CATALOG: WidgetDef[] = [
     { key: 'attendance', category: 'stat', label: { ka: 'დღევანდელი დასწრება', ru: 'Посещаемость сегодня', en: "Today's Attendance" } },
 
     // Large-only widgets (cannot go into small side/bottom slots)
-    { key: 'todaySchedule', category: 'large', label: { ka: 'დღევანდელი განრიგი', ru: 'Расписание', en: "Today's Schedule" } },
-    { key: 'todayAttendance', category: 'large', label: { ka: 'დასწრება (ჯგუფები)', ru: 'Посещаемость (группы)', en: 'Attendance (Groups)' } },
+    { key: 'todaySchedule', category: 'large', label: { ka: 'დღევანდელი განრიგი', ru: 'Расписание на сегодня', en: "Today's Schedule" } },
+    { key: 'todayAttendance', category: 'large', label: { ka: 'დასწრება', ru: 'Посещаемость', en: 'Attendance' } },
+    { key: 'calendar', category: 'large', label: { ka: 'კალენდარი', ru: 'Календарь', en: 'Calendar' } },
+    { key: 'aiAnalytics', category: 'large', label: { ka: 'AI ანალიტიკა', ru: 'AI Аналитика', en: 'AI Analytics' } },
 
-    // Content widgets (can go into side slots, bottom slots, and large slot)
+    // Content widgets (can go into side slots and bottom slots)
     { key: 'quickActions', category: 'content', label: { ka: 'სასწრაფო მოქმედებები', ru: 'Быстрые действия', en: 'Quick Actions' } },
     { key: 'todaySummary', category: 'content', label: { ka: 'დღევანდელი შედეგები', ru: 'Итоги дня', en: "Today's Summary" } },
     { key: 'upcomingEvents', category: 'content', label: { ka: 'მოსალოდნელი ღონისძიებები', ru: 'Ближайшие события', en: 'Upcoming Events' } },
@@ -71,10 +73,10 @@ export function widgetsForSize(size: WidgetSlotSize): WidgetDef[] {
         return WIDGET_CATALOG.filter(w => w.category === 'stat');
     }
     if (size === 'large') {
-        // Large slot accepts large widgets AND all content widgets (per owner spec: "ეს პატარები დიდში ხვდებოდეს")
-        return WIDGET_CATALOG.filter(w => w.category === 'large' || w.category === 'content');
+        // Large slot offers ONLY: todaySchedule, todayAttendance, calendar, aiAnalytics
+        return WIDGET_CATALOG.filter(w => w.category === 'large');
     }
-    // Side and bottom slots accept all content widgets (per owner spec: "პატარებში ის დიდი ვერ ხვდებოდეს")
+    // Side and bottom slots accept all content widgets
     return WIDGET_CATALOG.filter(w => w.category === 'content');
 }
 
