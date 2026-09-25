@@ -12,13 +12,13 @@
 import Link from 'next/link';
 import {
     Calendar as CalendarIcon, ChevronLeft, ChevronRight, UserPlus, CalendarCheck,
-    CreditCard, MessageSquare, Zap, Trophy, Megaphone, TrendingUp,
+    CreditCard, MessageSquare, Zap, Trophy, Megaphone, TrendingUp, Users,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { Group } from '@/lib/group-store';
 import type { CalendarEvent } from '@/types';
 
-// ─── Today's Schedule (vertical timeline) ──────────────────────────────────
+// ─── Today's Schedule (day list / week & month grids) ──────────────────────
 
 export type ScheduleItem = {
     id: string;
@@ -29,6 +29,7 @@ export type ScheduleItem = {
     end_time: string;
     teacherName?: string;
     teacherPhoto?: string;
+    hallName?: string;
     studentCount?: number;
     capacity?: number;
 };
@@ -39,12 +40,12 @@ function timeToMinutes(t: string): number {
 }
 
 function eventStatus(item: ScheduleItem, isToday: boolean, nowMinutes: number, l: (ka: string, ru: string, en: string) => string) {
-    if (!isToday) return { label: l('დაგეგმილი', 'Запланировано', 'Scheduled'), cls: 'bg-surface text-muted border-border-subtle' };
+    if (!isToday) return { label: l('დაგეგმილი', 'Запланировано', 'Scheduled'), cls: 'bg-surface text-muted border-border-subtle', dot: 'bg-muted/40', filled: false };
     const start = timeToMinutes(item.start_time);
     const end = timeToMinutes(item.end_time);
-    if (nowMinutes >= start && nowMinutes < end) return { label: l('მიმდინარეობს', 'Идёт', 'In progress'), cls: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' };
-    if (nowMinutes >= end) return { label: l('დასრულდა', 'Завершено', 'Done'), cls: 'bg-surface text-muted/60 border-border-subtle' };
-    return { label: l('მოსალოდნელი', 'Скоро', 'Upcoming'), cls: 'bg-amber-500/10 text-amber-600 border-amber-500/20' };
+    if (nowMinutes >= start && nowMinutes < end) return { label: l('მიმდინარეობს', 'Идёт', 'In progress'), cls: 'bg-emerald-500 text-white border-emerald-500', dot: 'bg-white', filled: true };
+    if (nowMinutes >= end) return { label: l('დასრულდა', 'Завершено', 'Done'), cls: 'bg-surface text-muted/60 border-border-subtle', dot: 'bg-muted/40', filled: false };
+    return { label: l('მოსალოდნელი', 'Скоро', 'Upcoming'), cls: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/25', dot: 'border border-indigo-500', filled: false };
 }
 
 function typeLabel(type: string | undefined, l: (ka: string, ru: string, en: string) => string): string {
@@ -54,6 +55,138 @@ function typeLabel(type: string | undefined, l: (ka: string, ru: string, en: str
         case 'rental': return l('გაქირავება', 'Аренда', 'Rental');
         default: return l('სხვა', 'Другое', 'Other');
     }
+}
+
+/** Day view: one tinted row per class, matching the reference layout exactly. */
+function DayRow({ item, isToday, nowMinutes, l }: { item: ScheduleItem; isToday: boolean; nowMinutes: number; l: (ka: string, ru: string, en: string) => string }) {
+    const status = eventStatus(item, isToday, nowMinutes, l);
+    const hasCapacity = item.capacity != null && Number(item.capacity) > 0;
+    const color = item.color || '#6d28d9';
+    return (
+        <div className="flex items-center gap-3">
+            <div className="w-[88px] flex-shrink-0 text-right">
+                <p className="text-[12px] font-black text-primary whitespace-nowrap">{item.start_time} – {item.end_time}</p>
+            </div>
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+            <div className="flex-1 min-w-0 rounded-2xl p-3 flex items-center justify-between gap-3"
+                style={{ backgroundColor: `${color}12` }}>
+                <div className="flex items-center gap-3 min-w-0">
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-black flex-shrink-0" style={{ backgroundColor: `${color}22`, color }}>
+                        {typeLabel(item.type, l)}
+                    </span>
+                    <div className="min-w-0">
+                        <p className="text-sm font-bold text-primary truncate">{item.title}</p>
+                        {item.hallName && <p className="text-[11px] text-muted opacity-60 truncate">{item.hallName}</p>}
+                    </div>
+                </div>
+                <div className="hidden sm:flex items-center gap-2.5 min-w-0 flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-[10px] font-black flex-shrink-0 overflow-hidden">
+                        {item.teacherPhoto ? <img src={item.teacherPhoto} className="w-full h-full object-cover" alt="" /> : (item.teacherName || item.title)[0]}
+                    </div>
+                    {item.teacherName && <p className="text-xs font-bold text-primary truncate max-w-[110px]">{item.teacherName}</p>}
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                    {hasCapacity && (
+                        <span className="hidden md:flex items-center gap-1 text-[11px] font-bold text-muted opacity-70 tabular-nums">
+                            <Users className="w-3 h-3" /> {item.studentCount ?? 0} / {item.capacity}
+                        </span>
+                    )}
+                    <span className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap', status.cls)}>
+                        <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', status.dot)} />
+                        {status.label}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/** Week view: 7-column grid, each day a stack of compact colored chips. */
+function WeekGrid({ groups, todayStr, l }: { groups: { date: string; items: ScheduleItem[] }[]; todayStr: string; l: (ka: string, ru: string, en: string) => string }) {
+    return (
+        <div className="grid grid-cols-7 gap-2 h-full">
+            {groups.map(g => {
+                const isToday = g.date === todayStr;
+                const d = new Date(`${g.date}T00:00:00`);
+                const sorted = [...g.items].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
+                return (
+                    <div key={g.date} className={cn('rounded-xl border p-1.5 flex flex-col min-h-[220px]', isToday ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-border-subtle bg-surface/40')}>
+                        <div className="text-center pb-1.5 mb-1.5 border-b border-border-subtle/60">
+                            <p className="text-[9px] font-black text-muted uppercase opacity-60">{d.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { weekday: 'short' })}</p>
+                            <p className={cn('text-xs font-black', isToday ? 'text-indigo-500' : 'text-primary')}>{d.getDate()}</p>
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-1">
+                            {sorted.length === 0 ? (
+                                <p className="text-[9px] text-muted opacity-30 text-center pt-2">—</p>
+                            ) : sorted.map(item => (
+                                <div key={item.id} className="rounded-md px-1.5 py-1" style={{ backgroundColor: `${item.color || '#6d28d9'}18` }}>
+                                    <p className="text-[9px] font-black leading-none" style={{ color: item.color || '#6d28d9' }}>{item.start_time}</p>
+                                    <p className="text-[10px] font-bold text-primary truncate leading-tight mt-0.5">{item.title}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+/** Month view: classic calendar grid, each cell a date + up to 2 chips + overflow count. */
+function MonthGrid({ groups, todayStr, l }: { groups: { date: string; items: ScheduleItem[] }[]; todayStr: string; l: (ka: string, ru: string, en: string) => string }) {
+    if (groups.length === 0) return null;
+    const first = new Date(`${groups[0].date}T00:00:00`);
+    const year = first.getFullYear();
+    const month = first.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstOfMonth = new Date(year, month, 1);
+    const leadingBlanks = (firstOfMonth.getDay() + 6) % 7; // Mon=0
+    const byDate = new Map(groups.map(g => [g.date, g.items]));
+    const weekdayLabels = [
+        l('ორშ', 'Пн', 'Mon'), l('სამ', 'Вт', 'Tue'), l('ოთხ', 'Ср', 'Wed'), l('ხუთ', 'Чт', 'Thu'),
+        l('პარ', 'Пт', 'Fri'), l('შაბ', 'Сб', 'Sat'), l('კვ', 'Вс', 'Sun'),
+    ];
+
+    const cells: { date?: string; items?: ScheduleItem[] }[] = [];
+    for (let i = 0; i < leadingBlanks; i++) cells.push({});
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        cells.push({ date: dateStr, items: byDate.get(dateStr) || [] });
+    }
+
+    return (
+        <div className="flex flex-col h-full">
+            <div className="grid grid-cols-7 gap-1 mb-1">
+                {weekdayLabels.map(w => (
+                    <p key={w} className="text-[9px] font-black text-muted uppercase opacity-50 text-center">{w}</p>
+                ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1 flex-1">
+                {cells.map((cell, i) => {
+                    if (!cell.date) return <div key={i} />;
+                    const isToday = cell.date === todayStr;
+                    const items = cell.items || [];
+                    const dayNum = Number(cell.date.slice(-2));
+                    return (
+                        <div key={i} className={cn('rounded-lg border p-1 min-h-[64px] flex flex-col', isToday ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-border-subtle/60 bg-surface/30')}>
+                            <p className={cn('text-[10px] font-black mb-0.5', isToday ? 'text-indigo-500' : 'text-primary opacity-70')}>{dayNum}</p>
+                            <div className="space-y-0.5 flex-1 overflow-hidden">
+                                {items.slice(0, 2).map(item => (
+                                    <p key={item.id} className="text-[8px] font-bold truncate rounded px-1 py-0.5"
+                                        style={{ backgroundColor: `${item.color || '#6d28d9'}18`, color: item.color || '#6d28d9' }}>
+                                        {item.title}
+                                    </p>
+                                ))}
+                                {items.length > 2 && (
+                                    <p className="text-[8px] font-bold text-muted opacity-50 px-1">+{items.length - 2}</p>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
 }
 
 export function TodayScheduleTimeline({
@@ -70,113 +203,65 @@ export function TodayScheduleTimeline({
 }) {
     const todayStr = new Date().toISOString().slice(0, 10);
     const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-    const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0);
+    const dayItems = view === 'day' ? [...(groups[0]?.items || [])].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time)) : [];
 
     return (
         <div className="bg-card border border-border-subtle rounded-2xl p-4 sm:p-5 h-full flex flex-col">
             <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
                 <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center flex-shrink-0">
-                        <CalendarIcon className="w-4 h-4" />
+                    <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center flex-shrink-0">
+                        <CalendarIcon className="w-4.5 h-4.5" />
                     </div>
-                    <h3 className="text-sm font-bold text-primary">{l("დღევანდელი განრიგი", "Расписание на сегодня", "Today's Schedule")}</h3>
+                    <div>
+                        <h3 className="text-base font-black text-primary leading-tight">{l("დღევანდელი განრიგი", "Расписание", "Today's Schedule")}</h3>
+                        <p className="text-[11px] font-bold text-muted opacity-60">
+                            {view === 'day'
+                                ? selectedDate.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                                : selectedDate.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { month: 'long', year: 'numeric' })}
+                        </p>
+                    </div>
                 </div>
-                <div className="flex items-center gap-1 bg-surface border border-border-subtle rounded-lg p-0.5">
-                    {(['day', 'week', 'month'] as const).map(v => (
-                        <button key={v} onClick={() => onViewChange(v)}
-                            className={cn('px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors capitalize',
-                                view === v ? 'bg-indigo-500 text-white shadow-sm' : 'text-muted hover:text-primary')}>
-                            {v === 'day' ? l('დღე', 'День', 'Day') : v === 'week' ? l('კვირა', 'Неделя', 'Week') : l('თვე', 'Месяц', 'Month')}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center bg-surface border border-border-subtle rounded-full p-1">
+                        {(['day', 'week', 'month'] as const).map(v => (
+                            <button key={v} onClick={() => onViewChange(v)}
+                                className={cn('px-3 py-1.5 rounded-full text-[11px] font-bold transition-colors',
+                                    view === v ? 'bg-indigo-500 text-white shadow-sm' : 'text-muted hover:text-primary')}>
+                                {v === 'day' ? l('დღე', 'День', 'Day') : v === 'week' ? l('კვირა', 'Неделя', 'Week') : l('თვე', 'Месяц', 'Month')}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <button onClick={onPrev} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface text-muted hover:text-primary transition-colors">
+                            <ChevronLeft className="w-4 h-4" />
                         </button>
-                    ))}
-                </div>
-            </div>
-            <div className="flex items-center justify-between mb-4">
-                <p className="text-[11px] font-bold text-muted opacity-60">
-                    {view === 'day'
-                        ? selectedDate.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-                        : selectedDate.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { month: 'long', year: 'numeric' })}
-                </p>
-                <div className="flex items-center gap-1">
-                    <button onClick={onPrev} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-primary transition-colors">
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <button onClick={onToday} className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-500 hover:bg-indigo-500/10 transition-colors">
-                        {l('დღეს', 'Сегодня', 'Today')}
-                    </button>
-                    <button onClick={onNext} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface text-muted hover:text-primary transition-colors">
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
+                        <button onClick={onToday} className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-surface border border-border-subtle text-indigo-500 hover:bg-indigo-500/10 transition-colors">
+                            {l('დღეს', 'Сегодня', 'Today')}
+                        </button>
+                        <button onClick={onNext} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface text-muted hover:text-primary transition-colors">
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1 max-h-[420px]">
-                {totalItems === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center py-10 text-muted opacity-40">
-                        <CalendarIcon className="w-8 h-8 mb-2" />
-                        <p className="text-xs font-bold">{l('არაფერია დაგეგმილი', 'Ничего не запланировано', 'Nothing scheduled')}</p>
-                    </div>
-                ) : groups.map(group => {
-                    const isGroupToday = group.date === todayStr;
-                    const sorted = [...group.items].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
-                    return (
-                        <div key={group.date}>
-                            {view !== 'day' && (
-                                <p className="text-[10px] font-black text-muted uppercase tracking-wide mb-2 opacity-60">
-                                    {new Date(`${group.date}T00:00:00`).toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { weekday: 'short', day: 'numeric', month: 'short' })}
-                                    {isGroupToday && <span className="ml-1.5 text-indigo-500">· {l('დღეს', 'сегодня', 'today')}</span>}
-                                </p>
-                            )}
-                            <div className="space-y-2.5">
-                                {sorted.map(item => {
-                                    const status = eventStatus(item, isGroupToday, nowMinutes, l);
-                                    const hasCapacity = item.capacity != null && Number(item.capacity) > 0;
-                                    return (
-                                        <div key={item.id} className="flex items-start gap-3">
-                                            <div className="w-12 flex-shrink-0 text-right pt-1">
-                                                <p className="text-[11px] font-black text-primary leading-none">{item.start_time}</p>
-                                                <p className="text-[9px] font-bold text-muted opacity-50 leading-none mt-0.5">{item.end_time}</p>
-                                            </div>
-                                            <div className="relative flex-shrink-0 flex flex-col items-center pt-1.5">
-                                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color || '#6d28d9' }} />
-                                                <span className="w-px flex-1 bg-border-subtle mt-1" />
-                                            </div>
-                                            <div className="flex-1 min-w-0 bg-surface/60 border border-border-subtle rounded-xl p-2.5 hover:border-indigo-500/20 transition-colors">
-                                                <div className="flex items-center gap-2 mb-1.5">
-                                                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide"
-                                                        style={{ backgroundColor: `${item.color || '#6d28d9'}1a`, color: item.color || '#6d28d9' }}>
-                                                        {typeLabel(item.type, l)}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        <div className="w-7 h-7 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-[10px] font-black flex-shrink-0 overflow-hidden">
-                                                            {item.teacherPhoto ? <img src={item.teacherPhoto} className="w-full h-full object-cover" alt="" /> : (item.teacherName || item.title)[0]}
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <p className="text-xs font-bold text-primary truncate">{item.title}</p>
-                                                            <p className="text-[10px] text-muted opacity-60 truncate">{item.teacherName}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                                        {hasCapacity && (
-                                                            <span className="text-[10px] font-bold text-muted opacity-60 tabular-nums">
-                                                                {item.studentCount ?? 0} / {item.capacity}
-                                                            </span>
-                                                        )}
-                                                        <span className={cn('px-2 py-0.5 rounded-lg text-[9px] font-bold border whitespace-nowrap', status.cls)}>
-                                                            {status.label}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+            <div className="flex-1 mt-3 overflow-y-auto pr-1 max-h-[460px]">
+                {view === 'day' ? (
+                    dayItems.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center py-10 text-muted opacity-40">
+                            <CalendarIcon className="w-8 h-8 mb-2" />
+                            <p className="text-xs font-bold">{l('დღეს არაფერია დაგეგმილი', 'На сегодня ничего не запланировано', 'Nothing scheduled today')}</p>
                         </div>
-                    );
-                })}
+                    ) : (
+                        <div className="space-y-2">
+                            {dayItems.map(item => <DayRow key={item.id} item={item} isToday={true} nowMinutes={nowMinutes} l={l} />)}
+                        </div>
+                    )
+                ) : view === 'week' ? (
+                    <WeekGrid groups={groups} todayStr={todayStr} l={l} />
+                ) : (
+                    <MonthGrid groups={groups} todayStr={todayStr} l={l} />
+                )}
             </div>
         </div>
     );

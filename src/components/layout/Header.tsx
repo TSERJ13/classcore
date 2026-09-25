@@ -642,24 +642,6 @@ export function Header() {
 
                     <button
                         onClick={() => {
-                            setMessengerOpen(true);
-                            setNotifOpen(false);
-                            setNotesOpen(false);
-                        }}
-                        className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
-                        aria-label="Messenger"
-                    >
-                        <MessageSquare className="w-4 h-4 md:w-5 h-5" />
-                        {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
-                            <span className={cn(
-                                "absolute top-1.5 right-1.5 md:top-3 md:right-3 w-1 h-1 rounded-full ring-2 ring-card shadow-sm",
-                                unreadCounts[SUPPORT_CHAT_ID] ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-emerald-500"
-                            )} />
-                        )}
-                    </button>
-
-                    <button
-                        onClick={() => {
                             setNotifOpen((v: boolean) => !v);
                             setMessengerOpen(false);
                             setNotesOpen(false);

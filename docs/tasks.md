@@ -2935,3 +2935,36 @@ Notes:
 - Files: `src/app/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/DashboardHomeSections.tsx`,
   `src/app/(dashboard)/events/page.tsx` (new), `src/components/layout/Sidebar.tsx`,
   `src/lib/i18n/{types,ka,ru,en}.ts` (added `events` key).
+
+---
+
+### Dashboard follow-up: Today's Schedule visual redo + Week/Month grids + remove header Messenger icon
+
+Owner sent the reference screenshot again with a direct side-by-side ("what you built isn't like
+this") and three concrete asks: match Today's Schedule's Day-view row styling exactly, give
+Week/Month a genuinely different (grid) layout instead of reusing the day-list with date headers,
+and remove the Messenger icon from the header's top-right (keep only Notes + Notifications).
+
+**Day view** (`DayRow` in `DashboardHomeSections.tsx`): rebuilt to match the reference — the whole
+row now has a soft tinted background at the event's own color (not just a small pill on a neutral
+card), single-line time range ("12:00 – 12:50"), a solid colored type pill, teacher avatar+name,
+capacity with a small people-icon, and a filled/outline status dot + pill ("● In progress" /
+"○ Upcoming") instead of the previous plain bordered badge.
+
+**Week/Month are now real, different layouts**, not the day-list with a date header:
+- Week: a 7-column grid, each day a compact stack of small colored time+title chips.
+- Month: a classic calendar grid (weekday header row + date cells), each cell showing up to 2
+  colored event chips and a "+N" overflow count for busier days.
+
+Both read the same `{date, items}[]` groups dashboard/page.tsx already builds per view (added
+last round) — no data-layer changes needed, just two new presentational components.
+
+**Header**: removed the Messenger icon/button from the top-right icon row per the owner's explicit
+ask, leaving only Notes (pin) and Notifications (bell). The underlying messenger panel/state was
+kept, not deleted — Profile page's "Contact Support" still dispatches a `toggle-support` custom
+event that opens it, so that entry point still works; it's just no longer reachable directly from
+the header.
+
+Notes:
+- `tsc --noEmit`: clean. `next dev` compiled `/dashboard` with zero errors.
+- Files: `src/components/dashboard/DashboardHomeSections.tsx`, `src/components/layout/Header.tsx`.
