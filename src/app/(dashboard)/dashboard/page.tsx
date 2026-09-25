@@ -245,7 +245,15 @@ function DonutCard({
 
 export default function DashboardPage() {
     const { t, lang } = useT();
-    const l = (ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en;
+    // 🛠️ FIX: was a plain inline arrow function, recreated with a new
+    // identity on every render. It's in refreshFullDashboard's useCallback
+    // deps below, so that recreated every render too — and since the mount
+    // effect depends on refreshFullDashboard's identity, this fired the
+    // whole stats/schedule refresh (which itself calls setState) on every
+    // single render, forever. That infinite render loop is what pegged the
+    // tab and made every button/nav link across the app look "frozen" —
+    // not a per-button bug, the whole page's JS thread was stuck redrawing.
+    const l = useCallback((ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en, [lang]);
     const { settings, isLoaded } = useStudio();
     const { profile, loading } = useUser();
     const [selectedDate, setSelectedDate] = useState(new Date());
