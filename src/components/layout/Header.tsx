@@ -577,7 +577,7 @@ export function Header() {
                 </div>
 
                 {/* Global search — students & groups */}
-                <div className="relative flex-1 max-w-md ml-auto hidden md:block">
+                <div className="relative flex-1 max-w-[240px] ml-auto hidden md:block">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                     <input
                         type="text"
@@ -667,7 +667,7 @@ export function Header() {
                                 {profile?.photo_url ? <img src={profile.photo_url} className="w-full h-full object-cover" alt="" /> : avatarInitials}
                             </div>
                             <div className="hidden md:block text-left leading-tight">
-                                <p className="text-xs font-black text-primary truncate max-w-[110px]">{displayName}</p>
+                                <p className="text-xs font-black text-primary truncate max-w-[170px]">{displayName}</p>
                                 <p className="text-[10px] font-bold text-muted opacity-60">{roleLabel}</p>
                             </div>
                             <ChevronDown className="hidden md:block w-3.5 h-3.5 text-muted flex-shrink-0" />
