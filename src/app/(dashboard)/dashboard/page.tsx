@@ -630,9 +630,7 @@ export default function DashboardPage() {
                 dates = Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1));
             }
 
-            const groupsForView = dates
-                .map(d => ({ date: getLocalISODate(d), items: buildForDate(d) }))
-                .filter(g => scheduleView === 'day' || g.items.length > 0);
+            const groupsForView = dates.map(d => ({ date: getLocalISODate(d), items: buildForDate(d) }));
             setScheduleGroups(groupsForView as unknown as { date: string; items: ScheduleItem[] }[]);
         });
 
@@ -975,6 +973,7 @@ export default function DashboardPage() {
                         selectedDate={selectedDate}
                         view={scheduleView}
                         onViewChange={setScheduleView}
+                        onSelectDate={(d: Date) => setSelectedDate(d)}
                         onPrev={() => setSelectedDate(d => {
                             const n = new Date(d);
                             if (scheduleView === 'week') n.setDate(n.getDate() - 7);

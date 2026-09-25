@@ -15,7 +15,7 @@ import {
     Calendar as CalendarIcon, ChevronLeft, ChevronRight, UserPlus, CalendarCheck,
     CreditCard, MessageSquare, Zap, Trophy, Megaphone, TrendingUp, Users, Settings2, Check,
     Send, BarChart2, Activity, ArrowUp, ArrowDown, Trash2, Plus, RotateCcw,
-    Minus, GripVertical,
+    Minus, GripVertical, X,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { Group } from '@/lib/group-store';
@@ -262,7 +262,17 @@ function DayRow({ item, index, isToday, nowMinutes, l }: { item: ScheduleItem; i
 }
 
 /** Week view: 7-column grid, each day a stack of compact colored chips with mobile scroll. */
-function WeekGrid({ groups, todayStr, l }: { groups: { date: string; items: ScheduleItem[] }[]; todayStr: string; l: (ka: string, ru: string, en: string) => string }) {
+function WeekGrid({
+    groups,
+    todayStr,
+    l,
+    onSelectDay,
+}: {
+    groups: { date: string; items: ScheduleItem[] }[];
+    todayStr: string;
+    l: (ka: string, ru: string, en: string) => string;
+    onSelectDay?: (day: { date: string; items: ScheduleItem[] }) => void;
+}) {
     return (
         <div className="overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0">
             <div className="grid grid-cols-7 gap-1.5 sm:gap-2 min-w-[500px] sm:min-w-0 h-full">
@@ -271,10 +281,24 @@ function WeekGrid({ groups, todayStr, l }: { groups: { date: string; items: Sche
                 const d = new Date(`${g.date}T00:00:00`);
                 const sorted = [...g.items].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
                 return (
-                    <div key={g.date} className={cn('rounded-xl border p-1.5 flex flex-col min-h-[220px]', isToday ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-border-subtle bg-surface/40')}>
+                    <div
+                        key={g.date}
+                        onClick={() => onSelectDay?.({ date: g.date, items: sorted })}
+                        role="button"
+                        tabIndex={0}
+                        className={cn(
+                            'rounded-xl border p-1.5 flex flex-col min-h-[220px] cursor-pointer transition-all duration-150 text-left select-none',
+                            'hover:border-indigo-500/50 hover:shadow-xs active:scale-[0.99]',
+                            isToday ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-border-subtle bg-surface/40'
+                        )}
+                    >
                         <div className="text-center pb-1.5 mb-1.5 border-b border-border-subtle/60">
-                            <p className="text-[9px] font-black text-muted uppercase opacity-60">{d.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { weekday: 'short' })}</p>
-                            <p className={cn('text-xs font-black', isToday ? 'text-indigo-500' : 'text-primary')}>{d.getDate()}</p>
+                            <p className="text-[9px] font-black text-muted uppercase opacity-60">
+                                {d.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), { weekday: 'short' })}
+                            </p>
+                            <p className={cn('text-xs font-black', isToday ? 'text-indigo-500' : 'text-primary')}>
+                                {d.getDate()}
+                            </p>
                         </div>
                         <div className="flex-1 overflow-y-auto space-y-1">
                             {sorted.length === 0 ? (
@@ -295,11 +319,21 @@ function WeekGrid({ groups, todayStr, l }: { groups: { date: string; items: Sche
 }
 
 /** Month view: classic calendar grid, each cell a date + up to 2 chips + overflow count. */
-function MonthGrid({ groups, todayStr, l }: { groups: { date: string; items: ScheduleItem[] }[]; todayStr: string; l: (ka: string, ru: string, en: string) => string }) {
-    if (groups.length === 0) return null;
-    const first = new Date(`${groups[0].date}T00:00:00`);
-    const year = first.getFullYear();
-    const month = first.getMonth();
+function MonthGrid({
+    groups,
+    selectedDate,
+    todayStr,
+    l,
+    onSelectDay,
+}: {
+    groups: { date: string; items: ScheduleItem[] }[];
+    selectedDate: Date;
+    todayStr: string;
+    l: (ka: string, ru: string, en: string) => string;
+    onSelectDay?: (day: { date: string; items: ScheduleItem[] }) => void;
+}) {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstOfMonth = new Date(year, month, 1);
     const leadingBlanks = (firstOfMonth.getDay() + 6) % 7; // Mon=0
@@ -326,22 +360,47 @@ function MonthGrid({ groups, todayStr, l }: { groups: { date: string; items: Sch
                 </div>
                 <div className="grid grid-cols-7 gap-1 flex-1">
                     {cells.map((cell, i) => {
-                        if (!cell.date) return <div key={i} />;
+                        if (!cell.date) return <div key={i} className="min-h-[64px]" />;
                         const isToday = cell.date === todayStr;
                         const items = cell.items || [];
                         const dayNum = Number(cell.date.slice(-2));
+                        const hasItems = items.length > 0;
                         return (
-                            <div key={i} className={cn('rounded-lg border p-1 min-h-[64px] flex flex-col', isToday ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-border-subtle/60 bg-surface/30')}>
-                                <p className={cn('text-[10px] font-black mb-0.5', isToday ? 'text-indigo-500' : 'text-primary opacity-70')}>{dayNum}</p>
+                            <div
+                                key={i}
+                                onClick={() => onSelectDay?.({ date: cell.date!, items })}
+                                role="button"
+                                tabIndex={0}
+                                className={cn(
+                                    'rounded-lg border p-1 sm:p-1.5 min-h-[64px] sm:min-h-[70px] flex flex-col cursor-pointer transition-all duration-150 select-none text-left',
+                                    'hover:border-indigo-500/50 hover:bg-indigo-500/[0.04] hover:shadow-xs active:scale-[0.98]',
+                                    isToday ? 'border-indigo-500/40 bg-indigo-500/5 ring-1 ring-indigo-500/20' : 'border-border-subtle/60 bg-surface/30'
+                                )}
+                            >
+                                <div className="flex items-center justify-between mb-0.5">
+                                    <span className={cn('text-[10px] sm:text-[11px] font-black', isToday ? 'text-indigo-500 font-extrabold' : 'text-primary opacity-80')}>
+                                        {dayNum}
+                                    </span>
+                                    {hasItems && (
+                                        <span className="text-[8px] sm:text-[9px] font-bold px-1 py-0.2 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                                            {items.length}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="space-y-0.5 flex-1 overflow-hidden">
                                     {items.slice(0, 2).map(item => (
-                                        <p key={item.id} className="text-[8px] font-bold truncate rounded px-1 py-0.5"
-                                            style={{ backgroundColor: `${item.color || '#6d28d9'}18`, color: item.color || '#6d28d9' }}>
+                                        <p
+                                            key={item.id}
+                                            className="text-[8px] font-bold truncate rounded px-1 py-0.5"
+                                            style={{ backgroundColor: `${item.color || '#6d28d9'}18`, color: item.color || '#6d28d9' }}
+                                        >
                                             {item.title}
                                         </p>
                                     ))}
                                     {items.length > 2 && (
-                                        <p className="text-[8px] font-bold text-muted opacity-50 px-1">+{items.length - 2}</p>
+                                        <span className="inline-block text-[8px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 rounded px-1 py-0.5 transition-colors">
+                                            +{items.length - 2}
+                                        </span>
                                     )}
                                 </div>
                             </div>
@@ -353,8 +412,165 @@ function MonthGrid({ groups, todayStr, l }: { groups: { date: string; items: Sch
     );
 }
 
+/** Modal dialog shown when clicking on a day cell in Month (or Week) view. */
+function DayScheduleModal({
+    day,
+    todayStr,
+    nowMinutes,
+    l,
+    onClose,
+    onGoToDayView,
+}: {
+    day: { date: string; items: ScheduleItem[] } | null;
+    todayStr: string;
+    nowMinutes: number;
+    l: (ka: string, ru: string, en: string) => string;
+    onClose: () => void;
+    onGoToDayView: (dateStr: string) => void;
+}) {
+    if (!day) return null;
+    const d = new Date(`${day.date}T00:00:00`);
+    const fullDateLabel = d.toLocaleDateString(l('ka-GE', 'ru-RU', 'en-US'), {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+    const isToday = day.date === todayStr;
+    const sorted = [...day.items].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+            onClick={onClose}
+        >
+            <div
+                className="relative z-10 w-full max-w-lg bg-card border border-border-subtle rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
+                onClick={e => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-border-subtle">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center flex-shrink-0">
+                            <CalendarIcon className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-sm sm:text-base font-black text-primary capitalize leading-tight">
+                                    {fullDateLabel}
+                                </h3>
+                                {isToday && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500 text-white flex-shrink-0">
+                                        {l('დღეს', 'Сегодня', 'Today')}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-[11px] font-bold text-muted opacity-70 mt-0.5">
+                                {sorted.length === 0
+                                    ? l('არცერთი გაკვეთილი', 'Нет занятий', 'No classes')
+                                    : `${sorted.length} ${l('ჯგუფი / გაკვეთილი', 'групп(ы) / занятий', 'classes / groups')}`}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="w-8 h-8 rounded-full hover:bg-surface flex items-center justify-center text-muted hover:text-primary transition-colors cursor-pointer flex-shrink-0"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Content list */}
+                <div className="flex-1 overflow-y-auto space-y-2 py-3 pr-1">
+                    {sorted.length === 0 ? (
+                        <div className="py-12 text-center text-muted opacity-50 flex flex-col items-center justify-center">
+                            <CalendarIcon className="w-8 h-8 mb-2 stroke-1" />
+                            <p className="text-xs font-bold">
+                                {l('ამ დღეს გაკვეთილები არ არის დაგეგმილი', 'На этот день занятий не запланировано', 'No classes scheduled for this day')}
+                            </p>
+                        </div>
+                    ) : (
+                        sorted.map((item, idx) => {
+                            const status = eventStatus(item, isToday, nowMinutes, l);
+                            const hasCapacity = item.capacity != null && Number(item.capacity) > 0;
+                            const palette = ROW_PALETTE[idx % ROW_PALETTE.length];
+                            const isCustomColor = item.color && item.color !== '#6d28d9' && !item.color.startsWith('#6d28');
+                            const color = isCustomColor ? item.color! : palette.color;
+                            const rowBg = isCustomColor ? `${item.color}10` : palette.bg;
+                            const pillBg = isCustomColor ? `${item.color}20` : palette.pillBg;
+
+                            return (
+                                <div
+                                    key={item.id}
+                                    className="rounded-xl p-3 border border-border-subtle/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors"
+                                    style={{ backgroundColor: rowBg }}
+                                >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="text-left flex-shrink-0 min-w-[75px]">
+                                            <p className="text-xs font-black text-slate-800 dark:text-slate-100 tabular-nums">
+                                                {item.start_time} – {item.end_time}
+                                            </p>
+                                        </div>
+                                        <span
+                                            className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-black tracking-wide truncate max-w-[90px] flex-shrink-0 text-center"
+                                            style={{ backgroundColor: pillBg, color }}
+                                        >
+                                            {item.categoryLabel || typeLabel(item.type, l)}
+                                        </span>
+                                        <div className="min-w-0">
+                                            <p className="text-xs sm:text-[13px] font-black text-primary truncate leading-tight">
+                                                {item.title}
+                                            </p>
+                                            {(item.teacherName || item.hallName) && (
+                                                <p className="text-[10px] text-muted truncate mt-0.5">
+                                                    {item.teacherName} {item.hallName ? `• ${item.hallName}` : ''}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between sm:justify-end gap-2 flex-shrink-0 border-t sm:border-t-0 pt-1.5 sm:pt-0 border-black/5 dark:border-white/5">
+                                        {hasCapacity && (
+                                            <span className="flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums">
+                                                <Users className="w-3 h-3 text-slate-400" />
+                                                {item.studentCount ?? 0} / {item.capacity}
+                                            </span>
+                                        )}
+                                        <span className={cn('flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap shadow-2xs', status.cls)}>
+                                            <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', status.dot)} />
+                                            {status.label}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+
+                {/* Footer Actions */}
+                <div className="flex items-center justify-between gap-2 pt-3 border-t border-border-subtle mt-1">
+                    <button
+                        onClick={() => onGoToDayView(day.date)}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-indigo-500 hover:bg-indigo-600 text-white shadow-xs transition-colors cursor-pointer"
+                    >
+                        <CalendarIcon className="w-3.5 h-3.5" />
+                        <span>{l('დღის განრიგის გახსნა', 'Открыть расписание дня', 'Open Day View')}</span>
+                        <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-surface hover:bg-surface-hover text-primary border border-border-subtle transition-colors cursor-pointer"
+                    >
+                        {l('დახურვა', 'Закрыть', 'Close')}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export function TodayScheduleTimeline({
-    groups, selectedDate, onPrev, onNext, onToday, view, onViewChange, l,
+    groups, selectedDate, onPrev, onNext, onToday, view, onViewChange, l, onSelectDate,
 }: {
     groups: { date: string; items: ScheduleItem[] }[];
     selectedDate: Date;
@@ -364,10 +580,12 @@ export function TodayScheduleTimeline({
     view: 'day' | 'week' | 'month';
     onViewChange: (v: 'day' | 'week' | 'month') => void;
     l: (ka: string, ru: string, en: string) => string;
+    onSelectDate?: (d: Date) => void;
 }) {
     const todayStr = new Date().toISOString().slice(0, 10);
     const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
     const dayItems = view === 'day' ? [...(groups[0]?.items || [])].sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time)) : [];
+    const [modalDay, setModalDay] = useState<{ date: string; items: ScheduleItem[] } | null>(null);
 
     return (
         <div className="bg-card border border-border-subtle rounded-2xl p-3 sm:p-5 h-full flex flex-col">
@@ -428,11 +646,29 @@ export function TodayScheduleTimeline({
                         </div>
                     )
                 ) : view === 'week' ? (
-                    <WeekGrid groups={groups} todayStr={todayStr} l={l} />
+                    <WeekGrid groups={groups} todayStr={todayStr} l={l} onSelectDay={setModalDay} />
                 ) : (
-                    <MonthGrid groups={groups} todayStr={todayStr} l={l} />
+                    <MonthGrid groups={groups} selectedDate={selectedDate} todayStr={todayStr} l={l} onSelectDay={setModalDay} />
                 )}
             </div>
+
+            {/* Modal popup when clicking on a day in Month or Week view */}
+            {modalDay && (
+                <DayScheduleModal
+                    day={modalDay}
+                    todayStr={todayStr}
+                    nowMinutes={nowMinutes}
+                    l={l}
+                    onClose={() => setModalDay(null)}
+                    onGoToDayView={(dateStr) => {
+                        if (onSelectDate) {
+                            onSelectDate(new Date(`${dateStr}T00:00:00`));
+                        }
+                        onViewChange('day');
+                        setModalDay(null);
+                    }}
+                />
+            )}
         </div>
     );
 }
