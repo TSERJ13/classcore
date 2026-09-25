@@ -2997,3 +2997,48 @@ at risk, and `DashboardHomeSections.tsx` has no hooks at all. This was the only 
 Notes:
 - `tsc --noEmit`: clean.
 - File: `src/app/(dashboard)/dashboard/page.tsx`.
+
+---
+
+### Dashboard widgets: swappable content per fixed slot, studio-wide, managed from the Dashboard page
+
+Owner asked for the dashboard's blocks (4 stat cards, Today's Schedule, Quick Actions, Today's
+Summary, Upcoming Events, Recent Activity, Group Progress) to become swappable "widgets" —
+explicitly confirmed as: (1) the physical layout stays fixed (4 top slots, 1 large + 2 side slots
+in the middle, 3 small slots at bottom) and only the widget occupying each slot changes; (2) the
+choice is studio-wide (owner/admin sets it, every staff member sees the same result — not a
+per-user preference); (3) management happens directly on the Dashboard page itself, not from
+Settings/Permissions.
+
+Implementation:
+- `src/lib/dashboard-widgets.ts` (new): a small catalog module, no new backend/table/dependency.
+  `SlotId` (10 fixed slots) each with a fixed `WidgetSlotSize` (`stat`/`large`/`side`/`bottom`);
+  `WIDGET_CATALOG` lists every widget with the size(s) it can occupy; `DEFAULT_DASHBOARD_LAYOUT`
+  matches today's visual arrangement exactly, so studios that never touch this see no change;
+  `resolveSlotWidget()` reads `settings.dashboardWidgets?.[slot]` and falls back to the default.
+- `StudioSettings.dashboardWidgets?: Record<string, string>` (`src/types/index.ts`) — a plain
+  `{ slotId: widgetKey }` map persisted exactly like every other studio setting (`pausePrices`,
+  `enabledFeatures`, ...), via the existing `StudioContext.updateSettings()` (already dual-writes
+  to the real DB + localStorage + cloud sync) — reused as-is, no new Server Action needed.
+- `WidgetSlot` component (`DashboardHomeSections.tsx`): wraps any widget; in normal mode renders
+  children unchanged; in edit mode shows an indigo ring + a small gear button that opens a
+  dropdown of every other widget valid for that slot's size, calling `onChange(key)` on pick.
+- `dashboard/page.tsx`: extracted the 4 stat `<DonutCard>` blocks and the large/side/bottom blocks
+  (Today's Schedule, Quick Actions, Today's Summary, Upcoming Events, Recent Activity, Group
+  Progress) out of fixed JSX into one `renderWidget(key)` lookup function, so any widget key can
+  be rendered into any slot of matching size. Added a "Customize Widgets" toggle button, gated to
+  `isOwnerOrAdmin(profile?.role)` (also `'administrator'`, matching this codebase's existing
+  owner/admin-tier check used for `/branches` and `/settings`), which flips `dashboardEditMode`
+  and wraps every one of the 10 slots in `WidgetSlot`, reading the slot's current widget via
+  `resolveSlotWidget(settings.dashboardWidgets, slotId)` and writing changes via
+  `updateSettings({ dashboardWidgets: { ...settings.dashboardWidgets, [slotId]: newKey } })`.
+  The `revenue` stat widget still silently skips rendering (as before) for viewers without
+  `canViewRevenue`, regardless of which stat slot it's assigned to.
+- Donut/needs-attention row and sidebar were not touched, per the owner's earlier explicit ask.
+
+Notes:
+- `tsc --noEmit`: clean. `next dev` compiled `/dashboard` with zero errors (`GET /dashboard 200`).
+- Pre-existing lint errors (`any` types, one `require()` import, one unused `revenueRange` state)
+  were moved verbatim from the original JSX into `renderWidget()` — none newly introduced.
+- Files: `src/lib/dashboard-widgets.ts` (new), `src/types/index.ts`,
+  `src/components/dashboard/DashboardHomeSections.tsx`, `src/app/(dashboard)/dashboard/page.tsx`.

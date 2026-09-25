@@ -6,7 +6,7 @@ import { getTodayCheckins, type CheckinRecord } from '@/lib/checkin-store';
 import { getUniqueSubscriptions, getSubscriptionStatusBucket, type SubscriptionEffectiveStatus } from '@/lib/subscription-store';
 import { getSales } from '@/lib/sales-store';
 import Link from 'next/link';
-import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, ChevronRight, ChevronDown, RefreshCcw, ShieldAlert, Sparkles } from 'lucide-react';
+import { Zap, Users, CreditCard, CalendarCheck, TrendingUp, ChevronRight, ChevronDown, RefreshCcw, ShieldAlert, Sparkles, LayoutGrid, X } from 'lucide-react';
 import { cn, getLocalISODate, formatCurrency, getScopedKey } from '@/lib/utils';
 import { useStudio } from '@/contexts/StudioContext';
 import { useUser } from '@/hooks/useUser';
@@ -17,7 +17,7 @@ import { getHallName } from '@/lib/hall-store';
 import type { Student } from '@/types';
 import { getGroups } from '@/lib/group-store';
 import { getTeachers } from '@/lib/teacher-store';
-import { getVisibleGroupIds, isTeacherRole } from '@/lib/access';
+import { getVisibleGroupIds, isTeacherRole, isOwnerOrAdmin } from '@/lib/access';
 import { pctChange, buildPlanPrices, subRevenue, isSubInMonth, isSubOnDay } from '@/lib/studio-stats';
 import { getPlans } from '@/lib/plan-store';
 import { getDashboardStatsAction } from '@/app/actions/dashboard';
@@ -26,9 +26,10 @@ import { IssueSubscriptionModal } from '@/components/subscriptions/IssueSubscrip
 import { computeNeedsAttention } from '@/lib/needs-attention';
 import {
     TodayScheduleTimeline, QuickActionsPanel, TodaySummaryPanel,
-    UpcomingEventsCard, RecentActivityCard, GroupProgressCard,
+    UpcomingEventsCard, RecentActivityCard, GroupProgressCard, WidgetSlot,
     type ScheduleItem, type ActivityItem,
 } from '@/components/dashboard/DashboardHomeSections';
+import { resolveSlotWidget } from '@/lib/dashboard-widgets';
 
 // ─── Lightweight SVG Donut Chart Card ──────────────────────────────────────
 
@@ -255,7 +256,7 @@ export default function DashboardPage() {
     // tab and made every button/nav link across the app look "frozen" —
     // not a per-button bug, the whole page's JS thread was stuck redrawing.
     const l = useCallback((ka: string, ru: string, en: string) => lang === 'ka' ? ka : lang === 'ru' ? ru : en, [lang]);
-    const { settings, isLoaded } = useStudio();
+    const { settings, isLoaded, updateSettings } = useStudio();
     const { profile, loading } = useUser();
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [revenueRange, setRevenueRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
@@ -788,6 +789,8 @@ export default function DashboardPage() {
     const canViewRevenue = !isTeacher && (profile?.role === 'owner' || profile?.role === 'admin' || profile?.role === 'manager' || !!profile?.canViewAnalytics || !!profile?.canViewBilling);
 
     const [billing, setBilling] = useState<any>(null);
+    const [dashboardEditMode, setDashboardEditMode] = useState(false);
+    const canEditDashboardWidgets = isOwnerOrAdmin(profile?.role) || profile?.role === 'administrator';
 
     useEffect(() => {
         const refreshBilling = () => {
@@ -812,6 +815,219 @@ export default function DashboardPage() {
     const attentionTotalCount =
         (canViewRevenue && liveStats.totalDebt > 0 ? liveStats.studentsWithDebt : 0) +
         liveStats.expiringSoon + liveStats.oneSessionLeft + liveStats.pendingBookings + birthdayStudents.length;
+
+    const renderWidget = (key: string) => {
+        switch (key) {
+            case 'students':
+                return (
+                    <DonutCard
+                        loading={!statsReady}
+                        title={l('სტუდენტები', 'Студенты', 'Students')}
+                        icon={Users}
+                        iconColorClass="text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
+                        linkHref="/students"
+                        linkLabel={l('სტუდენტები', 'Студенты', 'Students')}
+                        centerValue={liveStats.totalStudents}
+                        centerLabel={l('სულ სტუდენტი', 'Всего студентов', 'Total Students')}
+                        defaultPct={liveStats.totalStudents > 0 ? `${Math.round((liveStats.activeStudents / liveStats.totalStudents) * 100)}% ${l('აქტიური', 'активных', 'active')}` : null}
+                        segments={[
+                            {
+                                key: 'withSub',
+                                label: l('აქტიური აბონემენტით', 'С абонементом', 'With active pass'),
+                                count: liveStats.activeStudents,
+                                color: '#10b981',
+                                bgClass: 'bg-emerald-500',
+                            },
+                            {
+                                key: 'withoutSub',
+                                label: l('აბონემენტის გარეშე', 'Без абонемента', 'Without pass'),
+                                count: Math.max(0, liveStats.totalStudents - liveStats.activeStudents),
+                                color: '#f59e0b',
+                                bgClass: 'bg-amber-500',
+                            },
+                            {
+                                key: 'newStudents',
+                                label: l('ახალი ამ თვეში', 'Новые в этом мес.', 'New this month'),
+                                count: liveStats.newThisMonthStudents || 0,
+                                color: '#6366f1',
+                                bgClass: 'bg-indigo-500',
+                            },
+                        ]}
+                    />
+                );
+            case 'revenue':
+                if (!canViewRevenue) return null;
+                return (
+                    <DonutCard
+                        loading={!statsReady}
+                        title={l('თვის შემოსავალი', 'Доход за месяц', 'Monthly Revenue')}
+                        icon={TrendingUp}
+                        iconColorClass="text-amber-400 bg-amber-500/10 border-amber-500/20"
+                        linkHref="/analytics"
+                        linkLabel={l('ანალიტიკა', 'Аналитика', 'Analytics')}
+                        centerValue={formatCurrency(liveStats.monthlyRevenue, settings.currency)}
+                        centerLabel={l('შემოსავალი', 'Доход', 'Revenue')}
+                        defaultPct={liveStats.monthlyRevenue > 0 && liveStats.monthlySubsRevenue > 0 ? `${Math.round((liveStats.monthlySubsRevenue / liveStats.monthlyRevenue) * 100)}% ${l('აბონემენტები', 'абонементы', 'subs')}` : null}
+                        segments={[
+                            {
+                                key: 'subs',
+                                label: l('აბონემენტები', 'Абонементы', 'Subscriptions'),
+                                count: Math.round(liveStats.monthlySubsRevenue),
+                                formattedValue: formatCurrency(Math.round(liveStats.monthlySubsRevenue), settings.currency),
+                                color: '#8b5cf6',
+                                bgClass: 'bg-violet-500',
+                            },
+                            {
+                                key: 'shop',
+                                label: l('მაღაზია / ბარი', 'Магазиნ / Бар', 'Shop / Bar'),
+                                count: Math.round(liveStats.monthlyShopRevenue),
+                                formattedValue: formatCurrency(Math.round(liveStats.monthlyShopRevenue), settings.currency),
+                                color: '#10b981',
+                                bgClass: 'bg-emerald-500',
+                            },
+                        ]}
+                    />
+                );
+            case 'subscriptions':
+                return (
+                    <DonutCard
+                        loading={!statsReady}
+                        title={l('აბონემენტები', 'Абонементы', 'Subscriptions')}
+                        icon={CreditCard}
+                        iconColorClass="text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                        linkHref="/subscriptions"
+                        linkLabel={l('ყველა', 'Все', 'View all')}
+                        centerValue={liveStats.subStatusCounts.active}
+                        centerLabel={l('აქტიური აბონემენტი', 'Активных', 'Active')}
+                        defaultPct={(() => {
+                            const totalSubs = liveStats.subStatusCounts.active + liveStats.subStatusCounts.paused + liveStats.subStatusCounts.expired + liveStats.subStatusCounts.cancelled;
+                            return totalSubs > 0 ? `${Math.round((liveStats.subStatusCounts.active / totalSubs) * 100)}% ${l('სულ', 'всего', 'of all')}` : null;
+                        })()}
+                        segments={[
+                            {
+                                key: 'active',
+                                label: l('აქტიური', 'Активные', 'Active'),
+                                count: liveStats.subStatusCounts.active,
+                                color: '#10b981',
+                                bgClass: 'bg-emerald-500',
+                            },
+                            {
+                                key: 'paused',
+                                label: l('შეჩერებული', 'На паузе', 'Paused'),
+                                count: liveStats.subStatusCounts.paused,
+                                color: '#f59e0b',
+                                bgClass: 'bg-amber-500',
+                            },
+                            {
+                                key: 'expired',
+                                label: l('ვადაგასული', 'Истекшие', 'Expired'),
+                                count: liveStats.subStatusCounts.expired,
+                                color: '#f43f5e',
+                                bgClass: 'bg-rose-500',
+                            },
+                            {
+                                key: 'cancelled',
+                                label: l('გაუქმებული', 'Отмененные', 'Cancelled'),
+                                count: liveStats.subStatusCounts.cancelled,
+                                color: '#6366f1',
+                                bgClass: 'bg-indigo-500',
+                            },
+                        ]}
+                    />
+                );
+            case 'attendance':
+                return (
+                    <DonutCard
+                        loading={!statsReady}
+                        title={l('დღევანდელი დასწრება', 'Посещаемость сегодня', "Today's Attendance")}
+                        icon={CalendarCheck}
+                        iconColorClass="text-violet-400 bg-violet-500/10 border-violet-500/20"
+                        linkHref="/attendance"
+                        linkLabel={l('ჟურნალი', 'Журнал', 'Journal')}
+                        centerValue={liveStats.todayExpected > 0 ? `${Math.round((liveStats.attendance / liveStats.todayExpected) * 100)}%` : liveStats.attendance}
+                        centerLabel={liveStats.todayExpected > 0 ? l('გამოცხადება', 'явка', 'turnout') : l('დამსწრე', 'посетило', 'attended')}
+                        defaultPct={liveStats.todayExpected > 0 ? `${liveStats.attendance} / ${liveStats.todayExpected} ${l('მოსწავლე', 'учен.', 'students')}` : null}
+                        segments={[
+                            {
+                                key: 'attended',
+                                label: l('გამოცხადდა', 'Посетили', 'Attended'),
+                                count: liveStats.attendance,
+                                color: '#10b981',
+                                bgClass: 'bg-emerald-500',
+                            },
+                            {
+                                key: 'remaining',
+                                label: l('მოსასვლელი', 'Ожидаются', 'Expected'),
+                                count: Math.max(0, liveStats.todayExpected - liveStats.attendance),
+                                color: '#8b5cf6',
+                                bgClass: 'bg-violet-500',
+                            },
+                        ]}
+                    />
+                );
+            case 'todaySchedule':
+                return (
+                    <TodayScheduleTimeline
+                        groups={scheduleGroups}
+                        selectedDate={selectedDate}
+                        view={scheduleView}
+                        onViewChange={setScheduleView}
+                        onPrev={() => setSelectedDate(d => {
+                            const n = new Date(d);
+                            if (scheduleView === 'week') n.setDate(n.getDate() - 7);
+                            else if (scheduleView === 'month') n.setMonth(n.getMonth() - 1);
+                            else n.setDate(n.getDate() - 1);
+                            return n;
+                        })}
+                        onNext={() => setSelectedDate(d => {
+                            const n = new Date(d);
+                            if (scheduleView === 'week') n.setDate(n.getDate() + 7);
+                            else if (scheduleView === 'month') n.setMonth(n.getMonth() + 1);
+                            else n.setDate(n.getDate() + 1);
+                            return n;
+                        })}
+                        onToday={() => setSelectedDate(new Date())}
+                        l={l}
+                    />
+                );
+            case 'quickActions':
+                return (
+                    <QuickActionsPanel
+                        onAddStudent={() => setShowAddStudent(true)}
+                        onCreatePayment={() => setShowIssueSub(true)}
+                        l={l}
+                    />
+                );
+            case 'todaySummary':
+                return (
+                    <TodaySummaryPanel
+                        classesToday={liveStats.todayClassesCount}
+                        attended={liveStats.attendance}
+                        expected={liveStats.todayExpected}
+                        newRegistrations={liveStats.newThisMonthStudents}
+                        paymentsReceived={liveStats.todayRevenue}
+                        currency={settings.currency}
+                        l={l}
+                    />
+                );
+            case 'upcomingEvents':
+                return (
+                    <UpcomingEventsCard
+                        events={allEvents
+                            .filter((ev: any) => ev.type === 'other' && ev.date > getLocalISODate(new Date()))
+                            .sort((a: any, b: any) => a.date.localeCompare(b.date))
+                            .slice(0, 4)}
+                        l={l}
+                    />
+                );
+            case 'recentActivity':
+                return <RecentActivityCard items={recentActivityItems} l={l} />;
+            case 'groupProgress':
+                return <GroupProgressCard groups={groupProgress} l={l} />;
+            default:
+                return null;
+        }
+    };
 
     return (
         <div className="space-y-6 animate-fade-in relative max-w-7xl mx-auto">
@@ -877,151 +1093,38 @@ export default function DashboardPage() {
                 </div>
             )}
 
+            {/* ─── Dashboard widget customization toggle (owner/admin only) ─── */}
+            {canEditDashboardWidgets && (
+                <div className="flex justify-end mb-2">
+                    <button
+                        onClick={() => setDashboardEditMode(v => !v)}
+                        className={cn(
+                            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide transition-colors border",
+                            dashboardEditMode
+                                ? "bg-indigo-500 text-white border-indigo-500"
+                                : "bg-card text-muted border-border-subtle hover:text-primary hover:bg-surface"
+                        )}
+                    >
+                        {dashboardEditMode ? <X className="w-3.5 h-3.5" /> : <LayoutGrid className="w-3.5 h-3.5" />}
+                        {dashboardEditMode
+                            ? l('დახურვა', 'Готово', 'Done')
+                            : l('ვიჯეტების რედაქტირება', 'Настроить виджеты', 'Customize Widgets')}
+                    </button>
+                </div>
+            )}
+
             {/* ─── Operations & Analytics (Donut Cards: 2x2 on mobile, 4 in 1 row on desktop) ─── */}
             <div className={cn("grid gap-2.5 sm:gap-4 mb-4 items-stretch", canViewRevenue ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2 sm:grid-cols-3")}>
-                {/* 1. Students Breakdown */}
-                <DonutCard
-                    loading={!statsReady}
-                    title={l('სტუდენტები', 'Студенты', 'Students')}
-                    icon={Users}
-                    iconColorClass="text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
-                    linkHref="/students"
-                    linkLabel={l('სტუდენტები', 'Студенты', 'Students')}
-                    centerValue={liveStats.totalStudents}
-                    centerLabel={l('სულ სტუდენტი', 'Всего студентов', 'Total Students')}
-                    defaultPct={liveStats.totalStudents > 0 ? `${Math.round((liveStats.activeStudents / liveStats.totalStudents) * 100)}% ${l('აქტიური', 'активных', 'active')}` : null}
-                    segments={[
-                        {
-                            key: 'withSub',
-                            label: l('აქტიური აბონემენტით', 'С абонементом', 'With active pass'),
-                            count: liveStats.activeStudents,
-                            color: '#10b981',
-                            bgClass: 'bg-emerald-500',
-                        },
-                        {
-                            key: 'withoutSub',
-                            label: l('აბონემენტის გარეშე', 'Без абонемента', 'Without pass'),
-                            count: Math.max(0, liveStats.totalStudents - liveStats.activeStudents),
-                            color: '#f59e0b',
-                            bgClass: 'bg-amber-500',
-                        },
-                        {
-                            key: 'newStudents',
-                            label: l('ახალი ამ თვეში', 'Новые в этом мес.', 'New this month'),
-                            count: liveStats.newThisMonthStudents || 0,
-                            color: '#6366f1',
-                            bgClass: 'bg-indigo-500',
-                        },
-                    ]}
-                />
-
-                {/* 2. Monthly Revenue (if canViewRevenue) */}
-                {canViewRevenue && (
-                    <DonutCard
-                        loading={!statsReady}
-                        title={l('თვის შემოსავალი', 'Доход за месяц', 'Monthly Revenue')}
-                        icon={TrendingUp}
-                        iconColorClass="text-amber-400 bg-amber-500/10 border-amber-500/20"
-                        linkHref="/analytics"
-                        linkLabel={l('ანალიტიკა', 'Аналитика', 'Analytics')}
-                        centerValue={formatCurrency(liveStats.monthlyRevenue, settings.currency)}
-                        centerLabel={l('შემოსავალი', 'Доход', 'Revenue')}
-                        defaultPct={liveStats.monthlyRevenue > 0 && liveStats.monthlySubsRevenue > 0 ? `${Math.round((liveStats.monthlySubsRevenue / liveStats.monthlyRevenue) * 100)}% ${l('აბონემენტები', 'абонементы', 'subs')}` : null}
-                        segments={[
-                            {
-                                key: 'subs',
-                                label: l('აბონემენტები', 'Абонементы', 'Subscriptions'),
-                                count: Math.round(liveStats.monthlySubsRevenue),
-                                formattedValue: formatCurrency(Math.round(liveStats.monthlySubsRevenue), settings.currency),
-                                color: '#8b5cf6',
-                                bgClass: 'bg-violet-500',
-                            },
-                            {
-                                key: 'shop',
-                                label: l('მაღაზია / ბარი', 'Магазиნ / Бар', 'Shop / Bar'),
-                                count: Math.round(liveStats.monthlyShopRevenue),
-                                formattedValue: formatCurrency(Math.round(liveStats.monthlyShopRevenue), settings.currency),
-                                color: '#10b981',
-                                bgClass: 'bg-emerald-500',
-                            },
-                        ]}
-                    />
-                )}
-
-                {/* 3. Subscriptions Statuses */}
-                <DonutCard
-                    loading={!statsReady}
-                    title={l('აბონემენტები', 'Абонементы', 'Subscriptions')}
-                    icon={CreditCard}
-                    iconColorClass="text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                    linkHref="/subscriptions"
-                    linkLabel={l('ყველა', 'Все', 'View all')}
-                    centerValue={liveStats.subStatusCounts.active}
-                    centerLabel={l('აქტიური აბონემენტი', 'Активных', 'Active')}
-                    defaultPct={(() => {
-                        const totalSubs = liveStats.subStatusCounts.active + liveStats.subStatusCounts.paused + liveStats.subStatusCounts.expired + liveStats.subStatusCounts.cancelled;
-                        return totalSubs > 0 ? `${Math.round((liveStats.subStatusCounts.active / totalSubs) * 100)}% ${l('სულ', 'всего', 'of all')}` : null;
-                    })()}
-                    segments={[
-                        {
-                            key: 'active',
-                            label: l('აქტიური', 'Активные', 'Active'),
-                            count: liveStats.subStatusCounts.active,
-                            color: '#10b981',
-                            bgClass: 'bg-emerald-500',
-                        },
-                        {
-                            key: 'paused',
-                            label: l('შეჩერებული', 'На паузе', 'Paused'),
-                            count: liveStats.subStatusCounts.paused,
-                            color: '#f59e0b',
-                            bgClass: 'bg-amber-500',
-                        },
-                        {
-                            key: 'expired',
-                            label: l('ვადაგასული', 'Истекшие', 'Expired'),
-                            count: liveStats.subStatusCounts.expired,
-                            color: '#f43f5e',
-                            bgClass: 'bg-rose-500',
-                        },
-                        {
-                            key: 'cancelled',
-                            label: l('გაუქმებული', 'Отмененные', 'Cancelled'),
-                            count: liveStats.subStatusCounts.cancelled,
-                            color: '#6366f1',
-                            bgClass: 'bg-indigo-500',
-                        },
-                    ]}
-                />
-
-                {/* 4. Today's Attendance */}
-                <DonutCard
-                    loading={!statsReady}
-                    title={l('დღევანდელი დასწრება', 'Посещаемость сегодня', "Today's Attendance")}
-                    icon={CalendarCheck}
-                    iconColorClass="text-violet-400 bg-violet-500/10 border-violet-500/20"
-                    linkHref="/attendance"
-                    linkLabel={l('ჟურნალი', 'Журнал', 'Journal')}
-                    centerValue={liveStats.todayExpected > 0 ? `${Math.round((liveStats.attendance / liveStats.todayExpected) * 100)}%` : liveStats.attendance}
-                    centerLabel={liveStats.todayExpected > 0 ? l('გამოცხადება', 'явка', 'turnout') : l('დამსწრე', 'посетило', 'attended')}
-                    defaultPct={liveStats.todayExpected > 0 ? `${liveStats.attendance} / ${liveStats.todayExpected} ${l('მოსწავლე', 'учен.', 'students')}` : null}
-                    segments={[
-                        {
-                            key: 'attended',
-                            label: l('გამოცხადდა', 'Посетили', 'Attended'),
-                            count: liveStats.attendance,
-                            color: '#10b981',
-                            bgClass: 'bg-emerald-500',
-                        },
-                        {
-                            key: 'remaining',
-                            label: l('მოსასვლელი', 'Ожидаются', 'Expected'),
-                            count: Math.max(0, liveStats.todayExpected - liveStats.attendance),
-                            color: '#8b5cf6',
-                            bgClass: 'bg-violet-500',
-                        },
-                    ]}
-                />
+                {(['stat1', 'stat2', 'stat3', 'stat4'] as const).map(slot => {
+                    const key = resolveSlotWidget(settings.dashboardWidgets, slot);
+                    if (key === 'revenue' && !canViewRevenue) return null;
+                    return (
+                        <WidgetSlot key={slot} editMode={dashboardEditMode} size="stat" currentKey={key} lang={lang}
+                            onChange={(k) => updateSettings({ dashboardWidgets: { ...settings.dashboardWidgets, [slot]: k } })}>
+                            {renderWidget(key)}
+                        </WidgetSlot>
+                    );
+                })}
             </div>
 
             {/* ─── Needs Attention + Birthdays (merged, collapsible) ─── */}
@@ -1111,58 +1214,40 @@ export default function DashboardPage() {
             {/* ─── Today's Schedule + Quick Actions / Today's Summary ─── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch mb-6">
                 <div className="lg:col-span-2">
-                    <TodayScheduleTimeline
-                        groups={scheduleGroups}
-                        selectedDate={selectedDate}
-                        view={scheduleView}
-                        onViewChange={setScheduleView}
-                        onPrev={() => setSelectedDate(d => {
-                            const n = new Date(d);
-                            if (scheduleView === 'week') n.setDate(n.getDate() - 7);
-                            else if (scheduleView === 'month') n.setMonth(n.getMonth() - 1);
-                            else n.setDate(n.getDate() - 1);
-                            return n;
-                        })}
-                        onNext={() => setSelectedDate(d => {
-                            const n = new Date(d);
-                            if (scheduleView === 'week') n.setDate(n.getDate() + 7);
-                            else if (scheduleView === 'month') n.setMonth(n.getMonth() + 1);
-                            else n.setDate(n.getDate() + 1);
-                            return n;
-                        })}
-                        onToday={() => setSelectedDate(new Date())}
-                        l={l}
-                    />
+                    {(() => {
+                        const key = resolveSlotWidget(settings.dashboardWidgets, 'mainLarge');
+                        return (
+                            <WidgetSlot editMode={dashboardEditMode} size="large" currentKey={key} lang={lang}
+                                onChange={(k) => updateSettings({ dashboardWidgets: { ...settings.dashboardWidgets, mainLarge: k } })}>
+                                {renderWidget(key)}
+                            </WidgetSlot>
+                        );
+                    })()}
                 </div>
                 <div className="space-y-4">
-                    <QuickActionsPanel
-                        onAddStudent={() => setShowAddStudent(true)}
-                        onCreatePayment={() => setShowIssueSub(true)}
-                        l={l}
-                    />
-                    <TodaySummaryPanel
-                        classesToday={liveStats.todayClassesCount}
-                        attended={liveStats.attendance}
-                        expected={liveStats.todayExpected}
-                        newRegistrations={liveStats.newThisMonthStudents}
-                        paymentsReceived={liveStats.todayRevenue}
-                        currency={settings.currency}
-                        l={l}
-                    />
+                    {(['sideTop', 'sideBottom'] as const).map(slot => {
+                        const key = resolveSlotWidget(settings.dashboardWidgets, slot);
+                        return (
+                            <WidgetSlot key={slot} editMode={dashboardEditMode} size="side" currentKey={key} lang={lang}
+                                onChange={(k) => updateSettings({ dashboardWidgets: { ...settings.dashboardWidgets, [slot]: k } })}>
+                                {renderWidget(key)}
+                            </WidgetSlot>
+                        );
+                    })}
                 </div>
             </div>
 
             {/* ─── Upcoming Events / Recent Activity / Group Progress ─── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch mb-6">
-                <UpcomingEventsCard
-                    events={allEvents
-                        .filter((ev: any) => ev.type === 'other' && ev.date > getLocalISODate(new Date()))
-                        .sort((a: any, b: any) => a.date.localeCompare(b.date))
-                        .slice(0, 4)}
-                    l={l}
-                />
-                <RecentActivityCard items={recentActivityItems} l={l} />
-                <GroupProgressCard groups={groupProgress} l={l} />
+                {(['bottom1', 'bottom2', 'bottom3'] as const).map(slot => {
+                    const key = resolveSlotWidget(settings.dashboardWidgets, slot);
+                    return (
+                        <WidgetSlot key={slot} editMode={dashboardEditMode} size="bottom" currentKey={key} lang={lang}
+                            onChange={(k) => updateSettings({ dashboardWidgets: { ...settings.dashboardWidgets, [slot]: k } })}>
+                            {renderWidget(key)}
+                        </WidgetSlot>
+                    );
+                })}
             </div>
 
             {/* ─── Modals ─── */}

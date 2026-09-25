@@ -9,14 +9,63 @@
  * this were explicitly kept as-is per the owner's request.
  */
 
+import { useState } from 'react';
 import Link from 'next/link';
 import {
     Calendar as CalendarIcon, ChevronLeft, ChevronRight, UserPlus, CalendarCheck,
-    CreditCard, MessageSquare, Zap, Trophy, Megaphone, TrendingUp, Users,
+    CreditCard, MessageSquare, Zap, Trophy, Megaphone, TrendingUp, Users, Settings2, Check,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { Group } from '@/lib/group-store';
 import type { CalendarEvent } from '@/types';
+import { widgetsForSize, type WidgetSlotSize } from '@/lib/dashboard-widgets';
+
+// ─── Widget slot wrapper (edit-mode widget picker overlay) ─────────────────
+
+export function WidgetSlot({
+    editMode, size, currentKey, onChange, lang, children,
+}: {
+    editMode: boolean;
+    size: WidgetSlotSize;
+    currentKey: string;
+    onChange: (key: string) => void;
+    lang: 'ka' | 'ru' | 'en';
+    children: React.ReactNode;
+}) {
+    const [open, setOpen] = useState(false);
+    if (!editMode) return <>{children}</>;
+
+    const options = widgetsForSize(size);
+    return (
+        <div className="relative h-full">
+            <div className="h-full ring-2 ring-indigo-500/20 ring-offset-2 ring-offset-background rounded-2xl">
+                {children}
+            </div>
+            <button
+                onClick={() => setOpen(v => !v)}
+                className="absolute top-2 right-2 z-20 w-7 h-7 rounded-lg bg-white shadow-md border border-border-subtle flex items-center justify-center text-muted hover:text-indigo-500 transition-colors"
+            >
+                <Settings2 className="w-3.5 h-3.5" />
+            </button>
+            {open && (
+                <>
+                    <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+                    <div className="absolute top-10 right-2 z-30 w-52 bg-card border border-border-subtle rounded-xl shadow-xl overflow-hidden">
+                        {options.map(o => (
+                            <button key={o.key}
+                                onClick={() => { onChange(o.key); setOpen(false); }}
+                                className={cn('w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-xs font-bold hover:bg-surface transition-colors',
+                                    o.key === currentKey ? 'text-indigo-500 bg-indigo-500/5' : 'text-primary')}>
+                                {o.label[lang]}
+                                {o.key === currentKey && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
 
 // ─── Today's Schedule (day list / week & month grids) ──────────────────────
 
