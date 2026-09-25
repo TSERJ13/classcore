@@ -289,18 +289,6 @@ export default function DashboardPage() {
     const [groupProgress, setGroupProgress] = useState<{ id: string; name: string; photo?: string; pct: number }[]>([]);
     const [recentActivityItems, setRecentActivityItems] = useState<ActivityItem[]>([]);
     const [birthdayStudents, setBirthdayStudents] = useState<Student[]>([]);
-    // Needs Attention + Birthdays merged into one collapsible panel; collapse
-    // state is a per-browser UI preference, remembered across visits.
-    const [attentionCollapsed, setAttentionCollapsed] = useState(() => {
-        try { return localStorage.getItem('cc_dashboard_attention_collapsed') === '1'; } catch { return false; }
-    });
-    const toggleAttentionCollapsed = useCallback(() => {
-        setAttentionCollapsed(prev => {
-            const next = !prev;
-            try { localStorage.setItem('cc_dashboard_attention_collapsed', next ? '1' : '0'); } catch { }
-            return next;
-        });
-    }, []);
     const [scheduleGroups, setScheduleGroups] = useState<{ date: string; items: ScheduleItem[] }[]>([]);
     const [allEvents, setAllEvents] = useState<any[]>([]);
     // 🛠️ FIX: `liveStats` starts at all-zero, and refreshFullDashboard()'s
@@ -825,10 +813,6 @@ export default function DashboardPage() {
 
     if (!isLoaded || (loading && !isDemo)) return null;
 
-    const attentionTotalCount =
-        (canViewRevenue && liveStats.totalDebt > 0 ? liveStats.studentsWithDebt : 0) +
-        liveStats.expiringSoon + liveStats.oneSessionLeft + liveStats.pendingBookings + birthdayStudents.length;
-
     return (
         <div className="space-y-6 animate-fade-in relative max-w-7xl mx-auto">
 
@@ -1040,89 +1024,6 @@ export default function DashboardPage() {
                 />
             </div>
 
-            {/* ─── Needs Attention + Birthdays (merged, collapsible) ─── */}
-            {attentionTotalCount > 0 && (
-                <div className="bg-card border border-border-subtle rounded-2xl mb-6 overflow-hidden animate-fade-in">
-                    <button
-                        onClick={toggleAttentionCollapsed}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface/50 transition-colors cursor-pointer"
-                    >
-                        <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500 flex-shrink-0">
-                                <ShieldAlert className="w-4 h-4" />
-                            </div>
-                            <span className="text-xs font-bold text-primary uppercase tracking-wide">{l('საჭიროებს ყურადღებას', 'Требует внимания', 'Needs Attention')}</span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-500">{attentionTotalCount}</span>
-                        </div>
-                        <ChevronDown className={cn("w-4 h-4 text-muted transition-transform", !attentionCollapsed && "rotate-180")} />
-                    </button>
-
-                    {!attentionCollapsed && (
-                        <div className="px-4 pb-4 space-y-3 border-t border-border-subtle pt-3">
-                            {(liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0 || liveStats.pendingBookings > 0 || (canViewRevenue && liveStats.totalDebt > 0)) && (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    {canViewRevenue && liveStats.totalDebt > 0 && (
-                                        <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium text-xs transition-colors border border-rose-500/20 flex-shrink-0">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                            <span><strong className="font-bold">{liveStats.studentsWithDebt}</strong> {l('სტუდენტს აქვს დავალიანება', 'студентов с долгом', 'students with debt')}</span>
-                                            <span className="font-bold text-rose-500">({formatCurrency(liveStats.totalDebt, settings.currency)})</span>
-                                        </Link>
-                                    )}
-                                    {liveStats.expiringSoon > 0 && (
-                                        <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-medium text-xs transition-colors border border-amber-500/20 flex-shrink-0">
-                                            <span><strong className="font-bold">{liveStats.expiringSoon}</strong> {l('სტუდენტს ეწურება აბონემენტი', 'заканчивается абонемент', 'subs expiring')}</span>
-                                        </Link>
-                                    )}
-                                    {liveStats.oneSessionLeft > 0 && (
-                                        <Link href="/subscriptions" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-medium text-xs transition-colors border border-amber-500/20 flex-shrink-0">
-                                            <span><strong className="font-bold">{liveStats.oneSessionLeft}</strong> {l('დარჩა 1 გაკვეთილი', 'остался 1 урок', '1 lesson left')}</span>
-                                        </Link>
-                                    )}
-                                    {liveStats.pendingBookings > 0 && (
-                                        <Link href="/calendar" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-medium text-xs transition-colors border border-indigo-500/20 flex-shrink-0">
-                                            <span><strong className="font-bold">{liveStats.pendingBookings}</strong> {l('დასადასტურებელი ჯავშანი', 'бронь ожидает', 'pending bookings')}</span>
-                                        </Link>
-                                    )}
-                                </div>
-                            )}
-
-                            {birthdayStudents.length > 0 && (
-                                <div className={cn(
-                                    "bg-gradient-to-r from-amber-500/10 via-pink-500/10 to-purple-500/10 border border-amber-500/20 rounded-xl p-2.5 sm:p-3",
-                                    (liveStats.expiringSoon > 0 || liveStats.oneSessionLeft > 0 || liveStats.pendingBookings > 0 || (canViewRevenue && liveStats.totalDebt > 0)) && "mt-1"
-                                )}>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                                            <h3 className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase flex items-center gap-1">
-                                                <span>🎉</span> {l('დღეს დაბადების დღეა!', 'Сегодня день рождения!', 'Birthday Today!')}
-                                            </h3>
-                                        </div>
-                                        <Link href="/sms-manager" className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1">
-                                            <span>{l('SMS მილოცვა', 'Поздравить по SMS', 'Send Birthday SMS')}</span>
-                                            <ChevronRight className="w-3.5 h-3.5" />
-                                        </Link>
-                                    </div>
-                                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                                        {birthdayStudents.map(student => (
-                                            <div key={student.id} className="flex items-center gap-2 bg-white/60 dark:bg-slate-900/60 border border-amber-500/15 rounded-lg px-2.5 py-1.5 flex-shrink-0">
-                                                {student.photo_url ? (
-                                                    <img src={student.photo_url} alt="" className="w-6 h-6 rounded-full object-cover border border-amber-400/40" />
-                                                ) : (
-                                                    <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
-                                                        {(student.full_name || 'S').substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                )}
-                                                <p className="text-xs font-bold text-primary truncate max-w-[140px]">{student.full_name}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
 
             {/* ─── Today's Schedule + Quick Actions / Today's Summary ─── */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch mb-6">

@@ -4,10 +4,10 @@ import { usePathname } from 'next/navigation';
 import {
     Menu, Bell, X, Trash2, CheckCircle2, MessageSquare, Send, Search, Users,
     User as UserIcon, ChevronRight, ChevronDown, Pin, Plus, Building2,
-    Shield, Paperclip, FileText, Image as ImageIcon, Download, LogOut, UserCog
+    Shield, ShieldAlert, Paperclip, FileText, Image as ImageIcon, Download, LogOut, UserCog
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';
 import { useT } from '@/contexts/LanguageContext';
 import { useUser } from '@/hooks/useUser';
@@ -19,7 +19,7 @@ import { getGroups } from '@/lib/group-store';
 import { addIndividualLesson } from '@/lib/event-store';
 import { saveSubscription } from '@/lib/subscription-store';
 import { getLocalISODate, getScopedKey } from '@/lib/utils';
-import { getNeedsAttentionSummary } from '@/lib/needs-attention';
+import { getNeedsAttentionSummary, type NeedsAttentionSummary } from '@/lib/needs-attention';
 import { NotesDrawer } from '@/components/dashboard/NotesDrawer';
 
 interface ChatAttachment {
@@ -61,6 +61,8 @@ export function Header() {
     const [notifOpen, setNotifOpen] = useState(false);
     const [messengerOpen, setMessengerOpen] = useState(false);
     const [notesOpen, setNotesOpen] = useState(false);
+    const [attentionOpen, setAttentionOpen] = useState(false);
+    const [attentionSummary, setAttentionSummary] = useState<NeedsAttentionSummary | null>(null);
     const [activeTab, setActiveTab] = useState<'private' | 'group' | 'support'>('private');
     const [searchQuery, setSearchQuery] = useState('');
     // Top-bar global search (students/groups) — separate from the messenger
@@ -271,6 +273,32 @@ export function Header() {
             console.error('Needs-attention notification check failed', e);
         }
     }, [lang, settings.studioSlug, profile]);
+
+    const refreshAttention = useCallback(() => {
+        try {
+            setAttentionSummary(getNeedsAttentionSummary(profile));
+        } catch (e) {
+            console.error('Failed to compute needs attention summary', e);
+        }
+    }, [profile]);
+
+    useEffect(() => {
+        refreshAttention();
+        const events = [
+            'cc_student_update',
+            'cc_subscription_update',
+            'cc_attendance_update',
+            'cc_calendar_update',
+            'cc_branch_change',
+            'cc_sync_done',
+            'cc_data_hydrated',
+            'cc_sale_update',
+        ];
+        events.forEach(e => window.addEventListener(e, refreshAttention));
+        return () => {
+            events.forEach(e => window.removeEventListener(e, refreshAttention));
+        };
+    }, [refreshAttention]);
 
     useEffect(() => {
         const handleToggleSupport = () => {
@@ -630,6 +658,7 @@ export function Header() {
                             setNotesOpen(true);
                             setMessengerOpen(false);
                             setNotifOpen(false);
+                            setAttentionOpen(false);
                         }}
                         className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                         aria-label="Notes"
@@ -640,11 +669,34 @@ export function Header() {
                         )}
                     </button>
 
+                    {/* Needs Attention button */}
+                    <button
+                        onClick={() => {
+                            setAttentionOpen(v => !v);
+                            setMessengerOpen(false);
+                            setNotifOpen(false);
+                            setNotesOpen(false);
+                            setProfileMenuOpen(false);
+                        }}
+                        className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
+                        aria-label={lang === 'ka' ? 'საჭიროებს ყურადღებას' : lang === 'ru' ? 'Требует внимания' : 'Needs Attention'}
+                        title={lang === 'ka' ? 'საჭიროებს ყურადღებას' : lang === 'ru' ? 'Требует внимания' : 'Needs Attention'}
+                    >
+                        <ShieldAlert className={cn("w-4 h-4 md:w-5 h-5", (attentionSummary?.totalCount ?? 0) > 0 ? "text-rose-500" : "text-primary/60")} />
+                        {(attentionSummary?.totalCount ?? 0) > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 md:top-1.5 md:right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 ring-2 ring-white text-[9px] font-black text-white flex items-center justify-center">
+                                {(attentionSummary?.totalCount ?? 0) > 99 ? '99+' : attentionSummary?.totalCount}
+                            </span>
+                        )}
+                    </button>
+
                     <button
                         onClick={() => {
                             setNotifOpen((v: boolean) => !v);
                             setMessengerOpen(false);
                             setNotesOpen(false);
+                            setAttentionOpen(false);
+                            setProfileMenuOpen(false);
                         }}
                         className="relative w-7 h-7 md:w-11 md:h-11 flex items-center justify-center rounded-xl text-primary/60 hover:text-primary hover:bg-surface active:bg-surface transition-colors touch-manipulation"
                         aria-label="Notifications"
@@ -660,7 +712,10 @@ export function Header() {
                     {/* Profile chip */}
                     <div className="relative ml-1" ref={profileMenuRef}>
                         <button
-                            onClick={() => setProfileMenuOpen(v => !v)}
+                            onClick={() => {
+                                setProfileMenuOpen(v => !v);
+                                setAttentionOpen(false);
+                            }}
                             className="flex items-center gap-2 pl-1.5 pr-1 md:pl-2 md:pr-2.5 py-1 md:py-1.5 rounded-xl hover:bg-surface transition-colors"
                         >
                             <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-black flex-shrink-0 overflow-hidden shadow-sm">
@@ -833,6 +888,172 @@ export function Header() {
                             >
                                 {t.history}
                             </button>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {attentionOpen && (
+                <>
+                    <div
+                        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
+                        onClick={() => setAttentionOpen(false)}
+                    />
+                    <div className="fixed top-0 right-0 h-full w-full md:w-96 z-50 bg-card border-l border-border-subtle shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface/30">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-inner">
+                                    <ShieldAlert className="w-5 h-5" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-base font-black text-primary leading-tight">
+                                            {lang === 'ka' ? 'საჭიროებს ყურადღებას' : lang === 'ru' ? 'Требует внимания' : 'Needs Attention'}
+                                        </p>
+                                        {attentionSummary && attentionSummary.totalCount > 0 && (
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-500">
+                                                {attentionSummary.totalCount}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] text-muted font-bold tracking-tight opacity-70 uppercase">
+                                        {lang === 'ka' ? 'აქტიური შეტყობინებები' : lang === 'ru' ? 'Активные предупреждения' : 'Active alerts'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setAttentionOpen(false)}
+                                className="w-8 h-8 flex items-center justify-center rounded-xl text-muted hover:text-primary hover:bg-surface transition-colors touch-manipulation"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Content list */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+                            {!attentionSummary || attentionSummary.totalCount === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 text-muted opacity-40">
+                                    <ShieldAlert className="w-10 h-10 mb-2 text-slate-400" />
+                                    <p className="text-xs font-bold text-center">
+                                        {lang === 'ka' ? 'ყველაფერი რიგზეა, ყურადღებას არაფერი საჭიროებს' : lang === 'ru' ? 'Всё в порядке, внимания ничего не требует' : 'All clear, nothing needs attention'}
+                                    </p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Debt */}
+                                    {attentionSummary.studentsWithDebtCount > 0 && (
+                                        <Link
+                                            href="/subscriptions"
+                                            onClick={() => setAttentionOpen(false)}
+                                            className="flex items-start gap-3 p-3.5 rounded-xl bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/20 transition-colors group"
+                                        >
+                                            <span className="w-2 h-2 rounded-full bg-rose-500 mt-1.5 flex-shrink-0 animate-pulse" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                                                    <strong>{attentionSummary.studentsWithDebtCount}</strong> {lang === 'ka' ? 'სტუდენტს აქვს დავალიანება' : lang === 'ru' ? 'студентов с долгом' : 'students with debt'}
+                                                </p>
+                                                {attentionSummary.totalDebt > 0 && (
+                                                    <p className="text-[11px] font-semibold text-rose-500/80 mt-0.5">
+                                                        {lang === 'ka' ? 'ჯამური ვალი' : lang === 'ru' ? 'Общий долг' : 'Total debt'}: {attentionSummary.totalDebt} {settings.currency || 'GEL'}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <ChevronRight className="w-4 h-4 text-rose-400 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                                        </Link>
+                                    )}
+
+                                    {/* Expiring Soon */}
+                                    {attentionSummary.expiringSoonCount > 0 && (
+                                        <Link
+                                            href="/subscriptions"
+                                            onClick={() => setAttentionOpen(false)}
+                                            className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20 transition-colors group"
+                                        >
+                                            <span className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                                                    <strong>{attentionSummary.expiringSoonCount}</strong> {lang === 'ka' ? 'სტუდენტს ეწურება აბონემენტი' : lang === 'ru' ? 'заканчивается абонемент' : 'subs expiring soon'}
+                                                </p>
+                                                <p className="text-[11px] text-muted opacity-70 mt-0.5">
+                                                    {lang === 'ka' ? '7 დღის განმავლობაში' : lang === 'ru' ? 'В течение 7 дней' : 'Within 7 days'}
+                                                </p>
+                                            </div>
+                                            <ChevronRight className="w-4 h-4 text-amber-500 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                                        </Link>
+                                    )}
+
+                                    {/* One session left */}
+                                    {attentionSummary.oneSessionLeftCount > 0 && (
+                                        <Link
+                                            href="/subscriptions"
+                                            onClick={() => setAttentionOpen(false)}
+                                            className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20 transition-colors group"
+                                        >
+                                            <span className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                                                    <strong>{attentionSummary.oneSessionLeftCount}</strong> {lang === 'ka' ? 'სტუდენტს დარჩა 1 გაკვეთილი' : lang === 'ru' ? 'остался 1 урок' : '1 lesson remaining'}
+                                                </p>
+                                            </div>
+                                            <ChevronRight className="w-4 h-4 text-amber-500 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                                        </Link>
+                                    )}
+
+                                    {/* Pending Bookings */}
+                                    {attentionSummary.pendingBookingsCount > 0 && (
+                                        <Link
+                                            href="/calendar"
+                                            onClick={() => setAttentionOpen(false)}
+                                            className="flex items-start gap-3 p-3.5 rounded-xl bg-indigo-500/5 hover:bg-indigo-500/10 border border-indigo-500/20 transition-colors group"
+                                        >
+                                            <span className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                                    <strong>{attentionSummary.pendingBookingsCount}</strong> {lang === 'ka' ? 'დასადასტურებელი ჯავშანი' : lang === 'ru' ? 'бронь ожидает' : 'pending bookings'}
+                                                </p>
+                                            </div>
+                                            <ChevronRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                                        </Link>
+                                    )}
+
+                                    {/* Birthdays */}
+                                    {attentionSummary.birthdayStudents.length > 0 && (
+                                        <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-pink-500/10 to-purple-500/10 border border-amber-500/20">
+                                            <div className="flex items-center justify-between mb-2.5">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span>🎉</span>
+                                                    <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase">
+                                                        {lang === 'ka' ? 'დღეს დაბადების დღეა!' : lang === 'ru' ? 'День рождения сегодня!' : 'Birthday Today!'}
+                                                    </p>
+                                                </div>
+                                                <Link
+                                                    href="/sms-manager"
+                                                    onClick={() => setAttentionOpen(false)}
+                                                    className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5"
+                                                >
+                                                    {lang === 'ka' ? 'SMS მილოცვა' : lang === 'ru' ? 'SMS' : 'Send SMS'}
+                                                    <ChevronRight className="w-3 h-3" />
+                                                </Link>
+                                            </div>
+                                            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                                                {attentionSummary.birthdayStudents.map(student => (
+                                                    <div key={student.id} className="flex items-center gap-2 bg-card/80 border border-border-subtle rounded-lg px-2.5 py-1.5">
+                                                        {student.photo_url ? (
+                                                            <img src={student.photo_url} alt="" className="w-6 h-6 rounded-full object-cover border border-amber-400/40" />
+                                                        ) : (
+                                                            <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
+                                                                {(student.full_name || 'S').substring(0, 2).toUpperCase()}
+                                                            </div>
+                                                        )}
+                                                        <p className="text-xs font-bold text-primary truncate">{student.full_name}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
                 </>
