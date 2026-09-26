@@ -117,15 +117,21 @@ export async function transferMainAdministratorAction(rawInput: unknown): Promis
     };
     await admin.from('studios').update({ owner_info: newOwnerInfo }).eq('org_id', orgId);
 
-    // `profiles` is keyed by email (per register-studio's own upsert) —
-    // give the new owner a row, downgrade the old one's.
-    await admin.from('profiles').upsert({
+    // profiles.id is the real primary key (equal to the auth user's own id —
+    // requireOrgId()/requireOrgIdDualAuth() resolve org_id via `.eq('id',
+    // authUser.id)`); there is no unique constraint on `email` at all, so an
+    // onConflict:'email' upsert without `id` silently failed here exactly
+    // like it did in register-studio's own upsert (see that file's fix).
+    const { error: newProfileErr } = await admin.from('profiles').upsert({
+        id: created.user.id,
         org_id: orgId, email: (targetStaff.email as string).toLowerCase().trim(), role: 'owner',
         first_name: targetStaff.first_name, last_name: targetStaff.last_name,
         full_name: newOwnerInfo.full_name, phone: targetStaff.phone,
-    }, { onConflict: 'email' });
-    if (currentOwner.email) {
-        await admin.from('profiles').update({ role: 'administrator' }).eq('email', currentOwner.email.toLowerCase().trim());
+    }, { onConflict: 'id' });
+    if (newProfileErr) throw new Error(newProfileErr.message);
+    if (currentOwner.id) {
+        const { error: downgradeProfileErr } = await admin.from('profiles').update({ role: 'administrator' }).eq('id', currentOwner.id);
+        if (downgradeProfileErr) throw new Error(downgradeProfileErr.message);
     }
 
     // Send the new owner their "set your password" link via the same

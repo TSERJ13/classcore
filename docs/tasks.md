@@ -3071,3 +3071,53 @@ instead of a fresh `createClient()`.
 Notes:
 - `tsc --noEmit`: clean. `next dev` compiled `/attendance` with zero errors.
 - File: `src/app/actions/checkin.ts`.
+
+---
+
+### CRITICAL FIX: registration never created a `profiles` row — locked every non-owner-studio login out of every Server Action
+
+A different, already-registered studio's owner ("Fly Life Ballet", real email/password login, not a
+staff PIN session) sent a video of the exact same "დასწრების ჩაწერა ვერ მოხერხდა" alert from the
+previous fix. That ruled out the staff-token theory for this case — a real Supabase Auth login was
+hitting the same failure, so `requireOrgIdDualAuth()`'s real-auth branch itself had to be failing.
+
+Root cause, found via direct DB inspection (`mcp__Supabase`): **`src/app/api/auth/register-studio/route.ts`
+has silently failed to create a usable `profiles` row for every studio that signed up through the
+registration wizard, except one.** Checked all 6 registered orgs — only `S_T Dance Studio` (the
+original/manually-seeded studio) had a real `profiles` row; every studio that registered through
+the actual wizard (`Fly Life Ballet`, `niko dance club`, `ჯორჯიან არტი`, `ერტ`, `yy`) had none.
+`requireOrgId()`/`requireOrgIdDualAuth()` resolve a real-auth caller's org by
+`profiles.eq('id', authUser.id)` — with no row, every dual-auth Server Action (attendance,
+students, groups, halls, sales, ...) throws "Not authenticated" for every one of these studios'
+owners, unconditionally. Two independent bugs caused it:
+1. `profiles.id` is a `NOT NULL` primary key with **no default** — the registration route's
+   `profiles.upsert({org_id, email, role, ...}, { onConflict: 'email' })` never included `id`.
+2. `profiles` has **no unique constraint on `email` at all** (only the `id` primary key) — so even
+   with `id` present, `onConflict: 'email'` would itself throw ("no unique or exclusion constraint
+   matching the ON CONFLICT specification").
+   Both were wrapped in `catch { /* non-fatal */ }`, so registration always reported success while
+   silently never creating the profile. The exact same two mistakes, from the exact same wrong
+   comment ("`profiles` is keyed by email"), were copied into `ownership-transfer.ts`'s new-owner
+   upsert too — that one wasn't even try/caught, so a real ownership transfer would have thrown.
+
+Fix:
+- `register-studio/route.ts`: added `id: created.user.id` to the upsert, changed `onConflict` to
+  `'id'`, and replaced the silent catch with a logged error (registration itself still doesn't hard-fail
+  on this, since the studio row is already created by that point, but the failure is no longer invisible).
+- `ownership-transfer.ts`: same fix for the new owner's upsert (`id: created.user.id`, `onConflict: 'id'`),
+  and switched the outgoing owner's downgrade + both error checks from matching on `email` (never a
+  reliable key) to matching on `id`; both upserts now throw visibly on failure instead of being ignored.
+- **Backfilled all 5 affected studios' owners directly in the database** — inserted a correct
+  `profiles` row (id/org_id/email/role/name/phone/lang) reconstructed from each owner's own
+  `auth.users.raw_user_meta_data`, which already had everything needed. One of the five
+  (`Fly Life Ballet`) already had a stray `profiles` row with only `id`/`email`/`role` and a null
+  `org_id` — traced to a partial/failed write from some earlier path; updated it in place instead of
+  inserting. Verified afterward: all 6 studios now have a correct, complete `profiles` row.
+
+Notes:
+- `tsc --noEmit`: clean. `next lint` on both files: clean. `next dev` compiled `/` and
+  `/api/auth/register-studio` (POST, missing-fields path) with zero errors.
+- This bug predates this session entirely — it's been silently breaking every studio that signed up
+  through the wizard since the registration flow shipped, not something introduced today.
+- Files: `src/app/api/auth/register-studio/route.ts`, `src/app/actions/ownership-transfer.ts`.
+  Data fix applied directly via Supabase MCP (`profiles` table, 5 rows).
