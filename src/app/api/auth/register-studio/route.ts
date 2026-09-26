@@ -108,18 +108,27 @@ export async function POST(req: NextRequest) {
 
         const orgId = studioRow?.org_id || existing?.org_id;
         if (orgId) {
-            try {
-                await supabase.from('profiles').upsert({
-                    org_id: orgId,
-                    email: email.toLowerCase().trim(),
-                    role: 'owner',
-                    first_name: firstName,
-                    last_name: lastName,
-                    full_name: ownerInfo.full_name,
-                    phone,
-                    primary_lang: lang || 'ka',
-                }, { onConflict: 'email' });
-            } catch { /* non-fatal */ }
+            // profiles.id must equal the auth user's own id — requireOrgId()/
+            // requireOrgIdDualAuth() resolve org_id via `.eq('id', authUser.id)`.
+            // profiles has no unique constraint on `email` (only the `id`
+            // primary key), so an onConflict:'email' upsert without `id` was
+            // both missing the NOT NULL `id` and targeting a column with no
+            // unique constraint to conflict on — every registration through
+            // this route silently failed to create a profiles row (swallowed
+            // by the catch below), leaving every owner login unable to reach
+            // any dual-auth Server Action (attendance, students, groups, ...).
+            const { error: profileErr } = await supabase.from('profiles').upsert({
+                id: created.user.id,
+                org_id: orgId,
+                email: email.toLowerCase().trim(),
+                role: 'owner',
+                first_name: firstName,
+                last_name: lastName,
+                full_name: ownerInfo.full_name,
+                phone,
+                primary_lang: lang || 'ka',
+            }, { onConflict: 'id' });
+            if (profileErr) console.error('register-studio: profiles upsert failed', profileErr);
         }
 
         return NextResponse.json({ ok: true, studioSlug, orgId });
