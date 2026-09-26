@@ -198,7 +198,7 @@ export async function markPresentAction(rawInput: unknown): Promise<MarkPresentR
             const type = subData(target).type as string | undefined;
             const isSessionBased = type === 'sessions' || (target.sessions_total !== null && !type);
             if (isSessionBased) {
-                const { data, error } = await supabase.rpc('checkin_deduct_session', { p_sub_id: target.id });
+                const { data, error } = await supabase.rpc('checkin_deduct_session', { p_sub_id: target.id, p_org_id: orgId });
                 if (error) throw new Error(error.message);
                 const row = Array.isArray(data) ? data[0] : data;
                 sessionsUsed = row.sessions_used;
@@ -253,7 +253,7 @@ export async function refundCheckinAction(rawInput: unknown): Promise<RefundChec
     const target = resolveRefundSubscription(subs, input.groupId, input.planType, input.subId);
     if (!target) return { refundedSubId: null, sessionsUsed: null, sessionsTotal: null };
 
-    const { data, error } = await supabase.rpc('checkin_refund_session', { p_sub_id: target.id });
+    const { data, error } = await supabase.rpc('checkin_refund_session', { p_sub_id: target.id, p_org_id: orgId });
     if (error) throw new Error(error.message);
     const row = Array.isArray(data) ? data[0] : data;
     return { refundedSubId: target.id, sessionsUsed: row.sessions_used, sessionsTotal: row.sessions_total };
@@ -386,7 +386,7 @@ export async function deleteCheckinAction(rawInput: unknown): Promise<void> {
     const subs = await fetchStudentSubs(supabase, orgId, input.studentId);
     const target = resolveRefundSubscription(subs, recGroupId, recPlanType, recSubId);
     if (target) {
-        const { error } = await supabase.rpc('checkin_refund_session', { p_sub_id: target.id });
+        const { error } = await supabase.rpc('checkin_refund_session', { p_sub_id: target.id, p_org_id: orgId });
         if (error) throw new Error(error.message);
     }
 }

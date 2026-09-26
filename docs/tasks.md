@@ -3121,3 +3121,39 @@ Notes:
   through the wizard since the registration flow shipped, not something introduced today.
 - Files: `src/app/api/auth/register-studio/route.ts`, `src/app/actions/ownership-transfer.ts`.
   Data fix applied directly via Supabase MCP (`profiles` table, 5 rows).
+
+---
+
+### Follow-up: checkin RPCs themselves also broke for staff-token sessions (auth.uid() is null for service-role)
+
+While auditing whether other studios had further problems, found that fixing `checkin.ts`'s outer
+auth check (two fixes ago) was not actually sufficient on its own. `checkin_deduct_session()` and
+`checkin_refund_session()` (the atomic session-count RPCs) resolved the calling org **internally**
+via `SELECT org_id FROM profiles WHERE id = auth.uid()`. `auth.uid()` reads the Postgres session's
+JWT claims — for a real Supabase Auth call this works, but for a **staff-token (PIN) session**,
+`checkin.ts` now correctly calls these RPCs through a **service-role client** (per
+`requireOrgIdDualAuth()`), and `auth.uid()` is always NULL for a service-role connection. So a
+staff-token check-in would now reach the RPC (past the auth fix) and then get `RAISE EXCEPTION 'No
+org for current user'` from inside the RPC itself — same end-user symptom, one layer deeper.
+
+Confirmed this staff-token path is real, active usage, not theoretical: 3 of S_T Dance Studio's 4
+staff rows have a real login password set (`data.password`), meaning teachers/front-desk do
+regularly log in via the PIN flow, not the owner's own account — exactly who the original "check
+sometimes doesn't register" report was almost certainly describing.
+
+Fix: added `p_org_id uuid DEFAULT NULL` to both RPCs (migration
+`20260926_checkin_rpcs_accept_org_id.sql`) — when provided, used directly; when omitted, falls back
+to the old `auth.uid()` lookup, so no other existing caller breaks. `checkin.ts` now passes
+`p_org_id: orgId` (the already-resolved, trusted value from `requireOrgIdDualAuth()`) at all 3 call
+sites. Verified live against production data: called `checkin_deduct_session` directly with a real
+subscription id + org id, confirmed `sessions_used` incremented (2→3), then immediately called
+`checkin_refund_session` to restore it back to 2 — no lasting change to real data from the test.
+
+Also swept for the same silent-catch/wrong-conflict-key pattern elsewhere in the codebase
+(`grep` for `onConflict: 'email'` and bare non-fatal catches around DB writes) — no further
+occurrences found beyond the two already fixed.
+
+Notes:
+- `tsc --noEmit`, `next lint`: clean. `next dev` compiled `/attendance` with zero errors.
+- Files: `supabase/migrations/20260926_checkin_rpcs_accept_org_id.sql` (new, applied directly via
+  Supabase MCP), `src/app/actions/checkin.ts`.
