@@ -3042,3 +3042,32 @@ Notes:
   were moved verbatim from the original JSX into `renderWidget()` — none newly introduced.
 - Files: `src/lib/dashboard-widgets.ts` (new), `src/types/index.ts`,
   `src/components/dashboard/DashboardHomeSections.tsx`, `src/app/(dashboard)/dashboard/page.tsx`.
+
+---
+
+### Fix: attendance check-in silently failed (session not deducted, green check reverted) for staff-token logins
+
+Owner reported the attendance page unstable: session counts sometimes not deducting when marking
+present, and the green checkmark sometimes disappearing right after being clicked.
+
+Root cause: `src/app/actions/checkin.ts` had its own local `requireOrgId()` that only recognized a
+real Supabase Auth session (`supabase.auth.getUser()`), with no fallback. Every other Server
+Action module already migrated in this codebase (students, groups, halls, calendar, sales,
+expenses — see `src/lib/server-actions-auth.ts`) uses `requireOrgIdDualAuth()`, because staff and
+teachers normally log in through the PIN staff-token cookie flow, which has no real Supabase Auth
+session at all. `checkin.ts` was the one holdout still on the Auth-only check, so any staff-token
+login got `Not authenticated` thrown on `markPresentAction`/`refundCheckinAction` before ever
+reaching the session-deduction RPC. `attendance/page.tsx` marks the checkbox present optimistically
+and only calls the server action after — on that thrown error its `catch` block rolls the checkbox
+back to unchecked and shows an alert, which is exactly the "green check disappears" symptom. It
+worked for the owner's own login (real Supabase Auth) but failed for teacher/reception staff-token
+sessions, matching "sometimes works, sometimes doesn't."
+
+Fix: replaced the local `requireOrgId()` with `requireOrgIdDualAuth()` everywhere in the file (8
+call sites), using the returned `client` (service-role, already manually org-scoped per query —
+every query in this file already had an explicit `.eq('org_id', orgId)`, so no new scoping needed)
+instead of a fresh `createClient()`.
+
+Notes:
+- `tsc --noEmit`: clean. `next dev` compiled `/attendance` with zero errors.
+- File: `src/app/actions/checkin.ts`.

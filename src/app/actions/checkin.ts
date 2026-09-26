@@ -21,25 +21,20 @@
  *    stale count and silently under/over-charge a session — the race the
  *    old client-side "read, +1 locally, best-effort push to cloud" path
  *    had no protection against at all.
+ *
+ * Auth: uses requireOrgIdDualAuth() (src/lib/server-actions-auth.ts), not a
+ * plain Supabase-Auth-only check — a staff/teacher marking attendance is
+ * usually logged in via the PIN staff-token cookie, with no real Supabase
+ * Auth session at all. This file previously required real Supabase Auth
+ * unconditionally, so every check-in/uncheck from a staff-token session
+ * threw "Not authenticated" before ever reaching the deduction RPC; the
+ * attendance page's optimistic UI then rolled the checkmark back on the
+ * caught error, which is what made it look like the check randomly failed.
  */
 
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
-
-async function requireOrgId(): Promise<{ orgId: string; userId: string }> {
-    const supabase = await createClient();
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData?.user) throw new Error('Not authenticated');
-
-    const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('org_id')
-        .eq('id', userData.user.id)
-        .maybeSingle();
-    if (profileErr || !profile?.org_id) throw new Error('No org for this user');
-
-    return { orgId: profile.org_id, userId: userData.user.id };
-}
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { requireOrgIdDualAuth } from '@/lib/server-actions-auth';
 
 type SubRow = {
     id: string;
@@ -144,7 +139,7 @@ type SubRowWithStudent = SubRow & { student_id: string };
  * behavior: fetch every row whose student_id column contains this id as one
  * of its comma-separated tokens.
  */
-async function fetchStudentSubs(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string, studentId: string): Promise<SubRow[]> {
+async function fetchStudentSubs(supabase: SupabaseClient, orgId: string, studentId: string): Promise<SubRow[]> {
     const { data, error } = await supabase
         .from('subscriptions')
         .select('id, status, sessions_used, sessions_total, expires_at, data, student_id')
@@ -181,8 +176,7 @@ export type MarkPresentResult = {
 
 export async function markPresentAction(rawInput: unknown): Promise<MarkPresentResult> {
     const input = markPresentSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
 
     const subs = await fetchStudentSubs(supabase, orgId, input.studentId);
     const target = input.subId
@@ -241,8 +235,7 @@ export type RefundCheckinResult = { refundedSubId: string | null; sessionsUsed: 
 
 export async function refundCheckinAction(rawInput: unknown): Promise<RefundCheckinResult> {
     const input = refundSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
 
     // Delete the latest matching attendance row for this student+date (id embeds
     // an insertion timestamp, so ORDER BY id DESC approximates "most recent").
@@ -278,8 +271,7 @@ const companionSchema = z.object({
 
 export async function recordCompanionCheckinAction(rawInput: unknown): Promise<{ attendanceId: string }> {
     const input = companionSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
 
     const attendanceId = makeAttendanceId(input.studentId, input.date);
     const { error } = await supabase.from('attendance').insert({
@@ -299,8 +291,7 @@ const deleteCompanionSchema = z.object({
 /** No refund side effect — the shared session was already refunded once via the primary partner's refundCheckinAction. */
 export async function deleteCompanionCheckinAction(rawInput: unknown): Promise<void> {
     const input = deleteCompanionSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
 
     const { data: rows, error: findErr } = await supabase
         .from('attendance')
@@ -321,8 +312,7 @@ export type CheckinRow = { id: string; student_id: string; group_id: string | nu
 
 export async function getCheckinsForDateAction(rawInput: unknown): Promise<CheckinRow[]> {
     const { date } = dateSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
     const { data, error } = await supabase
         .from('attendance')
         .select('id, student_id, group_id, date, data')
@@ -335,8 +325,7 @@ const studentIdSchema = z.object({ studentId: z.string().min(1) });
 
 export async function getCheckinCountTodayAction(rawInput: unknown): Promise<number> {
     const { studentId } = studentIdSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
     const today = new Date().toISOString().slice(0, 10);
     const { count, error } = await supabase
         .from('attendance')
@@ -349,8 +338,7 @@ export async function getCheckinCountTodayAction(rawInput: unknown): Promise<num
 /** Full check-in history for a student, all dates (student profile "visits" list). */
 export async function getStudentCheckinsAction(rawInput: unknown): Promise<CheckinRow[]> {
     const { studentId } = studentIdSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
     const { data, error } = await supabase
         .from('attendance')
         .select('id, student_id, group_id, date, data')
@@ -370,8 +358,7 @@ const deleteCheckinSchema = z.object({
 
 export async function deleteCheckinAction(rawInput: unknown): Promise<void> {
     const input = deleteCheckinSchema.parse(rawInput);
-    const { orgId } = await requireOrgId();
-    const supabase = await createClient();
+    const { orgId, client: supabase } = await requireOrgIdDualAuth();
 
     let row: { id: string; data: Record<string, unknown> | null } | null = null;
     if (input.forceId) {
