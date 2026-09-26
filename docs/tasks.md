@@ -3157,3 +3157,33 @@ Notes:
 - `tsc --noEmit`, `next lint`: clean. `next dev` compiled `/attendance` with zero errors.
 - Files: `supabase/migrations/20260926_checkin_rpcs_accept_org_id.sql` (new, applied directly via
   Supabase MCP), `src/app/actions/checkin.ts`.
+
+---
+
+### SECURITY: the p_org_id migration above re-exposed checkin RPCs to anon — caught and closed same session
+
+While doing a broader "does any other studio have problems" pass through this doc's own history,
+found an earlier security-advisor note (this session, "Found, not fixed this pass, reported to
+owner as follow-ups") flagging `checkin_deduct_session`/`checkin_refund_session` as two of 7
+`SECURITY DEFINER` functions directly callable via PostgREST by `anon`. A prior migration
+(`20260923_revoke_anon_rpc_and_drop_unused_indexes.sql`) had already revoked `anon` on the original
+one-argument signature. Checked live grants on the two-argument overload the RPC-fix above just
+created — **`anon` had EXECUTE on it**, because Postgres treats a different parameter list as a new
+function object, not a replacement of the old one, and this project auto-grants EXECUTE to
+`anon`/`authenticated`/`service_role` as individual ACL entries on every newly created function
+(confirmed live: even `REVOKE ... FROM PUBLIC` didn't remove `anon`'s entry — it had to be revoked
+from `anon` by name). This was strictly worse than the original finding: the new signature takes a
+caller-supplied `p_org_id` with no ownership check, so an anonymous caller who knew any
+subscription id could have deducted/refunded a session on **any org's** subscription directly,
+bypassing the app and its auth entirely.
+
+Fix (migration `20260926_checkin_rpcs_lock_down_grants.sql`, applied immediately, same session):
+dropped the now-dead one-argument overload (`checkin.ts` — the only caller anywhere in the
+codebase, confirmed via grep — always calls the two-arg form now) and revoked `EXECUTE` from `anon`
+by name on the two-arg form. Verified live via `has_function_privilege()`: `anon` → false,
+`authenticated`/`service_role` → true, for both functions.
+
+Notes:
+- Caught and fixed within the same session as the regression, before any external report — found
+  by re-reading this doc's own prior security-advisor note, not by a new scan.
+- File: `supabase/migrations/20260926_checkin_rpcs_lock_down_grants.sql` (new).
